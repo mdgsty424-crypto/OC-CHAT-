@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Message } from '../../types';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
-import { Check, CheckCheck, Paperclip, Smile, Reply, Play, MoreVertical, Trash2 } from 'lucide-react';
+import { Check, CheckCheck, Paperclip, Smile, Reply, Play, MoreVertical, Trash2, MapPin, UserPlus, BarChart2, Languages, Timer, FileText } from 'lucide-react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'motion/react';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -20,7 +20,23 @@ const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 export default function MessageBubble({ message, isMe, onReply }: MessageBubbleProps) {
   const { user } = useAuth();
   const [showReactions, setShowReactions] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [showV2T, setShowV2T] = useState(false);
   const time = format(new Date(message.timestamp), 'HH:mm');
+
+  // Self-destruct logic
+  useEffect(() => {
+    if (message.isSelfDestruct && message.destructTime) {
+      const timer = setTimeout(async () => {
+        try {
+          await deleteDoc(doc(db, 'chats', message.chatId, 'messages', message.id));
+        } catch (error) {
+          console.error("Error self-destructing message:", error);
+        }
+      }, message.destructTime * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   // Swipe to reply logic
   const x = useMotionValue(0);
@@ -50,6 +66,25 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
     }
   };
 
+  const handleVote = async (optionIndex: number) => {
+    if (!user || !message.poll) return;
+    const messageRef = doc(db, 'chats', message.chatId, 'messages', message.id);
+    const newOptions = [...message.poll.options];
+    const hasVoted = newOptions[optionIndex].votes.includes(user.uid);
+
+    if (hasVoted) {
+      newOptions[optionIndex].votes = newOptions[optionIndex].votes.filter(id => id !== user.uid);
+    } else {
+      newOptions[optionIndex].votes.push(user.uid);
+    }
+
+    try {
+      await updateDoc(messageRef, { 'poll.options': newOptions });
+    } catch (error) {
+      console.error("Error voting:", error);
+    }
+  };
+
   return (
     <div className={cn(
       "flex flex-col max-w-[85%] gap-1 group relative",
@@ -72,12 +107,19 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
         style={{ x }}
         onDragEnd={handleDragEnd}
         className={cn(
-          "px-4 py-3 rounded-3xl shadow-sm relative",
+          "px-4 py-3 rounded-3xl shadow-sm relative overflow-hidden",
           isMe 
             ? "bg-primary text-white rounded-tr-none" 
             : "bg-white text-text rounded-tl-none border border-border"
         )}
       >
+        {/* Self-destruct Indicator */}
+        {message.isSelfDestruct && (
+          <div className="absolute top-1 right-2 opacity-50">
+            <Timer size={10} />
+          </div>
+        )}
+
         {/* Reply Context */}
         {message.replyTo && (
           <div className={cn(
@@ -90,7 +132,18 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
         )}
 
         {message.type === 'text' && (
-          <p className="text-sm leading-relaxed">{message.text}</p>
+          <div className="space-y-2">
+            <p className="text-sm leading-relaxed">{showTranslation ? message.translatedText : message.text}</p>
+            {message.translatedText && (
+              <button 
+                onClick={() => setShowTranslation(!showTranslation)}
+                className={cn("text-[10px] font-bold flex items-center gap-1", isMe ? "text-white/70" : "text-primary")}
+              >
+                <Languages size={12} />
+                {showTranslation ? "Show Original" : "Translate to Bengali"}
+              </button>
+            )}
+          </div>
         )}
         
         {(message.type === 'image' || message.fileType === 'image') && (
@@ -103,26 +156,106 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
         )}
 
         {message.type === 'voice' && (
-          <div className="flex items-center gap-3 min-w-[200px]">
-            <button className={cn(
-              "p-2 rounded-full",
-              isMe ? "bg-white text-primary" : "bg-primary text-white"
-            )}>
-              <Play size={16} fill="currentColor" />
-            </button>
-            <div className="flex-1 flex items-end gap-[1px] h-6">
-              {[...Array(20)].map((_, i) => (
-                <div 
-                  key={i} 
-                  className={cn(
-                    "w-[2px] rounded-full",
-                    isMe ? "bg-white/40" : "bg-primary/20"
-                  )}
-                  style={{ height: `${Math.random() * 100}%` }}
-                ></div>
-              ))}
+          <div className="space-y-2 min-w-[200px]">
+            <div className="flex items-center gap-3">
+              <button className={cn(
+                "p-2 rounded-full",
+                isMe ? "bg-white text-primary" : "bg-primary text-white"
+              )}>
+                <Play size={16} fill="currentColor" />
+              </button>
+              <div className="flex-1 flex items-end gap-[1px] h-6">
+                {[...Array(20)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "w-[2px] rounded-full",
+                      isMe ? "bg-white/40" : "bg-primary/20"
+                    )}
+                    style={{ height: `${Math.random() * 100}%` }}
+                  ></div>
+                ))}
+              </div>
+              <span className="text-[10px] opacity-70">0:12</span>
             </div>
-            <span className="text-[10px] opacity-70">0:12</span>
+            {message.voiceToText && (
+              <div className="mt-2">
+                <button 
+                  onClick={() => setShowV2T(!showV2T)}
+                  className={cn("text-[10px] font-bold flex items-center gap-1 mb-1", isMe ? "text-white/70" : "text-primary")}
+                >
+                  <FileText size={12} />
+                  {showV2T ? "Hide Transcription" : "Show Transcription"}
+                </button>
+                {showV2T && <p className="text-[11px] italic opacity-80 border-t border-white/10 pt-1">{message.voiceToText}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {message.type === 'location' && message.location && (
+          <div className="space-y-2 min-w-[200px]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-500/20 text-green-500 rounded-lg flex items-center justify-center">
+                <MapPin size={20} />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold">Current Location</span>
+                <span className="text-[10px] opacity-70">Shared via GPS</span>
+              </div>
+            </div>
+            <a 
+              href={`https://www.google.com/maps?q=${message.location.latitude},${message.location.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full py-2 bg-green-500 text-white text-center rounded-lg text-[10px] font-bold"
+            >
+              Open in Maps
+            </a>
+          </div>
+        )}
+
+        {message.type === 'poll' && message.poll && (
+          <div className="space-y-3 min-w-[220px]">
+            <div className="flex items-center gap-2">
+              <BarChart2 size={16} className="text-primary" />
+              <h4 className="text-xs font-black uppercase tracking-wider">{message.poll.question}</h4>
+            </div>
+            <div className="space-y-2">
+              {message.poll.options.map((opt, i) => {
+                const totalVotes = message.poll?.options.reduce((acc, curr) => acc + curr.votes.length, 0) || 1;
+                const percentage = (opt.votes.length / totalVotes) * 100;
+                const hasVoted = opt.votes.includes(user?.uid || '');
+                return (
+                  <button 
+                    key={i}
+                    onClick={() => handleVote(i)}
+                    className="w-full text-left relative p-2 rounded-lg bg-black/5 hover:bg-black/10 transition-all overflow-hidden"
+                  >
+                    <div 
+                      className="absolute inset-0 bg-primary/20 transition-all duration-500"
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                    <div className="relative flex justify-between items-center text-[11px]">
+                      <span className={cn("font-bold", hasVoted && "text-primary")}>{opt.text}</span>
+                      <span className="opacity-70">{opt.votes.length}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {message.type === 'contact' && message.contact && (
+          <div className="flex items-center gap-3 min-w-[180px]">
+            <div className="w-10 h-10 bg-blue-500/20 text-blue-500 rounded-lg flex items-center justify-center">
+              <UserPlus size={20} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold">{message.contact.name}</span>
+              <span className="text-[10px] opacity-70">{message.contact.phone}</span>
+            </div>
           </div>
         )}
 

@@ -180,12 +180,26 @@ export default function Community() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-1">
-                      <h3 className="text-base font-black text-text truncate group-hover:text-primary transition-colors">{item.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-black text-text truncate group-hover:text-primary transition-colors">{item.name}</h3>
+                        {item.members.length > 100 && (
+                          <span className="text-[8px] font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full uppercase tracking-tighter">Super</span>
+                        )}
+                      </div>
                       <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
-                        {item.members.length}
+                        {item.members.length >= 1000 ? `${(item.members.length / 1000).toFixed(1)}k` : item.members.length}
                       </span>
                     </div>
                     <p className="text-xs text-muted truncate font-medium">{item.lastMessage}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[8px] font-bold text-muted uppercase tracking-widest">
+                        {item.type === 'channel' ? 'Broadcast' : 'Public Group'}
+                      </span>
+                      <span className="w-1 h-1 bg-border rounded-full" />
+                      <span className="text-[8px] font-bold text-muted uppercase tracking-widest">
+                        {isMember ? 'Member' : 'Join to see'}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">

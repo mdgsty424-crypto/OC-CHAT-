@@ -75,13 +75,52 @@ export default function Profile() {
     }
   };
 
+  const toggleSecuritySetting = async (key: string) => {
+    if (!user) return;
+    const currentSettings = user.securitySettings || { appLockEnabled: false, twoStepEnabled: false, privacyModeEnabled: false };
+    const newSettings = { ...currentSettings, [key]: !currentSettings[key as keyof typeof currentSettings] };
+    
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        securitySettings: newSettings
+      });
+    } catch (error) {
+      console.error("Error updating security settings:", error);
+    }
+  };
+
   const menuItems = [
     { icon: Settings, label: 'Account Settings', color: 'text-blue-500', bg: 'bg-blue-50' },
-    { icon: Shield, label: 'Privacy & Security', color: 'text-green-500', bg: 'bg-green-50' },
+    { 
+      icon: Shield, 
+      label: 'App Lock (Biometric)', 
+      color: 'text-green-500', 
+      bg: 'bg-green-50', 
+      toggle: true, 
+      active: user?.securitySettings?.appLockEnabled,
+      onToggle: () => toggleSecuritySetting('appLockEnabled')
+    },
+    { 
+      icon: Shield, 
+      label: 'Two-Step Verification', 
+      color: 'text-orange-500', 
+      bg: 'bg-orange-50', 
+      toggle: true, 
+      active: user?.securitySettings?.twoStepEnabled,
+      onToggle: () => toggleSecuritySetting('twoStepEnabled')
+    },
+    { 
+      icon: Camera, 
+      label: 'Privacy Mode (Anti-Screenshot)', 
+      color: 'text-red-500', 
+      bg: 'bg-red-50', 
+      toggle: true, 
+      active: user?.securitySettings?.privacyModeEnabled,
+      onToggle: () => toggleSecuritySetting('privacyModeEnabled')
+    },
     { icon: Bell, label: 'Notifications', color: 'text-orange-500', bg: 'bg-orange-50' },
     { icon: Moon, label: 'Dark Mode', color: 'text-purple-500', bg: 'bg-purple-50', toggle: true },
     { icon: Globe, label: 'Language', color: 'text-indigo-500', bg: 'bg-indigo-50', value: 'English' },
-    { icon: Heart, label: 'Dating Preferences', color: 'text-red-500', bg: 'bg-red-50' },
     { icon: HelpCircle, label: 'Help & Support', color: 'text-gray-500', bg: 'bg-gray-50' },
   ];
 
@@ -161,7 +200,12 @@ export default function Profile() {
           </div>
         ) : (
           <>
-            <h2 className="text-2xl font-black text-text tracking-tight mb-1">{user?.displayName}</h2>
+            <div className="flex items-center gap-2 justify-center">
+              <h2 className="text-2xl font-black text-text tracking-tight">{user?.displayName}</h2>
+              {user?.verified && (
+                <Shield className="text-secondary fill-secondary" size={20} />
+              )}
+            </div>
             <p className="text-sm text-muted font-medium mb-2">ID: {user?.uid.slice(0, 8).toUpperCase()}</p>
             {user?.bio && <p className="text-sm text-text/70 max-w-[240px] mb-4">{user.bio}</p>}
             
@@ -200,6 +244,7 @@ export default function Profile() {
         {menuItems.map((item) => (
           <button
             key={item.label}
+            onClick={item.onToggle}
             className="w-full flex items-center justify-between p-4 bg-white rounded-2xl hover:bg-border/30 transition-all active:scale-[0.99] group"
           >
             <div className="flex items-center gap-4">
@@ -211,8 +256,14 @@ export default function Profile() {
             <div className="flex items-center gap-2">
               {item.value && <span className="text-xs font-medium text-muted">{item.value}</span>}
               {item.toggle ? (
-                <div className="w-10 h-6 bg-border rounded-full relative p-1">
-                  <div className="w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                <div className={cn(
+                  "w-10 h-6 rounded-full relative p-1 transition-colors",
+                  item.active ? "bg-primary" : "bg-border"
+                )}>
+                  <div className={cn(
+                    "w-4 h-4 bg-white rounded-full shadow-sm transition-transform",
+                    item.active ? "translate-x-4" : "translate-x-0"
+                  )}></div>
                 </div>
               ) : (
                 <ChevronRight size={18} className="text-border group-hover:text-primary transition-colors" />

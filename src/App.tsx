@@ -3,7 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Home from './pages/Home';
 import Community from './pages/Community';
-import Dating from './pages/Dating';
+import Discovery from './pages/Discovery';
+import Wallet from './pages/Wallet';
 import Calls from './pages/Calls';
 import Profile from './pages/Profile';
 import ChatDetail from './pages/ChatDetail';
@@ -12,26 +13,26 @@ import Sidebar from './components/layout/Sidebar';
 import BottomNav from './components/layout/BottomNav';
 import TopBar from './components/layout/TopBar';
 import IncomingCall from './components/common/IncomingCall';
-import SplashScreen from './components/common/SplashScreen';
+import SplashScreen from './pages/SplashScreen';
 import Login from './pages/Login';
 
 function AppRoutes() {
-  const { user, loading, signIn } = useAuth();
+  const { currentUser, isAuthReady } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 3000); // 3 seconds splash
+    }, 2000); // 2 seconds splash as requested
 
     return () => clearTimeout(timer);
   }, []);
 
-  if (showSplash || loading) {
+  if (showSplash || !isAuthReady) {
     return <SplashScreen />;
   }
 
-  if (!user) {
+  if (!currentUser) {
     return <Login />;
   }
 
@@ -43,7 +44,8 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
           <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />
-          <Route path="/dating" element={<><TopBar title="Dating" /><Dating /><BottomNav /></>} />
+          <Route path="/discovery" element={<><Discovery /><BottomNav /></>} />
+          <Route path="/wallet" element={<><Wallet /><BottomNav /></>} />
           <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
           <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
           <Route path="/chat/:id" element={<ChatDetail />} />

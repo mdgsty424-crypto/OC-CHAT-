@@ -16,6 +16,14 @@ export interface User {
     maxAge: number;
   };
   role?: 'admin' | 'user';
+  verified?: boolean;
+  isPremium?: boolean;
+  walletBalance?: number;
+  securitySettings?: {
+    appLockEnabled: boolean;
+    twoStepVerificationEnabled: boolean;
+    privacyModeEnabled: boolean; // Screenshot protection
+  };
 }
 
 export interface Chat {
@@ -28,6 +36,9 @@ export interface Chat {
   type: 'direct' | 'group' | 'channel';
   name?: string; // For group chats
   photo?: string; // For group chats
+  isArchived?: Record<string, boolean>; // userId -> boolean
+  isHidden?: Record<string, boolean>; // userId -> boolean
+  password?: string; // For hidden chats
 }
 
 export interface Message {
@@ -35,7 +46,7 @@ export interface Message {
   chatId: string;
   senderId: string;
   text?: string;
-  type: 'text' | 'image' | 'video' | 'voice' | 'file';
+  type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll';
   mediaUrl?: string;
   fileUrl?: string;
   fileType?: string;
@@ -43,6 +54,24 @@ export interface Message {
   status: 'sent' | 'delivered' | 'seen';
   reactions?: Record<string, string[]>; // emoji -> list of userIds
   replyTo?: string; // ID of the message being replied to
+  isSelfDestruct?: boolean;
+  destructTime?: number; // in seconds
+  translatedText?: string;
+  voiceToText?: string;
+  poll?: {
+    question: string;
+    options: { text: string; votes: string[] }[];
+    multipleChoice: boolean;
+  };
+  location?: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+  };
+  contact?: {
+    name: string;
+    phone: string;
+  };
 }
 
 export interface Match {
@@ -70,6 +99,10 @@ export interface CallSession {
   status: CallStatus;
   startTime?: string;
   timestamp: string;
+  meetingLink?: string;
+  isScreenSharing?: boolean;
+  isWhiteboardActive?: boolean;
+  waitingRoom?: string[]; // list of userIds waiting to join
 }
 
 export interface Group {
@@ -81,4 +114,17 @@ export interface Group {
   lastMessage: string;
   lastMessageTime: string;
   type: 'group' | 'channel';
+  roles?: Record<string, string[]>; // roleName -> list of userIds
+  permissions?: Record<string, string[]>; // roleName -> list of permissions
+}
+
+export interface Transaction {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  amount: number;
+  type: 'send' | 'receive' | 'payment';
+  status: 'pending' | 'completed' | 'failed';
+  timestamp: string;
+  note?: string;
 }

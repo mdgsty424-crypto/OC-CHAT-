@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Smile, Paperclip, Camera, Mic, Send, Loader2, X, Play, Pause } from 'lucide-react';
+import { Smile, Paperclip, Camera, Mic, Send, Loader2, X, Play, Pause, Languages, Timer, BarChart2, MapPin, UserPlus, MoreHorizontal, Wallet, Bot } from 'lucide-react';
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -24,6 +24,38 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [waveforms, setWaveforms] = useState<number[]>([]);
   
+  // Advanced Features State
+  const [showMore, setShowMore] = useState(false);
+  const [isTranslationEnabled, setIsTranslationEnabled] = useState(false);
+  const [selfDestructTime, setSelfDestructTime] = useState<number | null>(null);
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [showMoneyModal, setShowMoneyModal] = useState(false);
+  const [moneyAmount, setMoneyAmount] = useState('');
+
+  const sendMoney = async () => {
+    if (!moneyAmount || isNaN(Number(moneyAmount))) return;
+    
+    const messageData: any = {
+      chatId,
+      senderId: user?.uid,
+      text: `Sent ৳${moneyAmount}`,
+      type: 'text', // For now, just send as text with a special prefix or we could add a 'payment' type
+      timestamp: new Date().toISOString(),
+      status: 'sent'
+    };
+
+    try {
+      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      setShowMoneyModal(false);
+      setMoneyAmount('');
+      setShowMore(false);
+    } catch (error) {
+      console.error("Error sending money:", error);
+    }
+  };
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -42,7 +74,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
     updateTypingStatus(true);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -145,11 +177,24 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       });
       const data = await response.json();
       
+      // Simulated Voice-to-Text using Gemini
+      let v2t = "";
+      if (process.env.GEMINI_API_KEY) {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const aiRes = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: "Transcribe this voice message accurately.",
+          config: { systemInstruction: "Transcribe only. No extra text." }
+        });
+        v2t = aiRes.text || "";
+      }
+
       const messageData = {
         chatId,
         senderId: user.uid,
         type: 'voice',
         fileUrl: data.url,
+        voiceToText: v2t,
         timestamp: new Date().toISOString(),
         status: 'sent'
       };
@@ -223,13 +268,28 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     const isAICommand = text.startsWith('@ai ');
     const prompt = isAICommand ? text.slice(4) : null;
 
+    // Simulated Translation using Gemini
+    let translated = "";
+    if (isTranslationEnabled && process.env.GEMINI_API_KEY) {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const aiRes = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Translate this to Bengali: ${text}`,
+        config: { systemInstruction: "Translate only. No extra text." }
+      });
+      translated = aiRes.text || "";
+    }
+
     const messageData: any = {
       chatId,
       senderId: user.uid,
       text: text.trim(),
       type: 'text',
       timestamp: new Date().toISOString(),
-      status: 'sent'
+      status: 'sent',
+      translatedText: translated,
+      isSelfDestruct: selfDestructTime !== null,
+      destructTime: selfDestructTime
     };
 
     if (replyingTo) {
@@ -238,6 +298,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     }
 
     setText('');
+    setSelfDestructTime(null);
 
     try {
       await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
@@ -264,6 +325,47 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     }
   };
 
+  const handleSendLocation = () => {
+    if (!navigator.geolocation || !user) return;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const messageData = {
+        chatId,
+        senderId: user.uid,
+        type: 'location',
+        location: {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          address: "Current Location"
+        },
+        timestamp: new Date().toISOString(),
+        status: 'sent'
+      };
+      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      setShowMore(false);
+    });
+  };
+
+  const handleSendPoll = async () => {
+    if (!pollQuestion.trim() || !user) return;
+    const messageData = {
+      chatId,
+      senderId: user.uid,
+      type: 'poll',
+      poll: {
+        question: pollQuestion,
+        options: pollOptions.filter(o => o.trim() !== '').map(o => ({ text: o, votes: [] })),
+        multipleChoice: false
+      },
+      timestamp: new Date().toISOString(),
+      status: 'sent'
+    };
+    await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+    setShowPollModal(false);
+    setPollQuestion('');
+    setPollOptions(['', '']);
+    setShowMore(false);
+  };
+
   return (
     <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-3 bg-white/90 backdrop-blur-xl border-t border-border/50 z-50">
       <AnimatePresence>
@@ -287,6 +389,55 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         )}
       </AnimatePresence>
 
+      {/* Advanced Features Bar */}
+      <AnimatePresence>
+        {showMore && (
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            className="grid grid-cols-4 gap-4 p-4 mb-3 bg-background/80 rounded-[2rem] border border-border/50"
+          >
+            <button onClick={handleSendLocation} className="flex flex-col items-center gap-2 group">
+              <div className="w-12 h-12 bg-green-500/10 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <MapPin size={22} />
+              </div>
+              <span className="text-[10px] font-bold text-muted uppercase">Location</span>
+            </button>
+            <button onClick={() => setShowPollModal(true)} className="flex flex-col items-center gap-2 group">
+              <div className="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <BarChart2 size={22} />
+              </div>
+              <span className="text-[10px] font-bold text-muted uppercase">Poll</span>
+            </button>
+            <button className="flex flex-col items-center gap-2 group">
+              <div className="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <UserPlus size={22} />
+              </div>
+              <span className="text-[10px] font-bold text-muted uppercase">Contact</span>
+            </button>
+            <button 
+              onClick={() => setIsTranslationEnabled(!isTranslationEnabled)}
+              className={cn("flex flex-col items-center gap-2 group", isTranslationEnabled && "text-primary")}
+            >
+              <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform", isTranslationEnabled ? "bg-primary text-white" : "bg-primary/10 text-primary")}>
+                <Languages size={22} />
+              </div>
+              <span className="text-[10px] font-bold text-muted uppercase">Translate</span>
+            </button>
+            <button 
+              onClick={() => setShowMoneyModal(true)}
+              className="flex flex-col items-center gap-2 group"
+            >
+              <div className="w-12 h-12 bg-green-500/10 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Wallet size={22} />
+              </div>
+              <span className="text-[10px] font-bold text-muted uppercase">Pay</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex items-end gap-2">
         <input 
           type="file" 
@@ -303,13 +454,16 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             className="flex items-center gap-1 mb-1"
           >
             <button 
+              onClick={() => setShowMore(!showMore)}
+              className={cn("p-2 rounded-full transition-all active:scale-90", showMore ? "bg-primary text-white" : "text-primary hover:bg-primary/10")}
+            >
+              <MoreHorizontal size={22} />
+            </button>
+            <button 
               onClick={() => fileInputRef.current?.click()}
               className="p-2 text-primary hover:bg-primary/10 rounded-full transition-all active:scale-90"
             >
               <Camera size={22} />
-            </button>
-            <button className="p-2 text-primary hover:bg-primary/10 rounded-full transition-all active:scale-90">
-              <Paperclip size={22} />
             </button>
           </motion.div>
         )}
@@ -343,8 +497,11 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             </div>
           ) : (
             <div className="relative flex items-center">
-              <button className="absolute left-2 p-1.5 text-muted hover:text-primary transition-colors">
-                <Smile size={20} />
+              <button 
+                onClick={() => setSelfDestructTime(selfDestructTime === null ? 30 : null)}
+                className={cn("absolute left-2 p-1.5 transition-colors", selfDestructTime !== null ? "text-primary" : "text-muted hover:text-primary")}
+              >
+                <Timer size={20} />
               </button>
               <textarea
                 rows={1}
@@ -353,7 +510,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
                   setText(e.target.value);
                   e.target.style.height = 'auto';
                   e.target.style.height = `${e.target.scrollHeight}px`;
-                  handleInputChange(e as any);
+                  handleInputChange(e);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -395,6 +552,111 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
           )}
         </div>
       </div>
+
+      {/* Poll Modal */}
+      <AnimatePresence>
+        {showPollModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-white rounded-[2rem] p-8 w-full max-w-xs shadow-2xl"
+            >
+              <h3 className="text-xl font-black mb-6 flex items-center gap-3">
+                <BarChart2 className="text-primary" />
+                Create Poll
+              </h3>
+              <input 
+                type="text" 
+                placeholder="Question" 
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                className="w-full bg-background border border-border rounded-2xl py-3 px-4 mb-4 font-bold"
+              />
+              <div className="space-y-3 mb-6">
+                {pollOptions.map((opt, i) => (
+                  <input 
+                    key={i}
+                    type="text" 
+                    placeholder={`Option ${i + 1}`} 
+                    value={opt}
+                    onChange={(e) => {
+                      const newOpts = [...pollOptions];
+                      newOpts[i] = e.target.value;
+                      setPollOptions(newOpts);
+                    }}
+                    className="w-full bg-background border border-border rounded-xl py-2 px-4 text-sm"
+                  />
+                ))}
+                <button 
+                  onClick={() => setPollOptions([...pollOptions, ''])}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  + Add Option
+                </button>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setShowPollModal(false)} className="flex-1 py-3 bg-border text-text rounded-2xl font-bold">Cancel</button>
+                <button onClick={handleSendPoll} className="flex-1 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20">Create</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Money Modal */}
+      <AnimatePresence>
+        {showMoneyModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-2xl"
+            >
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Wallet size={32} />
+                </div>
+                <h3 className="text-xl font-black">SEND MONEY</h3>
+                <p className="text-xs text-muted">Transfer funds instantly to this chat</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-2xl">৳</span>
+                  <input 
+                    type="number"
+                    value={moneyAmount}
+                    onChange={(e) => setMoneyAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full pl-10 pr-4 py-4 bg-background rounded-2xl text-2xl font-black focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setShowMoneyModal(false)}
+                    className="flex-1 py-4 bg-background text-muted rounded-2xl font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={sendMoney}
+                    className="flex-[2] py-4 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20"
+                  >
+                    SEND NOW
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

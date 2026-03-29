@@ -45,12 +45,37 @@ export default function IncomingCall() {
     return () => unsubscribe();
   }, [currentUser]);
 
+  useEffect(() => {
+    if (incomingCall) {
+      // Native vibration if available
+      if ('vibrate' in navigator) {
+        navigator.vibrate([500, 200, 500, 200, 500]);
+      }
+      
+      // Play ringtone (simulated)
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+      audio.loop = true;
+      audio.play().catch(e => console.log("Audio play blocked by browser"));
+      
+      return () => {
+        audio.pause();
+        if ('vibrate' in navigator) navigator.vibrate(0);
+      };
+    }
+  }, [incomingCall]);
+
   const handleAccept = async () => {
     if (incomingCall) {
       await updateDoc(doc(db, 'calls', incomingCall.callId), {
         status: 'connected',
         startTime: new Date().toISOString()
       });
+      
+      // PiP Mode simulation
+      if (document.pictureInPictureEnabled) {
+        console.log("Entering PiP mode...");
+      }
+
       navigate(`/call/${incomingCall.id}?type=${incomingCall.type}&callId=${incomingCall.callId}`);
       setIncomingCall(null);
     }

@@ -12,11 +12,19 @@ interface CallWithUser extends CallSession {
 }
 
 export default function Calls() {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'all' | 'missed'>('all');
+  const { currentUser: user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'recent' | 'meetings'>('recent');
   const [calls, setCalls] = useState<CallWithUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [meetingId, setMeetingId] = useState('');
+
+  const generateMeeting = () => {
+    const id = Math.random().toString(36).substring(2, 11).toUpperCase();
+    setMeetingId(id);
+    setShowMeetingModal(true);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -100,98 +108,187 @@ export default function Calls() {
     });
 
   return (
-    <main className="flex-1 overflow-y-auto pb-24 bg-background">
-      {/* Search & Tabs */}
-      <div className="px-6 py-4 space-y-4">
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
-          <input
-            type="text"
-            placeholder="Search calls..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-border rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
-          />
-        </div>
-
-        <div className="flex bg-border/50 p-1 rounded-2xl">
+    <main className="flex-1 overflow-y-auto pb-24 bg-background no-scrollbar">
+      {/* Header Tabs */}
+      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-border/50 px-6 py-4">
+        <div className="flex bg-border/30 p-1 rounded-2xl mb-4">
           <button
-            onClick={() => setActiveTab('all')}
+            onClick={() => setActiveTab('recent')}
             className={cn(
-              "flex-1 py-2 text-xs font-bold rounded-xl transition-all",
-              activeTab === 'all' ? "bg-white text-primary shadow-sm" : "text-muted hover:text-text"
+              "flex-1 py-2.5 text-xs font-black rounded-xl transition-all uppercase tracking-widest",
+              activeTab === 'recent' ? "bg-white text-primary shadow-md" : "text-muted hover:text-text"
             )}
           >
-            All Calls
+            Recent
           </button>
           <button
-            onClick={() => setActiveTab('missed')}
+            onClick={() => setActiveTab('meetings')}
             className={cn(
-              "flex-1 py-2 text-xs font-bold rounded-xl transition-all",
-              activeTab === 'missed' ? "bg-white text-red-500 shadow-sm" : "text-muted hover:text-text"
+              "flex-1 py-2.5 text-xs font-black rounded-xl transition-all uppercase tracking-widest",
+              activeTab === 'meetings' ? "bg-white text-primary shadow-md" : "text-muted hover:text-text"
             )}
           >
-            Missed
+            Meetings
+          </button>
+        </div>
+
+        <div className="flex gap-3">
+          <button 
+            onClick={generateMeeting}
+            className="flex-1 bg-primary text-white py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+          >
+            <Video size={18} />
+            START MEETING
+          </button>
+          <button 
+            className="flex-1 bg-secondary text-white py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-secondary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+          >
+            <Sparkles size={18} />
+            RANDOM CALL
           </button>
         </div>
       </div>
 
-      {/* Call List */}
-      <div className="mt-2">
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="animate-spin text-primary" size={32} />
-          </div>
-        ) : filteredCalls.length > 0 ? (
-          filteredCalls.map((call) => (
-            <div key={call.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/50 transition-all group">
-              <div className="relative flex-shrink-0">
-                <img
-                  src={call.otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${call.otherUser?.uid}`}
-                  alt={call.otherUser?.displayName}
-                  className="w-14 h-14 rounded-2xl object-cover shadow-sm"
-                />
-                <div className={cn(
-                  "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center",
-                  call.type === 'video' ? "bg-secondary text-white" : "bg-primary text-white"
-                )}>
-                  {call.type === 'video' ? <Video size={12} /> : <Phone size={12} />}
-                </div>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <h3 className={cn(
-                  "text-base font-bold truncate",
-                  call.status === 'ended' && call.receiverId === user?.uid && !call.startTime ? "text-red-500" : "text-text"
-                )}>
-                  {call.otherUser?.displayName || 'Unknown User'}
-                </h3>
-                <div className="flex items-center gap-1 text-xs text-muted">
-                  {call.receiverId === user?.uid ? (
-                    <ArrowDownLeft size={14} className={call.startTime ? "text-green-500" : "text-red-500"} />
-                  ) : (
-                    <ArrowUpRight size={14} className="text-primary" />
-                  )}
-                  <span>{formatDistanceToNow(new Date(call.timestamp), { addSuffix: true })}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button className="p-3 bg-primary/10 text-primary rounded-2xl hover:bg-primary hover:text-white transition-all active:scale-90">
-                  <Phone size={20} />
-                </button>
-                <button className="p-3 bg-secondary/10 text-secondary rounded-2xl hover:bg-secondary hover:text-white transition-all active:scale-90">
-                  <Video size={20} />
-                </button>
-              </div>
+      {activeTab === 'recent' ? (
+        <div className="mt-2">
+          <div className="px-6 py-4">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
+              <input
+                type="text"
+                placeholder="Search call history..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-border rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+              />
             </div>
-          ))
-        ) : (
-          <div className="text-center py-20 px-10 opacity-60">
-            <p className="text-sm">No call history found.</p>
           </div>
+          
+          {loading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="animate-spin text-primary" size={32} />
+            </div>
+          ) : filteredCalls.length > 0 ? (
+            filteredCalls.map((call) => (
+              <div key={call.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/50 transition-all group border-b border-border/30">
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={call.otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${call.otherUser?.uid}`}
+                    alt={call.otherUser?.displayName}
+                    className="w-14 h-14 rounded-2xl object-cover shadow-sm"
+                  />
+                  <div className={cn(
+                    "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center",
+                    call.type === 'video' ? "bg-secondary text-white" : "bg-primary text-white"
+                  )}>
+                    {call.type === 'video' ? <Video size={12} /> : <Phone size={12} />}
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h3 className={cn(
+                    "text-base font-bold truncate",
+                    call.status === 'ended' && call.receiverId === user?.uid && !call.startTime ? "text-red-500" : "text-text"
+                  )}>
+                    {call.otherUser?.displayName || 'Unknown User'}
+                  </h3>
+                  <div className="flex items-center gap-1 text-[10px] text-muted font-bold uppercase tracking-wider">
+                    {call.receiverId === user?.uid ? (
+                      <ArrowDownLeft size={12} className={call.startTime ? "text-green-500" : "text-red-500"} />
+                    ) : (
+                      <ArrowUpRight size={12} className="text-primary" />
+                    )}
+                    <span>{formatDistanceToNow(new Date(call.timestamp), { addSuffix: true })}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button className="p-3 bg-primary/10 text-primary rounded-2xl hover:bg-primary hover:text-white transition-all active:scale-90">
+                    <Phone size={20} />
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-20 px-10 opacity-60">
+              <p className="text-sm">No call history found.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="p-6 space-y-6">
+          <div className="bg-white rounded-[2rem] p-8 border border-border shadow-soft text-center">
+            <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
+              <Video size={40} />
+            </div>
+            <h3 className="text-xl font-black mb-2">Personal Meeting Room</h3>
+            <p className="text-sm text-muted mb-6">Host professional meetings with screen sharing and high-quality audio.</p>
+            <div className="bg-background p-4 rounded-2xl border border-border mb-6">
+              <span className="text-[10px] font-black text-muted uppercase tracking-widest block mb-1">Your Meeting ID</span>
+              <span className="text-2xl font-black tracking-[0.2em] text-primary">OC-778-990</span>
+            </div>
+            <button className="w-full py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20">
+              JOIN NOW
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-xs font-black text-muted uppercase tracking-widest px-2">Scheduled Meetings</h4>
+            <div className="bg-white rounded-3xl p-6 border border-border shadow-sm flex items-center justify-between">
+              <div>
+                <h5 className="font-bold">Weekly Team Sync</h5>
+                <p className="text-xs text-muted">Today, 4:00 PM</p>
+              </div>
+              <button className="px-4 py-2 bg-primary/10 text-primary rounded-xl text-xs font-black">
+                START
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Meeting ID Modal */}
+      <AnimatePresence>
+        {showMeetingModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-white rounded-[2.5rem] p-8 w-full max-sm shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Check size={40} />
+              </div>
+              <h3 className="text-2xl font-black mb-2">Meeting Created!</h3>
+              <p className="text-sm text-muted mb-8">Share this meeting ID with your participants to join.</p>
+              
+              <div className="bg-background p-6 rounded-3xl border-2 border-dashed border-primary/30 mb-8">
+                <span className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2">Meeting ID</span>
+                <span className="text-3xl font-black tracking-[0.3em] text-primary">{meetingId}</span>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowMeetingModal(false)}
+                  className="flex-1 py-4 bg-border text-text rounded-2xl font-black"
+                >
+                  CLOSE
+                </button>
+                <button 
+                  className="flex-1 py-4 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20"
+                >
+                  SHARE
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </main>
   );
 }

@@ -1,14 +1,14 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { MessageCircle, Users, Heart, Phone, User } from 'lucide-react';
+import { MessageCircle, Phone, Sparkles, Users, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 export default function BottomNav() {
   const items = [
     { icon: MessageCircle, label: 'Chats', path: '/' },
-    { icon: Users, label: 'Community', path: '/community' },
-    { icon: Heart, label: 'Dating', path: '/dating' },
     { icon: Phone, label: 'Calls', path: '/calls' },
+    { icon: Sparkles, label: 'Discover', path: '/discovery' },
+    { icon: Users, label: 'Community', path: '/community' },
     { icon: User, label: 'Profile', path: '/profile' },
   ];
 
