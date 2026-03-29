@@ -91,6 +91,16 @@ export interface Swipe {
 export type CallType = 'audio' | 'video';
 export type CallStatus = 'calling' | 'ringing' | 'connected' | 'ended';
 
+export interface Meeting {
+  id: string;
+  hostId: string;
+  title: string;
+  startTime: string;
+  participants: string[];
+  isActive: boolean;
+  type: 'public' | 'private';
+}
+
 export interface CallSession {
   id: string;
   type: CallType;
@@ -103,6 +113,7 @@ export interface CallSession {
   isScreenSharing?: boolean;
   isWhiteboardActive?: boolean;
   waitingRoom?: string[]; // list of userIds waiting to join
+  signalData?: any; // For WebRTC signaling
 }
 
 export interface Group {
@@ -116,6 +127,11 @@ export interface Group {
   type: 'group' | 'channel';
   roles?: Record<string, string[]>; // roleName -> list of userIds
   permissions?: Record<string, string[]>; // roleName -> list of permissions
+  voiceRoom?: {
+    isActive: boolean;
+    participants: string[];
+    startTime: string;
+  };
 }
 
 export interface Transaction {

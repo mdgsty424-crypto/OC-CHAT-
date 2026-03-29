@@ -124,7 +124,7 @@ export default function CallScreen() {
               className="relative"
             >
               <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
-              <div className="w-36 h-36 rounded-full border-4 border-white/20 p-1 relative z-10 shadow-2xl">
+              <div className="w-36 h-36 rounded-full border-4 border-white/20 p-1 relative z-10">
                 <img 
                   src={otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`} 
                   className="w-full h-full rounded-full object-cover"
@@ -136,15 +136,15 @@ export default function CallScreen() {
         </AnimatePresence>
 
         <div className="text-center">
-          <h2 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">
+          <h2 className="text-4xl font-black text-white tracking-tight mb-2">
             {otherUser?.displayName || 'Loading...'}
           </h2>
           <div className="flex items-center justify-center gap-2">
             <div className={cn(
               "w-2.5 h-2.5 rounded-full",
-              status === 'connected' ? "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]" : status === 'ended' ? "bg-red-500" : "bg-primary animate-pulse shadow-[0_0_10px_rgba(0,132,255,0.6)]"
+              status === 'connected' ? "bg-green-500" : status === 'ended' ? "bg-red-500" : "bg-primary animate-pulse"
             )}></div>
-            <span className="text-white/80 text-xs font-black uppercase tracking-[0.2em] drop-shadow-md">
+            <span className="text-white/80 text-xs font-black uppercase tracking-[0.2em]">
               {status === 'connected' ? formatTime(duration) : status === 'ended' ? 'Call Ended' : status.charAt(0).toUpperCase() + status.slice(1)}
             </span>
           </div>
@@ -156,7 +156,7 @@ export default function CallScreen() {
         <motion.div 
           drag
           dragConstraints={{ left: -100, right: 100, top: -200, bottom: 200 }}
-          className="absolute top-10 right-6 w-32 h-44 bg-black rounded-2xl border-2 border-white/20 shadow-2xl overflow-hidden z-20"
+          className="absolute top-10 right-6 w-32 h-44 bg-black rounded-2xl border-2 border-white/20 overflow-hidden z-20"
         >
           {isVideoOn ? (
             <div className="w-full h-full bg-primary/20 flex items-center justify-center">
@@ -198,7 +198,7 @@ export default function CallScreen() {
 
       {/* Controls */}
       <div className="pb-16 px-6 w-full z-10 max-w-2xl">
-        <div className="bg-white/10 backdrop-blur-3xl rounded-[3rem] p-6 flex flex-wrap justify-center gap-5 shadow-2xl border border-white/20">
+        <div className="bg-white/10 rounded-[3rem] p-6 flex flex-wrap justify-center gap-5 border border-white/20">
           <button 
             onClick={() => setIsMuted(!isMuted)}
             className={cn(
@@ -214,7 +214,7 @@ export default function CallScreen() {
               <button 
                 onClick={() => setIsVideoOn(!isVideoOn)}
                 className={cn(
-                  "w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg",
+                  "w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90",
                   !isVideoOn ? "bg-white text-text" : "bg-white/10 text-white hover:bg-white/20"
                 )}
               >
@@ -238,7 +238,7 @@ export default function CallScreen() {
 
           <button 
             onClick={handleEndCall}
-            className="w-20 h-20 rounded-full bg-red-500 text-white flex items-center justify-center shadow-xl shadow-red-500/40 hover:bg-red-600 transition-all active:scale-90"
+            className="w-20 h-20 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all active:scale-90"
           >
             <PhoneOff size={32} />
           </button>

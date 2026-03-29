@@ -13,7 +13,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/80 backdrop-blur-lg border-t border-border flex justify-around items-center py-2 px-4 z-50">
+    <nav className="md:hidden absolute bottom-0 left-0 right-0 w-full bg-white border-t border-border flex justify-around items-center py-2 px-4 z-50">
       {items.map((item) => (
         <NavLink
           key={item.path}

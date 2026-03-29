@@ -17,15 +17,15 @@ export default function Wallet() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-primary px-6 pt-12 pb-8 rounded-b-[3rem] shadow-2xl">
+      <header className="sticky top-0 z-20 bg-primary px-6 pt-12 pb-8 rounded-b-[3rem]">
         <div className="flex items-center justify-between text-white mb-8">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
               <WalletIcon size={20} />
             </div>
             <h1 className="text-xl font-black tracking-tighter">OC PAY</h1>
           </div>
-          <button className="p-2 bg-white/20 rounded-full backdrop-blur-md">
+          <button className="p-2 bg-white/20 rounded-full">
             <QrCode size={20} />
           </button>
         </div>
@@ -36,19 +36,19 @@ export default function Wallet() {
           
           <div className="flex justify-center gap-4">
             <button className="flex flex-col items-center gap-2 group">
-              <div className="w-14 h-14 bg-white text-primary rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+              <div className="w-14 h-14 bg-white text-primary rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Plus size={24} strokeWidth={3} />
               </div>
               <span className="text-[10px] font-black uppercase">Add Money</span>
             </button>
             <button className="flex flex-col items-center gap-2 group">
-              <div className="w-14 h-14 bg-white text-primary rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+              <div className="w-14 h-14 bg-white text-primary rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <ArrowUpRight size={24} strokeWidth={3} />
               </div>
               <span className="text-[10px] font-black uppercase">Send</span>
             </button>
             <button className="flex flex-col items-center gap-2 group">
-              <div className="w-14 h-14 bg-white text-primary rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+              <div className="w-14 h-14 bg-white text-primary rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <CreditCard size={24} strokeWidth={3} />
               </div>
               <span className="text-[10px] font-black uppercase">Cards</span>
@@ -58,7 +58,7 @@ export default function Wallet() {
       </header>
 
       <main className="flex-1 p-6 -mt-4">
-        <div className="bg-white rounded-[2rem] shadow-xl border border-border p-6 min-h-full">
+        <div className="bg-white rounded-[2rem] border border-border p-6 min-h-full">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-black flex items-center gap-2">
               <History size={20} className="text-primary" />

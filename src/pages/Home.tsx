@@ -3,8 +3,8 @@ import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/f
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Chat, User } from '../types';
-import StorySection from '../components/chat/StorySection';
 import ChatListItem from '../components/chat/ChatListItem';
+import UserChatListItem from '../components/chat/UserChatListItem';
 import { Search, Plus, Archive, EyeOff, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -12,11 +12,14 @@ import { cn } from '../lib/utils';
 export default function Home() {
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
-  const [activeUsers, setActiveUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [view, setView] = useState<'all' | 'archived' | 'hidden'>('all');
+  const [view, setView] = useState<'all' | 'archived'>('all');
   const [showHiddenInput, setShowHiddenInput] = useState(false);
   const [hiddenPassword, setHiddenPassword] = useState('');
+
+  const onlineUsers = allUsers.filter(u => u.online).slice(0, 5);
+  const usersWithoutChats = allUsers.filter(u => !chats.some(c => c.participants.includes(u.uid)));
 
   useEffect(() => {
     if (!user) return;
@@ -37,17 +40,13 @@ export default function Home() {
       setChats(chatList);
     });
 
-    // Fetch active users (online users)
-    const usersQ = query(
-      collection(db, 'users'),
-      where('online', '==', true),
-      limit(20)
-    );
+    // Fetch all users
+    const usersQ = query(collection(db, 'users'));
     const usersUnsubscribe = onSnapshot(usersQ, (snapshot) => {
-      const onlineUsers = snapshot.docs
+      const usersList = snapshot.docs
         .map(doc => doc.data() as User)
         .filter(u => u.uid !== user.uid);
-      setActiveUsers(onlineUsers);
+      setAllUsers(usersList);
     });
 
     return () => {
@@ -88,9 +87,9 @@ export default function Home() {
   };
 
   return (
-    <main className="flex-1 overflow-y-auto pb-24 bg-transparent no-scrollbar">
+    <main className="flex-1 overflow-y-auto pb-40 bg-white no-scrollbar flex flex-col gap-y-4">
       {/* Search Bar */}
-      <div className="px-6 py-4">
+      <div className="px-6 mt-2 mb-4">
         <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
           <input
@@ -98,96 +97,100 @@ export default function Home() {
             placeholder="Search chats, groups, channels..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white/50 backdrop-blur-md border border-white/20 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm font-medium"
+            className="w-full bg-gray-50 border border-gray-100 rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
           />
         </div>
       </div>
 
       {/* Active Friends (Horizontal Circles) */}
-      <div className="px-6 mb-6">
+      <div className="px-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Active Friends</h3>
-          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{activeUsers.length} online</span>
+          <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Online</h3>
+          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{onlineUsers.length} online</span>
         </div>
         <div className="flex gap-5 overflow-x-auto no-scrollbar pb-2">
           {/* Your Story */}
           <div className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group">
             <div className="relative">
-              <div className="w-14 h-14 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center bg-white group-hover:border-primary transition-colors">
-                <Plus size={24} className="text-primary" />
+              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:border-primary transition-colors overflow-hidden">
+                <img 
+                  src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
+                  className="w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-opacity"
+                  alt="Your Story"
+                />
               </div>
             </div>
             <span className="text-[10px] font-bold text-muted">Your Story</span>
           </div>
 
-          {activeUsers.map(u => (
+          {onlineUsers.map(u => (
             <div key={u.uid} className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group">
               <div className="relative">
-                <div className="p-[2px] bg-gradient-to-tr from-primary to-secondary rounded-full">
+                <div className="rounded-full overflow-hidden">
                   <img 
                     src={u.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`} 
-                    className="w-14 h-14 rounded-full object-cover border-2 border-white group-hover:scale-105 transition-transform"
+                    className="w-14 h-14 rounded-full object-cover group-hover:scale-105 transition-transform"
                     alt={u.displayName}
                   />
                 </div>
-                <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full shadow-sm"></div>
+                <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
               </div>
-              <span className="text-[10px] font-bold text-muted truncate w-14 text-center">{u.displayName.split(' ')[0]}</span>
+              <span className="text-[10px] font-bold text-muted truncate w-14 text-center">{(u.displayName || 'Anonymous').split(' ')[0]}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Chat List Section */}
-      <div className="px-4">
-        <div className="bg-white/40 backdrop-blur-xl rounded-[2.5rem] border border-white/20 shadow-xl overflow-hidden">
-          <div className="p-6 border-b border-white/10 flex justify-between items-center">
-            <div className="flex items-center gap-6">
-              <button 
-                onClick={() => setView('all')}
-                className={cn(
-                  "text-lg font-black tracking-tight transition-all relative", 
-                  view === 'all' ? "text-text" : "text-muted hover:text-text"
-                )}
-              >
-                Chats
-                {view === 'all' && <motion.div layoutId="activeTab" className="absolute -bottom-1 left-0 right-0 h-1 bg-primary rounded-full" />}
-              </button>
-              <button 
-                onClick={() => setView('archived')}
-                className={cn(
-                  "text-lg font-black tracking-tight transition-all relative", 
-                  view === 'archived' ? "text-text" : "text-muted hover:text-text"
-                )}
-              >
-                Archived
-                {view === 'archived' && <motion.div layoutId="activeTab" className="absolute -bottom-1 left-0 right-0 h-1 bg-primary rounded-full" />}
-              </button>
-            </div>
-            
+      <div className="bg-white flex-1">
+        <div className="px-6 py-2 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-30">
+          <div className="flex items-center gap-6">
             <button 
-              onClick={() => setShowHiddenInput(true)}
-              className="p-2 bg-white/50 rounded-xl text-muted hover:text-primary transition-colors"
+              onClick={() => setView('all')}
+              className={cn(
+                "text-base font-black tracking-tight transition-all relative py-2", 
+                view === 'all' ? "text-primary" : "text-muted hover:text-text"
+              )}
             >
-              <Lock size={18} />
+              Chats
+              {view === 'all' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
+            </button>
+            <button 
+              onClick={() => setView('archived')}
+              className={cn(
+                "text-base font-black tracking-tight transition-all relative py-2", 
+                view === 'archived' ? "text-primary" : "text-muted hover:text-text"
+              )}
+            >
+              Archived
+              {view === 'archived' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
             </button>
           </div>
           
-          <div className="divide-y divide-white/5">
-            {filteredChats.length > 0 ? (
-              filteredChats.map((chat) => (
-                <ChatListItem key={chat.id} chat={chat} />
-              ))
-            ) : (
-              <div className="flex flex-col items-center justify-center py-24 px-10 text-center opacity-40">
-                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6 border border-white/30">
-                  <MessageCircle size={40} className="text-muted" />
-                </div>
-                <h3 className="text-xl font-black mb-2">No {view} chats</h3>
-                <p className="text-sm font-medium">Start a new conversation with your friends!</p>
+          <button 
+            onClick={() => setShowHiddenInput(true)}
+            className="p-2 hover:bg-gray-50 rounded-xl text-muted hover:text-primary transition-colors"
+          >
+            <Lock size={18} />
+          </button>
+        </div>
+        
+        <div className="divide-y divide-gray-100">
+          {filteredChats.map((chat) => (
+            <ChatListItem key={chat.id} chat={chat} />
+          ))}
+          {view === 'all' && usersWithoutChats.map((u) => (
+            <UserChatListItem key={u.uid} user={u} />
+          ))}
+          {filteredChats.length === 0 && (view !== 'all' || usersWithoutChats.length === 0) && (
+            <div className="flex flex-col items-center justify-center py-24 px-10 text-center opacity-40">
+              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 border border-gray-100">
+                <Search size={40} className="text-muted" />
               </div>
-            )}
-          </div>
+              <h3 className="text-xl font-black mb-2">No {view} chats</h3>
+              <p className="text-sm font-medium">Start a new conversation with your friends!</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -203,7 +206,7 @@ export default function Home() {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] p-8 w-full max-w-xs shadow-2xl text-center"
+              className="bg-white rounded-[2rem] p-8 w-full max-w-xs border border-gray-100 text-center"
             >
               <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
                 <Lock size={32} />
@@ -226,7 +229,7 @@ export default function Home() {
                 </button>
                 <button 
                   onClick={handleHiddenAccess}
-                  className="flex-1 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20"
+                  className="flex-1 py-3 bg-primary text-white rounded-2xl font-bold"
                 >
                   Unlock
                 </button>
@@ -235,15 +238,6 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Floating Action Button */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center z-50 ripple"
-      >
-        <Plus size={28} />
-      </motion.button>
     </main>
   );
 }

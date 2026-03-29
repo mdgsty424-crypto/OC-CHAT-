@@ -135,12 +135,12 @@ export default function Profile() {
       />
 
       {/* Profile Header */}
-      <div className="px-6 py-8 flex flex-col items-center text-center bg-white border-b border-border shadow-soft relative overflow-hidden">
+      <div className="px-6 py-8 flex flex-col items-center text-center bg-white border-b border-border relative overflow-hidden">
         {/* Background Accent */}
         <div className="absolute top-0 left-0 right-0 h-24 bg-primary/5 -z-10"></div>
         
         <div className="relative mb-4">
-          <div className="w-28 h-28 rounded-[2.5rem] p-1 border-4 border-primary/20 shadow-xl bg-white">
+          <div className="w-28 h-28 rounded-[2.5rem] p-1 border-4 border-primary/20 bg-white">
             <img
               src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`}
               alt={user?.displayName}
@@ -155,7 +155,7 @@ export default function Profile() {
           <button 
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-2xl shadow-lg border-2 border-white hover:scale-110 transition-transform active:scale-95 disabled:opacity-50"
+            className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-2xl border-2 border-white hover:scale-110 transition-transform active:scale-95 disabled:opacity-50"
           >
             <Camera size={18} />
           </button>
@@ -180,7 +180,7 @@ export default function Profile() {
               <button 
                 onClick={handleSave}
                 disabled={isSaving}
-                className="px-6 py-2 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 flex items-center gap-2 hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                className="px-6 py-2 bg-primary text-white rounded-2xl text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
               >
                 {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                 Save
@@ -212,7 +212,7 @@ export default function Profile() {
             <div className="flex gap-3">
               <button 
                 onClick={() => setIsEditing(true)}
-                className="px-6 py-2 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 flex items-center gap-2 hover:opacity-90 transition-all active:scale-95"
+                className="px-6 py-2 bg-primary text-white rounded-2xl text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-all active:scale-95"
               >
                 <Edit3 size={16} />
                 Edit Profile
@@ -232,7 +232,7 @@ export default function Profile() {
           { label: 'Matches', value: '12' },
           { label: 'Groups', value: '8' },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white p-4 rounded-3xl text-center shadow-soft border border-border/50">
+          <div key={stat.label} className="bg-white p-4 rounded-3xl text-center border border-border/50">
             <span className="block text-lg font-black text-primary">{stat.value}</span>
             <span className="text-[10px] font-bold text-muted uppercase tracking-wider">{stat.label}</span>
           </div>
@@ -261,7 +261,7 @@ export default function Profile() {
                   item.active ? "bg-primary" : "bg-border"
                 )}>
                   <div className={cn(
-                    "w-4 h-4 bg-white rounded-full shadow-sm transition-transform",
+                    "w-4 h-4 bg-white rounded-full transition-transform",
                     item.active ? "translate-x-4" : "translate-x-0"
                   )}></div>
                 </div>

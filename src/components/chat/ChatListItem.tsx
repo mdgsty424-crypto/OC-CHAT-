@@ -6,7 +6,7 @@ import { Chat, User } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../../lib/utils';
-import { Check, CheckCheck, Archive, BellOff } from 'lucide-react';
+import { Check, CheckCheck, Archive, BellOff, Users, Megaphone } from 'lucide-react';
 import { motion, useMotionValue, useTransform } from 'motion/react';
 
 interface ChatListItemProps {
@@ -15,7 +15,7 @@ interface ChatListItemProps {
 }
 
 export default function ChatListItem({ chat }: ChatListItemProps) {
-  const { currentUser } = useAuth();
+  const { user: currentUser } = useAuth();
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-100, 0], [1, 0]);
@@ -41,14 +41,14 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
   const chatPhoto = chat.type === 'group' || chat.type === 'channel' ? chat.photo : (otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || chat.id}`);
 
   return (
-    <div className="relative overflow-hidden bg-background">
+    <div className="relative overflow-hidden bg-white mb-3">
       {/* Swipe Actions (Background) */}
-      <div className="absolute inset-0 flex justify-end items-center px-6 gap-4 bg-primary/10">
+      <div className="absolute inset-0 flex justify-end items-center px-6 gap-4 bg-gray-50">
         <motion.div style={{ opacity, scale }} className="flex items-center gap-4">
-          <button className="p-3 bg-primary text-white rounded-2xl shadow-lg">
+          <button className="p-3 bg-primary text-white rounded-2xl">
             <Archive size={20} />
           </button>
-          <button className="p-3 bg-secondary text-white rounded-2xl shadow-lg">
+          <button className="p-3 bg-secondary text-white rounded-2xl">
             <BellOff size={20} />
           </button>
         </motion.div>
@@ -58,32 +58,48 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
         drag="x"
         dragConstraints={{ left: -150, right: 0 }}
         style={{ x }}
-        className="relative z-10 bg-white/40 backdrop-blur-xl"
+        className="relative z-10 bg-white"
       >
         <Link
           to={`/chat/${chat.id}`}
-          className="flex items-center gap-4 px-6 py-4 hover:bg-white/20 transition-all active:scale-[0.98] group"
+          className="flex items-center gap-6 px-6 py-8 hover:bg-gray-50 transition-all active:scale-[0.98] group"
         >
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="p-[2px] bg-white rounded-full shadow-sm group-hover:shadow-md transition-all group-hover:scale-105">
-              <img
-                src={chatPhoto}
-                alt={chatName}
-                className="w-14 h-14 rounded-full object-cover"
-                referrerPolicy="no-referrer"
-              />
+            <div className="p-[2px] bg-white rounded-full transition-all group-hover:scale-105">
+              {chat.type === 'group' && !chatPhoto ? (
+                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Users size={24} className="text-muted" />
+                </div>
+              ) : (
+                <img
+                  src={chatPhoto}
+                  alt={chatName}
+                  className="w-14 h-14 rounded-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              )}
             </div>
             {(otherUser?.online || chat.type !== 'direct') && (
-              <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full shadow-sm"></div>
+              <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
             )}
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-1">
-              <h3 className="text-sm font-black text-text truncate group-hover:text-primary transition-colors">
+              <h3 className="text-sm font-black text-text truncate group-hover:text-primary transition-colors flex items-center">
                 {chatName}
+                {chat.type === 'group' && (
+                  <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
+                    <Users size={10} /> GROUP
+                  </span>
+                )}
+                {chat.type === 'channel' && (
+                  <span className="text-[9px] font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
+                    <Megaphone size={10} /> BROADCAST
+                  </span>
+                )}
               </h3>
               <span className="text-[10px] font-bold text-muted uppercase tracking-widest">
                 {chat.lastMessageTime ? formatDistanceToNow(new Date(chat.lastMessageTime), { addSuffix: false }) : ''}
@@ -103,7 +119,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                 </p>
               </div>
               {unreadCount > 0 && (
-                <div className="bg-primary text-white text-[10px] font-black min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5 shadow-lg shadow-primary/20">
+                <div className="bg-primary text-white text-[10px] font-black min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5">
                   {unreadCount}
                 </div>
               )}

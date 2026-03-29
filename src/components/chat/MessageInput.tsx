@@ -175,6 +175,13 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         method: 'POST',
         body: formData,
       });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Upload failed with status:", response.status, errorText);
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       
       // Simulated Voice-to-Text using Gemini
@@ -367,14 +374,14 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-3 bg-white/90 backdrop-blur-xl border-t border-border/50 z-50">
+    <div className="absolute bottom-0 left-0 right-0 w-full p-3 bg-white border-t border-gray-100 z-50">
       <AnimatePresence>
         {replyingTo && (
           <motion.div 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="flex items-center justify-between bg-background/50 p-3 rounded-t-3xl border-x border-t border-border/50 mb-[-1px]"
+            className="flex items-center justify-between bg-gray-50 p-3 border-b border-gray-100 mb-2"
           >
             <div className="flex items-center gap-3 border-l-4 border-primary pl-3">
               <div className="flex flex-col">
@@ -396,7 +403,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
-            className="grid grid-cols-4 gap-4 p-4 mb-3 bg-background/80 rounded-[2rem] border border-border/50"
+            className="grid grid-cols-4 gap-4 p-4 bg-white border-b border-gray-100"
           >
             <button onClick={handleSendLocation} className="flex flex-col items-center gap-2 group">
               <div className="w-12 h-12 bg-green-500/10 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -470,7 +477,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
 
         <div className="flex-1 relative mb-1">
           {isRecording ? (
-            <div className="flex items-center gap-3 bg-background border border-border/50 rounded-3xl py-2.5 px-4">
+            <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl py-2.5 px-4">
               <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></div>
               <div className="flex-1 flex items-end gap-[2px] h-6">
                 {waveforms.map((h, i) => (
@@ -484,8 +491,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               <span className="text-[11px] font-bold text-muted uppercase tracking-wider">Recording</span>
             </div>
           ) : audioBlob ? (
-            <div className="flex items-center gap-3 bg-background border border-border/50 rounded-3xl py-2 px-4">
-              <button className="p-2 bg-primary text-white rounded-full shadow-lg shadow-primary/20">
+            <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl py-2 px-4">
+              <button className="p-2 bg-primary text-white rounded-full">
                 <Play size={16} fill="white" />
               </button>
               <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
@@ -519,7 +526,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
                   }
                 }}
                 placeholder={text.startsWith('@ai') ? "Ask AI anything..." : "Type a message..."}
-                className="w-full bg-background border border-border/50 rounded-3xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none max-h-32 text-sm leading-relaxed"
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none max-h-32 text-sm leading-relaxed"
               />
             </div>
           )}
@@ -532,7 +539,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               animate={{ scale: 1, opacity: 1 }}
               onClick={audioBlob ? handleSendVoice : handleSend}
               disabled={isUploading}
-              className="p-3 bg-primary text-white rounded-full shadow-lg shadow-primary/30 hover:opacity-90 transition-all active:scale-90 disabled:opacity-50 flex items-center justify-center ripple"
+              className="p-3 bg-primary text-white rounded-full hover:opacity-90 transition-all active:scale-90 disabled:opacity-50 flex items-center justify-center ripple"
             >
               {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
             </motion.button>
@@ -543,8 +550,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               onTouchStart={startRecording}
               onTouchEnd={stopRecording}
               className={cn(
-                "p-3 rounded-full shadow-lg transition-all active:scale-90 flex items-center justify-center",
-                isRecording ? "bg-red-500 text-white scale-125" : "bg-primary text-white shadow-primary/30 ripple"
+                "p-3 rounded-full transition-all active:scale-90 flex items-center justify-center",
+                isRecording ? "bg-red-500 text-white scale-125" : "bg-primary text-white ripple"
               )}
             >
               <Mic size={20} />
@@ -560,12 +567,12 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6"
+            className="fixed inset-0 bg-black z-[100] flex items-center justify-center p-6"
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] p-8 w-full max-w-xs shadow-2xl"
+              className="bg-white rounded-[2rem] p-8 w-full max-w-xs border border-gray-100"
             >
               <h3 className="text-xl font-black mb-6 flex items-center gap-3">
                 <BarChart2 className="text-primary" />
@@ -602,7 +609,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setShowPollModal(false)} className="flex-1 py-3 bg-border text-text rounded-2xl font-bold">Cancel</button>
-                <button onClick={handleSendPoll} className="flex-1 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20">Create</button>
+                <button onClick={handleSendPoll} className="flex-1 py-3 bg-primary text-white rounded-2xl font-bold">Create</button>
               </div>
             </motion.div>
           </motion.div>
@@ -611,12 +618,12 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       {/* Money Modal */}
       <AnimatePresence>
         {showMoneyModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-2xl"
+              className="bg-white rounded-[2rem] p-8 w-full max-w-sm border border-gray-100"
             >
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -647,7 +654,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
                   </button>
                   <button 
                     onClick={sendMoney}
-                    className="flex-[2] py-4 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20"
+                    className="flex-[2] py-4 bg-primary text-white rounded-2xl font-black"
                   >
                     SEND NOW
                   </button>

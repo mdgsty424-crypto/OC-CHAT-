@@ -1,25 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
 
 const SplashScreen: React.FC = () => {
-  const navigate = useNavigate();
-  const { currentUser, isAuthReady } = useAuth();
-
-  useEffect(() => {
-    if (isAuthReady) {
-      const timer = setTimeout(() => {
-        if (currentUser) {
-          navigate('/home');
-        } else {
-          navigate('/login');
-        }
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthReady, currentUser, navigate]);
-
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-[#001F3F] to-[#003366] flex flex-col items-center justify-center z-[9999]">
       <motion.div

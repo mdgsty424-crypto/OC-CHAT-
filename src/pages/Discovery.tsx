@@ -41,7 +41,7 @@ export default function Discovery() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-border px-4 py-4">
+      <header className="sticky top-0 z-20 bg-white border-b border-border px-4 py-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-black tracking-tighter text-primary flex items-center gap-2">
             OC MATCH <Sparkles className="text-secondary fill-secondary" size={20} />
@@ -51,7 +51,7 @@ export default function Discovery() {
               onClick={() => setActiveTab('swipe')}
               className={cn(
                 "px-4 py-1.5 rounded-full text-xs font-bold transition-all",
-                activeTab === 'swipe' ? "bg-primary text-white shadow-lg" : "text-muted"
+                activeTab === 'swipe' ? "bg-primary text-white" : "text-muted"
               )}
             >
               Swipe
@@ -60,7 +60,7 @@ export default function Discovery() {
               onClick={() => setActiveTab('nearby')}
               className={cn(
                 "px-4 py-1.5 rounded-full text-xs font-bold transition-all",
-                activeTab === 'nearby' ? "bg-primary text-white shadow-lg" : "text-muted"
+                activeTab === 'nearby' ? "bg-primary text-white" : "text-muted"
               )}
             >
               Nearby
@@ -69,7 +69,7 @@ export default function Discovery() {
               onClick={() => setActiveTab('random')}
               className={cn(
                 "px-4 py-1.5 rounded-full text-xs font-bold transition-all",
-                activeTab === 'random' ? "bg-primary text-white shadow-lg" : "text-muted"
+                activeTab === 'random' ? "bg-primary text-white" : "text-muted"
               )}
             >
               Random
@@ -88,7 +88,7 @@ export default function Discovery() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ x: 500, opacity: 0, rotate: 20 }}
-                  className="w-full aspect-[3/4] bg-white rounded-[2rem] shadow-2xl border border-border overflow-hidden relative"
+                  className="w-full aspect-[3/4] bg-white rounded-[2rem] border border-border overflow-hidden relative"
                 >
                   <img 
                     src={swipeUsers[currentIndex].photoURL || `https://picsum.photos/seed/${swipeUsers[currentIndex].uid}/600/800`}
@@ -110,7 +110,7 @@ export default function Discovery() {
                     </p>
                     <div className="flex gap-2">
                       {['Travel', 'Music', 'Coffee'].map(tag => (
-                        <span key={tag} className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-bold">
+                        <span key={tag} className="px-3 py-1 bg-white/20 rounded-full text-[10px] font-bold">
                           {tag}
                         </span>
                       ))}
@@ -138,13 +138,13 @@ export default function Discovery() {
               <div className="flex gap-6 mt-8">
                 <button 
                   onClick={() => handleSwipe('left')}
-                  className="w-16 h-16 bg-white rounded-full shadow-xl border border-border flex items-center justify-center text-red-500 hover:scale-110 active:scale-95 transition-all"
+                  className="w-16 h-16 bg-white rounded-full border border-border flex items-center justify-center text-red-500 hover:scale-110 active:scale-95 transition-all"
                 >
                   <X size={32} strokeWidth={3} />
                 </button>
                 <button 
                   onClick={() => handleSwipe('right')}
-                  className="w-16 h-16 bg-primary rounded-full shadow-xl shadow-primary/30 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all"
+                  className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all"
                 >
                   <Heart size={32} strokeWidth={3} fill="currentColor" />
                 </button>
@@ -161,7 +161,7 @@ export default function Discovery() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-white rounded-3xl p-3 border border-border shadow-sm hover:shadow-md transition-all group"
+                className="bg-white rounded-3xl p-3 border border-border transition-all group"
               >
                 <div className="relative aspect-square rounded-2xl overflow-hidden mb-3">
                   <img 
@@ -170,7 +170,7 @@ export default function Discovery() {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-md rounded-full text-[8px] font-bold text-white flex items-center gap-1">
+                  <div className="absolute top-2 right-2 px-2 py-1 bg-black/50 rounded-full text-[8px] font-bold text-white flex items-center gap-1">
                     <MapPin size={8} /> {Math.floor(Math.random() * 10) + 1}km
                   </div>
                 </div>
@@ -203,7 +203,7 @@ export default function Discovery() {
               <p className="text-muted text-sm max-w-xs">Connect with random people around the world instantly.</p>
             </div>
             <div className="flex flex-col gap-3 w-full max-w-xs">
-              <button className="w-full py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+              <button className="w-full py-4 bg-primary text-white rounded-2xl font-black hover:scale-[1.02] active:scale-[0.98] transition-all">
                 START MATCHING
               </button>
               <div className="flex items-center gap-2 justify-center text-[10px] text-muted">

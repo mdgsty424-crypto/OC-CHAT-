@@ -87,7 +87,7 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
 
   return (
     <div className={cn(
-      "flex flex-col max-w-[85%] gap-1 group relative",
+      "flex flex-col max-w-[92%] gap-1 group relative",
       isMe ? "ml-auto items-end" : "mr-auto items-start"
     )}>
       {/* Swipe to Reply Indicator */}
@@ -107,10 +107,10 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
         style={{ x }}
         onDragEnd={handleDragEnd}
         className={cn(
-          "px-4 py-3 rounded-3xl shadow-sm relative overflow-hidden",
+          "px-4 py-2.5 rounded-xl relative overflow-hidden",
           isMe 
             ? "bg-primary text-white rounded-tr-none" 
-            : "bg-white text-text rounded-tl-none border border-border"
+            : "bg-gray-100 text-text rounded-tl-none"
         )}
       >
         {/* Self-destruct Indicator */}
@@ -124,7 +124,7 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
         {message.replyTo && (
           <div className={cn(
             "mb-2 p-2 rounded-lg text-[10px] border-l-4",
-            isMe ? "bg-white/10 border-white/30" : "bg-background border-primary/30"
+            isMe ? "bg-primary/20 border-white/30" : "bg-gray-200 border-primary/30"
           )}>
             <p className="font-bold opacity-70">Replying to message</p>
             <p className="truncate opacity-90">Original message content...</p>
@@ -300,7 +300,7 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
                 <button
                   key={emoji}
                   onClick={() => toggleReaction(emoji)}
-                  className="bg-white border border-border rounded-full px-1.5 py-0.5 text-[10px] shadow-sm hover:scale-110 transition-transform flex items-center gap-1"
+                  className="bg-white border border-border rounded-full px-1.5 py-0.5 text-[10px] hover:scale-110 transition-transform flex items-center gap-1"
                 >
                   <span>{emoji}</span>
                   <span className="font-bold text-muted">{users.length}</span>
@@ -314,7 +314,7 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
         <button 
           onClick={() => setShowReactions(!showReactions)}
           className={cn(
-            "absolute top-0 p-1 bg-white border border-border rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity",
+            "absolute top-0 p-1 bg-white border border-border rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
             isMe ? "-left-8" : "-right-8"
           )}
         >
@@ -329,7 +329,7 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 10 }}
               className={cn(
-                "absolute -top-10 z-10 bg-white border border-border rounded-full p-1 shadow-xl flex gap-1",
+                "absolute -top-10 z-10 bg-white border border-border rounded-full p-1 flex gap-1",
                 isMe ? "right-0" : "left-0"
               )}
             >

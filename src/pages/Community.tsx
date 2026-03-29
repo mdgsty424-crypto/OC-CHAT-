@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Search, Plus, Users, Hash, Radio, ChevronRight, MoreVertical, Loader2, Check } from 'lucide-react';
+import { Search, Plus, Users, Hash, Radio, ChevronRight, MoreVertical, Loader2, Check, Mic, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { collection, query, where, onSnapshot, addDoc, orderBy, updateDoc, doc, arrayUnion, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -102,6 +102,20 @@ export default function Community() {
     }
   };
 
+  const handleStartVoiceClub = async (groupId: string) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'groups', groupId), {
+        'voiceRoom.isActive': true,
+        'voiceRoom.participants': arrayUnion(user.uid),
+        'voiceRoom.startTime': new Date().toISOString()
+      });
+      navigate(`/voice/${groupId}`);
+    } catch (error) {
+      console.error("Error starting voice club:", error);
+    }
+  };
+
   const filteredItems = items.filter(item => {
     const name = item.name || '';
     return name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -110,7 +124,7 @@ export default function Community() {
   return (
     <main className="flex-1 overflow-y-auto pb-24 bg-background no-scrollbar">
       {/* Search & Tabs */}
-      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-border/50 px-6 py-4 space-y-4">
+      <div className="sticky top-0 z-30 bg-white border-b border-border/50 px-6 py-4 space-y-4">
         <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
           <input
@@ -118,7 +132,7 @@ export default function Community() {
             placeholder={`Search ${activeTab}s...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-background border border-border/50 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+            className="w-full bg-background border border-border/50 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
           />
         </div>
 
@@ -127,7 +141,7 @@ export default function Community() {
             onClick={() => setActiveTab('group')}
             className={cn(
               "flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest",
-              activeTab === 'group' ? "bg-white text-primary shadow-md" : "text-muted hover:text-text"
+              activeTab === 'group' ? "bg-white text-primary" : "text-muted hover:text-text"
             )}
           >
             <Users size={16} />
@@ -137,11 +151,71 @@ export default function Community() {
             onClick={() => setActiveTab('channel')}
             className={cn(
               "flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest",
-              activeTab === 'channel' ? "bg-white text-primary shadow-md" : "text-muted hover:text-text"
+              activeTab === 'channel' ? "bg-white text-primary" : "text-muted hover:text-text"
             )}
           >
             <Radio size={16} />
             Channels
+          </button>
+        </div>
+      </div>
+
+      {/* Active Voice Clubs (IMO Style) */}
+      <div className="px-6 mb-8 mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-secondary/20 rounded-lg flex items-center justify-center text-secondary">
+              <Mic size={18} />
+            </div>
+            <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Active Voice Clubs</h3>
+          </div>
+          <button className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">View All</button>
+        </div>
+        
+        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+          {items.filter(g => g.voiceRoom?.isActive).map(group => (
+            <motion.div 
+              key={group.id}
+              whileHover={{ y: -5 }}
+              onClick={() => navigate(`/voice/${group.id}`)}
+              className="flex-shrink-0 w-40 bg-white rounded-3xl p-4 border border-white/20 cursor-pointer group"
+            >
+              <div className="relative mb-3">
+                <img src={group.photo} className="w-full h-24 rounded-2xl object-cover" alt="" />
+                <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                  <div className="w-1 h-1 bg-white rounded-full" />
+                  LIVE
+                </div>
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <Play size={24} className="text-white fill-white" />
+                </div>
+              </div>
+              <h4 className="text-xs font-black truncate mb-1">{group.name}</h4>
+              <div className="flex items-center gap-1.5">
+                <div className="flex -space-x-2">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="w-5 h-5 rounded-full border-2 border-white bg-border overflow-hidden">
+                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} className="w-full h-full object-cover" alt="" />
+                    </div>
+                  ))}
+                </div>
+                <span className="text-[10px] font-bold text-muted">+{group.voiceRoom?.participants.length || 0}</span>
+              </div>
+            </motion.div>
+          ))}
+
+          {/* Create Voice Club Button */}
+          <button 
+            onClick={() => {
+              const myGroup = items.find(g => g.members.includes(user?.uid || ''));
+              if (myGroup) handleStartVoiceClub(myGroup.id);
+            }}
+            className="flex-shrink-0 w-40 bg-white border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-white/30 transition-all group"
+          >
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-muted group-hover:text-primary transition-colors">
+              <Plus size={24} />
+            </div>
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Start Club</span>
           </button>
         </div>
       </div>
@@ -165,7 +239,7 @@ export default function Community() {
                   className="flex items-center gap-4 px-4 py-4 hover:bg-white/60 rounded-3xl transition-all group cursor-pointer border border-transparent hover:border-border/50"
                 >
                   <div className="relative flex-shrink-0">
-                    <div className="p-[2px] bg-white rounded-full shadow-md group-hover:scale-105 transition-transform">
+                    <div className="p-[2px] bg-white rounded-full group-hover:scale-105 transition-transform">
                       <img
                         src={item.photo}
                         alt={item.name}
@@ -173,7 +247,7 @@ export default function Community() {
                         referrerPolicy="no-referrer"
                       />
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary text-white rounded-full border-2 border-white flex items-center justify-center shadow-lg">
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary text-white rounded-full border-2 border-white flex items-center justify-center">
                       {item.type === 'group' ? <Hash size={12} /> : <Radio size={12} />}
                     </div>
                   </div>
@@ -231,7 +305,7 @@ export default function Community() {
         {/* Create New */}
         <div className="px-6 py-8">
           {isCreating ? (
-            <div className="bg-white p-6 rounded-3xl shadow-soft border border-border space-y-4">
+            <div className="bg-white p-6 rounded-3xl border border-border space-y-4">
               <h3 className="font-bold text-lg">Create New {activeTab === 'group' ? 'Group' : 'Channel'}</h3>
               <input
                 type="text"

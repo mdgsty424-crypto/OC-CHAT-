@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Phone, Video, Search, Clock, ArrowUpRight, ArrowDownLeft, X, Loader2 } from 'lucide-react';
+import { Phone, Video, Search, Clock, ArrowUpRight, ArrowDownLeft, X, Loader2, Sparkles, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../lib/utils';
-import { collection, query, where, onSnapshot, orderBy, getDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, getDoc, doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { CallSession, User } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface CallWithUser extends CallSession {
   otherUser?: User;
 }
 
 export default function Calls() {
-  const { currentUser: user } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'recent' | 'meetings'>('recent');
   const [calls, setCalls] = useState<CallWithUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,10 +23,24 @@ export default function Calls() {
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [meetingId, setMeetingId] = useState('');
 
-  const generateMeeting = () => {
+  const generateMeeting = async () => {
+    if (!user) return;
     const id = Math.random().toString(36).substring(2, 11).toUpperCase();
-    setMeetingId(id);
-    setShowMeetingModal(true);
+    
+    try {
+      await setDoc(doc(db, 'meetings', id), {
+        id,
+        hostId: user.uid,
+        title: `${user.displayName}'s Meeting`,
+        startTime: new Date().toISOString(),
+        participants: [user.uid],
+        isActive: true,
+        type: 'public'
+      });
+      navigate(`/meeting/${id}`);
+    } catch (error) {
+      console.error("Error creating meeting:", error);
+    }
   };
 
   useEffect(() => {
@@ -110,13 +127,13 @@ export default function Calls() {
   return (
     <main className="flex-1 overflow-y-auto pb-24 bg-background no-scrollbar">
       {/* Header Tabs */}
-      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-border/50 px-6 py-4">
+      <div className="sticky top-0 z-30 bg-white border-b border-border/50 px-6 py-4">
         <div className="flex bg-border/30 p-1 rounded-2xl mb-4">
           <button
             onClick={() => setActiveTab('recent')}
             className={cn(
               "flex-1 py-2.5 text-xs font-black rounded-xl transition-all uppercase tracking-widest",
-              activeTab === 'recent' ? "bg-white text-primary shadow-md" : "text-muted hover:text-text"
+              activeTab === 'recent' ? "bg-white text-primary" : "text-muted hover:text-text"
             )}
           >
             Recent
@@ -125,7 +142,7 @@ export default function Calls() {
             onClick={() => setActiveTab('meetings')}
             className={cn(
               "flex-1 py-2.5 text-xs font-black rounded-xl transition-all uppercase tracking-widest",
-              activeTab === 'meetings' ? "bg-white text-primary shadow-md" : "text-muted hover:text-text"
+              activeTab === 'meetings' ? "bg-white text-primary" : "text-muted hover:text-text"
             )}
           >
             Meetings
@@ -135,13 +152,13 @@ export default function Calls() {
         <div className="flex gap-3">
           <button 
             onClick={generateMeeting}
-            className="flex-1 bg-primary text-white py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            className="flex-1 bg-primary text-white py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
             <Video size={18} />
             START MEETING
           </button>
           <button 
-            className="flex-1 bg-secondary text-white py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-secondary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            className="flex-1 bg-secondary text-white py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
             <Sparkles size={18} />
             RANDOM CALL
@@ -159,7 +176,7 @@ export default function Calls() {
                 placeholder="Search call history..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-border rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                className="w-full bg-white border border-border rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
             </div>
           </div>
@@ -175,7 +192,7 @@ export default function Calls() {
                   <img
                     src={call.otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${call.otherUser?.uid}`}
                     alt={call.otherUser?.displayName}
-                    className="w-14 h-14 rounded-2xl object-cover shadow-sm"
+                    className="w-14 h-14 rounded-2xl object-cover"
                   />
                   <div className={cn(
                     "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center",
@@ -217,7 +234,7 @@ export default function Calls() {
         </div>
       ) : (
         <div className="p-6 space-y-6">
-          <div className="bg-white rounded-[2rem] p-8 border border-border shadow-soft text-center">
+          <div className="bg-white rounded-[2rem] p-8 border border-border text-center">
             <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
               <Video size={40} />
             </div>
@@ -227,14 +244,14 @@ export default function Calls() {
               <span className="text-[10px] font-black text-muted uppercase tracking-widest block mb-1">Your Meeting ID</span>
               <span className="text-2xl font-black tracking-[0.2em] text-primary">OC-778-990</span>
             </div>
-            <button className="w-full py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20">
+            <button className="w-full py-4 bg-primary text-white rounded-2xl font-black">
               JOIN NOW
             </button>
           </div>
 
           <div className="space-y-4">
             <h4 className="text-xs font-black text-muted uppercase tracking-widest px-2">Scheduled Meetings</h4>
-            <div className="bg-white rounded-3xl p-6 border border-border shadow-sm flex items-center justify-between">
+            <div className="bg-white rounded-3xl p-6 border border-border flex items-center justify-between">
               <div>
                 <h5 className="font-bold">Weekly Team Sync</h5>
                 <p className="text-xs text-muted">Today, 4:00 PM</p>
@@ -259,7 +276,7 @@ export default function Calls() {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2.5rem] p-8 w-full max-sm shadow-2xl text-center"
+              className="bg-white rounded-[2.5rem] p-8 w-full max-sm text-center"
             >
               <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check size={40} />
@@ -280,7 +297,7 @@ export default function Calls() {
                   CLOSE
                 </button>
                 <button 
-                  className="flex-1 py-4 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20"
+                  className="flex-1 py-4 bg-primary text-white rounded-2xl font-black"
                 >
                   SHARE
                 </button>

@@ -16,7 +16,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="hidden md:flex flex-col w-72 h-full bg-white border-r border-border p-6 shadow-sm z-50">
+    <aside className="hidden md:flex flex-col w-72 h-full bg-white border-r border-border p-6 z-50">
       {/* Logo Section */}
       <div className="flex items-center gap-3 mb-10 px-2">
         <div className="w-10 h-10 flex items-center justify-center">
@@ -31,7 +31,7 @@ export default function Sidebar() {
       </div>
 
       {/* Profile Section */}
-      <div className="flex items-center gap-4 mb-10 p-2 rounded-3xl bg-background/50 border border-border/50">
+      <div className="flex items-center gap-4 mb-10 p-2 rounded-2xl bg-gray-50 border border-gray-100">
         <div className="relative">
           <img
             src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`}
@@ -67,7 +67,7 @@ export default function Sidebar() {
               cn(
                 "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group",
                 isActive 
-                  ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                  ? "bg-primary text-white" 
                   : "text-muted hover:bg-background hover:text-primary"
               )
             }

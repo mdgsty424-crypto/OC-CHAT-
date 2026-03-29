@@ -4,11 +4,11 @@
   --color-primary: #0084FF;
   --color-secondary: #00D2FF;
   --color-accent: #0084FF;
-  --color-background: #F0F2F5;
+  --color-background: #FFFFFF;
   --color-surface: #FFFFFF;
   --color-text: #050505;
   --color-muted: #65676B;
-  --color-border: #E4E6EB;
+  --color-border: #F0F2F5;
 }
 
 :root {

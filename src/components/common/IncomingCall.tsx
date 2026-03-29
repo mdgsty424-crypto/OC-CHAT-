@@ -99,13 +99,13 @@ export default function IncomingCall() {
           exit={{ y: -100, opacity: 0 }}
           className="fixed top-0 left-0 right-0 max-w-md mx-auto px-4 z-[100]"
         >
-          <div className="glass rounded-3xl p-4 flex items-center justify-between shadow-2xl border-white/20">
+          <div className="bg-white rounded-2xl p-4 flex items-center justify-between border border-gray-100">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <img
                   src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${incomingCall.id}`}
                   alt={incomingCall.name}
-                  className="w-12 h-12 rounded-2xl object-cover shadow-lg"
+                  className="w-12 h-12 rounded-2xl object-cover"
                 />
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-secondary text-white rounded-full border-2 border-white flex items-center justify-center">
                   {incomingCall.type === 'video' ? <Video size={10} /> : <Phone size={10} />}
@@ -122,13 +122,13 @@ export default function IncomingCall() {
             <div className="flex items-center gap-2">
               <button 
                 onClick={handleReject}
-                className="p-3 bg-red-500 text-white rounded-2xl shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-90"
+                className="p-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all active:scale-90"
               >
                 <PhoneOff size={20} />
               </button>
               <button 
                 onClick={handleAccept}
-                className="p-3 bg-green-500 text-white rounded-2xl shadow-lg shadow-green-500/20 hover:bg-green-600 transition-all active:scale-90"
+                className="p-3 bg-green-500 text-white rounded-2xl hover:bg-green-600 transition-all active:scale-90"
               >
                 <Phone size={20} />
               </button>

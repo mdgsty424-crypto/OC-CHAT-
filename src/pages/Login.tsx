@@ -34,7 +34,7 @@ export default function Login() {
   return (
     <div className="h-screen w-screen bg-background flex flex-col items-center justify-between p-8 relative overflow-hidden">
       {/* Decorative Background */}
-      <div className="absolute top-0 left-0 right-0 h-1/2 bg-primary rounded-b-[4rem] -z-10 shadow-2xl">
+      <div className="absolute top-0 left-0 right-0 h-1/2 bg-primary rounded-b-[4rem] -z-10">
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent"></div>
       </div>
 
@@ -48,7 +48,7 @@ export default function Login() {
           <img 
             src="https://res.cloudinary.com/dxiolmmdv/image/upload/v1774764015/1000000295-removebg-preview_pviysv.png" 
             alt="OC Chat Logo" 
-            className="w-full h-full object-contain drop-shadow-xl"
+            className="w-full h-full object-contain"
             referrerPolicy="no-referrer"
           />
         </motion.div>
@@ -84,7 +84,7 @@ export default function Login() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.3 + i * 0.1 }}
-              className="bg-white p-4 rounded-3xl shadow-soft flex flex-col items-center gap-2 border border-border/50"
+              className="bg-white p-4 rounded-3xl flex flex-col items-center gap-2 border border-border/50"
             >
               <item.icon className={item.color} size={24} />
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted">{item.label}</span>
@@ -162,7 +162,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/30 flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full py-4 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign In')}
                 {!loading && <ArrowRight size={18} />}
@@ -189,7 +189,7 @@ export default function Login() {
           onClick={signInWithGoogle}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
-          className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/30 flex items-center justify-center gap-3 relative overflow-hidden group"
+          className="w-full py-4 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-3 relative overflow-hidden group"
         >
           <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"></div>
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 bg-white rounded-full p-0.5" alt="Google" />
@@ -199,7 +199,7 @@ export default function Login() {
 
         <button 
           onClick={() => setShowEmailForm(true)}
-          className="w-full py-4 bg-white text-text border border-border rounded-2xl font-bold shadow-sm flex items-center justify-center gap-3 hover:bg-border/20 transition-all"
+          className="w-full py-4 bg-white text-text border border-border rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-border/20 transition-all"
         >
           <Mail size={18} className="text-muted" />
           <span>Login with Email</span>

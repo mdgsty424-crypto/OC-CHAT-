@@ -94,9 +94,9 @@ export default function ChatDetail() {
   const isOtherTyping = chat?.typing && otherUser?.uid && chat.typing[otherUser.uid];
 
   return (
-    <div className="flex flex-col h-screen bg-background max-w-md mx-auto relative">
+    <div className="flex flex-col h-screen bg-white w-full relative">
       {/* Header */}
-      <header className="sticky top-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-b border-border py-3 px-4 flex items-center justify-between z-50">
+      <header className="sticky top-0 left-0 right-0 bg-white border-b border-gray-100 py-3 px-4 flex items-center justify-between z-50">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-border rounded-full transition-colors">
             <ChevronLeft size={24} className="text-text" />
@@ -143,7 +143,7 @@ export default function ChatDetail() {
       {/* Messages Area */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F8F9FA] pb-24"
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-white pb-24 no-scrollbar"
       >
         {messages.map((msg) => (
           <MessageBubble 

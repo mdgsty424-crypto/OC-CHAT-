@@ -15,9 +15,11 @@ import TopBar from './components/layout/TopBar';
 import IncomingCall from './components/common/IncomingCall';
 import SplashScreen from './pages/SplashScreen';
 import Login from './pages/Login';
+import MeetingRoom from './pages/MeetingRoom';
+import VoiceRoom from './pages/VoiceRoom';
 
 function AppRoutes() {
-  const { currentUser, isAuthReady } = useAuth();
+  const { user, loading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
@@ -28,18 +30,18 @@ function AppRoutes() {
     return () => clearTimeout(timer);
   }, []);
 
-  if (showSplash || !isAuthReady) {
+  if (showSplash || loading) {
     return <SplashScreen />;
   }
 
-  if (!currentUser) {
+  if (!user) {
     return <Login />;
   }
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-white/30 backdrop-blur-xl border-l border-border/50">
+      <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-white border-l border-border/50">
         <IncomingCall />
         <Routes>
           <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
@@ -50,6 +52,8 @@ function AppRoutes() {
           <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
           <Route path="/chat/:id" element={<ChatDetail />} />
           <Route path="/call/:id" element={<CallScreen />} />
+          <Route path="/meeting/:id" element={<MeetingRoom />} />
+          <Route path="/voice/:id" element={<VoiceRoom />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
