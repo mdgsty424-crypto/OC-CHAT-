@@ -10,7 +10,7 @@ export default function TopBar({ title }: TopBarProps) {
   const { user } = useAuth();
 
   return (
-    <header className="sticky top-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-b border-border py-4 px-6 flex items-center justify-between z-50">
+    <header className="md:hidden sticky top-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-b border-border py-4 px-6 flex items-center justify-between z-50">
       <div className="flex items-center gap-3">
         <div className="relative">
           <img

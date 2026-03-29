@@ -15,6 +15,7 @@ export default function ChatDetail() {
   const [chat, setChat] = useState<Chat | null>(null);
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,15 +27,17 @@ export default function ChatDetail() {
         const chatData = { id: snapshot.id, ...snapshot.data() } as Chat;
         setChat(chatData);
 
-        const otherId = chatData.participants.find(uid => uid !== currentUser.uid);
-        if (otherId) {
-          // Listen for other user's real-time status
-          const userUnsubscribe = onSnapshot(doc(db, 'users', otherId), (userDoc) => {
-            if (userDoc.exists()) {
-              setOtherUser(userDoc.data() as User);
-            }
-          });
-          return () => userUnsubscribe();
+        if (chatData.type === 'direct') {
+          const otherId = chatData.participants.find(uid => uid !== currentUser.uid);
+          if (otherId) {
+            // Listen for other user's real-time status
+            const userUnsubscribe = onSnapshot(doc(db, 'users', otherId), (userDoc) => {
+              if (userDoc.exists()) {
+                setOtherUser(userDoc.data() as User);
+              }
+            });
+            return () => userUnsubscribe();
+          }
         }
       }
     });
@@ -101,23 +104,24 @@ export default function ChatDetail() {
           <div className="flex items-center gap-3">
             <div className="relative">
               <img
-                src={otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || id}`}
-                alt={otherUser?.displayName}
+                src={chat?.type === 'direct' ? (otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || id}`) : chat?.photo}
+                alt={chat?.type === 'direct' ? otherUser?.displayName : chat?.name}
                 className="w-10 h-10 rounded-2xl object-cover"
+                referrerPolicy="no-referrer"
               />
-              {otherUser?.online && (
+              {chat?.type === 'direct' && otherUser?.online && (
                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
               )}
             </div>
             <div className="flex flex-col">
               <h2 className="text-sm font-bold text-text truncate max-w-[120px]">
-                {otherUser?.displayName || 'Loading...'}
+                {chat?.type === 'direct' ? (otherUser?.displayName || 'Loading...') : chat?.name}
               </h2>
               <span className="text-[10px] font-medium text-muted uppercase tracking-wider">
                 {isOtherTyping ? (
                   <span className="text-primary animate-pulse">Typing...</span>
                 ) : (
-                  otherUser?.online ? 'Online' : 'Offline'
+                  chat?.type === 'direct' ? (otherUser?.online ? 'Online' : 'Offline') : `${chat?.participants.length} members`
                 )}
               </span>
             </div>
@@ -142,7 +146,12 @@ export default function ChatDetail() {
         className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F8F9FA] pb-24"
       >
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} isMe={msg.senderId === currentUser?.uid} />
+          <MessageBubble 
+            key={msg.id} 
+            message={msg} 
+            isMe={msg.senderId === currentUser?.uid} 
+            onReply={setReplyingTo}
+          />
         ))}
         {isOtherTyping && (
           <div className="flex items-center gap-2 text-muted text-[10px] font-medium uppercase tracking-widest pl-2">
@@ -157,7 +166,14 @@ export default function ChatDetail() {
       </div>
 
       {/* Input Area */}
-      <MessageInput chatId={id!} />
+      {chat && (
+        <MessageInput 
+          chatId={id!} 
+          participants={chat.participants} 
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+        />
+      )}
     </div>
   );
 }

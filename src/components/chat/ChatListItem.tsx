@@ -18,6 +18,8 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
 
   useEffect(() => {
     const fetchOtherUser = async () => {
+      if (chat.type === 'group' || chat.type === 'channel') return;
+      
       const otherId = chat.participants.find(id => id !== currentUser?.uid);
       if (otherId) {
         const userDoc = await getDoc(doc(db, 'users', otherId));
@@ -30,43 +32,46 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
   }, [chat, currentUser]);
 
   const unreadCount = currentUser ? chat.unreadCount?.[currentUser.uid] || 0 : 0;
+  const chatName = chat.type === 'group' || chat.type === 'channel' ? chat.name : otherUser?.displayName || 'Loading...';
+  const chatPhoto = chat.type === 'group' || chat.type === 'channel' ? chat.photo : (otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || chat.id}`);
 
   return (
     <Link
       to={`/chat/${chat.id}`}
-      className="flex items-center gap-4 px-6 py-4 hover:bg-white/50 transition-all active:scale-[0.98] group"
+      className="flex items-center gap-4 px-6 py-4 hover:bg-white/20 transition-all active:scale-[0.98] group"
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0">
         <img
-          src={otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || chat.id}`}
-          alt={otherUser?.displayName || 'Chat'}
-          className="w-14 h-14 rounded-2xl object-cover shadow-sm group-hover:shadow-md transition-shadow"
+          src={chatPhoto}
+          alt={chatName}
+          className="w-14 h-14 rounded-2xl object-cover border-2 border-white/30 shadow-sm group-hover:shadow-md transition-all group-hover:scale-105"
+          referrerPolicy="no-referrer"
         />
-        {otherUser?.online && (
-          <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+        {otherUser?.online && chat.type === 'direct' && (
+          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full shadow-sm"></div>
         )}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-1">
-          <h3 className="text-base font-bold text-text truncate">
-            {chat.type === 'group' ? chat.name : otherUser?.displayName || 'Loading...'}
+          <h3 className="text-sm font-black text-text truncate group-hover:text-primary transition-colors">
+            {chatName}
           </h3>
-          <span className="text-[10px] font-medium text-muted uppercase tracking-tighter">
+          <span className="text-[10px] font-bold text-muted uppercase tracking-widest">
             {chat.lastMessageTime ? formatDistanceToNow(new Date(chat.lastMessageTime), { addSuffix: false }) : ''}
           </span>
         </div>
         <div className="flex justify-between items-center">
           <p className={cn(
-            "text-sm truncate",
-            unreadCount > 0 ? "text-text font-semibold" : "text-muted"
+            "text-xs truncate",
+            unreadCount > 0 ? "text-text font-black" : "text-muted"
           )}>
             {chat.lastMessage || 'Start a conversation'}
           </p>
           {unreadCount > 0 && (
-            <div className="bg-primary text-white text-[10px] font-bold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1 shadow-sm shadow-primary/30">
+            <div className="bg-primary text-white text-[10px] font-black min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5 shadow-lg shadow-primary/20">
               {unreadCount}
             </div>
           )}

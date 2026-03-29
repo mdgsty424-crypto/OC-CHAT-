@@ -165,17 +165,43 @@ export default function CallScreen() {
         </motion.div>
       )}
 
+      {/* Audio Waveform (Simulated) */}
+      {type === 'audio' && status === 'connected' && (
+        <div className="flex-1 flex items-center justify-center w-full px-12 z-10">
+          <div className="flex items-center justify-center gap-1 h-32 w-full">
+            {[...Array(30)].map((_, i) => (
+              <motion.div
+                key={i}
+                animate={{ 
+                  height: [
+                    `${20 + Math.random() * 80}%`, 
+                    `${20 + Math.random() * 80}%`, 
+                    `${20 + Math.random() * 80}%`
+                  ] 
+                }}
+                transition={{ 
+                  repeat: Infinity, 
+                  duration: 0.5 + Math.random() * 0.5,
+                  ease: "easeInOut"
+                }}
+                className="w-1.5 bg-primary/40 rounded-full"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Controls */}
-      <div className="pb-16 px-8 w-full z-10">
-        <div className="glass rounded-3xl p-6 flex flex-wrap justify-center gap-6 shadow-2xl border-white/10">
+      <div className="pb-16 px-8 w-full z-10 max-w-2xl">
+        <div className="bg-white/10 backdrop-blur-2xl rounded-[2.5rem] p-6 flex flex-wrap justify-center gap-4 shadow-2xl border border-white/10">
           <button 
             onClick={() => setIsMuted(!isMuted)}
             className={cn(
-              "w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90",
+              "w-16 h-16 rounded-3xl flex items-center justify-center transition-all active:scale-90",
               isMuted ? "bg-red-500 text-white" : "bg-white/10 text-white hover:bg-white/20"
             )}
           >
-            {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
+            {isMuted ? <MicOff size={28} /> : <Mic size={28} />}
           </button>
 
           {type === 'video' && (
@@ -183,23 +209,23 @@ export default function CallScreen() {
               <button 
                 onClick={() => setIsVideoOn(!isVideoOn)}
                 className={cn(
-                  "w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90",
+                  "w-16 h-16 rounded-3xl flex items-center justify-center transition-all active:scale-90",
                   !isVideoOn ? "bg-red-500 text-white" : "bg-white/10 text-white hover:bg-white/20"
                 )}
               >
-                {isVideoOn ? <Video size={24} /> : <VideoOff size={24} />}
+                {isVideoOn ? <Video size={28} /> : <VideoOff size={28} />}
               </button>
-              <button className="w-14 h-14 rounded-2xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all active:scale-90">
-                <SwitchCamera size={24} />
+              <button className="w-16 h-16 rounded-3xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all active:scale-90">
+                <SwitchCamera size={28} />
               </button>
               <button 
                 onClick={() => setIsScreenSharing(!isScreenSharing)}
                 className={cn(
-                  "w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90",
+                  "w-16 h-16 rounded-3xl flex items-center justify-center transition-all active:scale-90",
                   isScreenSharing ? "bg-secondary text-white" : "bg-white/10 text-white hover:bg-white/20"
                 )}
               >
-                <Monitor size={24} />
+                <Monitor size={28} />
               </button>
             </>
           )}
@@ -207,22 +233,22 @@ export default function CallScreen() {
           <button 
             onClick={() => setIsSpeakerOn(!isSpeakerOn)}
             className={cn(
-              "w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90",
+              "w-16 h-16 rounded-3xl flex items-center justify-center transition-all active:scale-90",
               isSpeakerOn ? "bg-white text-text" : "bg-white/10 text-white hover:bg-white/20"
             )}
           >
-            {isSpeakerOn ? <Volume2 size={24} /> : <VolumeX size={24} />}
+            {isSpeakerOn ? <Volume2 size={28} /> : <VolumeX size={28} />}
           </button>
 
-          <button className="w-14 h-14 rounded-2xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all active:scale-90">
-            <MessageSquare size={24} />
+          <button className="w-16 h-16 rounded-3xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all active:scale-90">
+            <MessageSquare size={28} />
           </button>
 
           <button 
             onClick={handleEndCall}
-            className="w-14 h-14 rounded-2xl bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/40 hover:bg-red-600 transition-all active:scale-90"
+            className="w-16 h-16 rounded-3xl bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/40 hover:bg-red-600 transition-all active:scale-90"
           >
-            <PhoneOff size={24} />
+            <PhoneOff size={28} />
           </button>
         </div>
       </div>

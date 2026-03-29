@@ -31,6 +31,8 @@ export default function Dating() {
     fetchProfiles();
   }, [currentUser]);
 
+  const [matchProfile, setMatchProfile] = useState<User | null>(null);
+
   const handleSwipe = async (direction: 'right' | 'left', profile: User) => {
     if (!currentUser) return;
 
@@ -71,7 +73,7 @@ export default function Dating() {
           unreadCount: { [currentUser.uid]: 0, [profile.uid]: 1 }
         });
 
-        alert(`It's a match with ${profile.displayName}!`);
+        setMatchProfile(profile);
       }
     }
 
@@ -82,6 +84,62 @@ export default function Dating() {
 
   return (
     <main className="flex-1 flex flex-col bg-background relative overflow-hidden pb-24">
+      {/* Match Modal */}
+      <AnimatePresence>
+        {matchProfile && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-6 text-center"
+          >
+            <motion.div
+              initial={{ scale: 0.5, y: 50 }}
+              animate={{ scale: 1, y: 0 }}
+              className="space-y-8"
+            >
+              <div className="flex items-center justify-center -space-x-8">
+                <img 
+                  src={currentUser?.photoURL} 
+                  className="w-32 h-32 rounded-full border-4 border-white shadow-2xl object-cover" 
+                  referrerPolicy="no-referrer"
+                />
+                <div className="z-10 bg-primary p-4 rounded-full shadow-2xl">
+                  <Heart size={32} fill="white" className="text-white" />
+                </div>
+                <img 
+                  src={matchProfile.photoURL} 
+                  className="w-32 h-32 rounded-full border-4 border-white shadow-2xl object-cover" 
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">It's a Match!</h2>
+                <p className="text-white/60">You and {matchProfile.displayName} liked each other.</p>
+              </div>
+
+              <div className="flex flex-col gap-4 pt-8">
+                <button 
+                  onClick={() => {
+                    const matchId = [currentUser?.uid, matchProfile.uid].sort().join('_');
+                    window.location.href = `/chat/${matchId}`;
+                  }}
+                  className="w-full py-4 bg-primary text-white rounded-2xl font-bold text-lg shadow-xl shadow-primary/40 active:scale-95 transition-all"
+                >
+                  Send a Message
+                </button>
+                <button 
+                  onClick={() => setMatchProfile(null)}
+                  className="w-full py-4 bg-white/10 text-white rounded-2xl font-bold hover:bg-white/20 transition-all"
+                >
+                  Keep Swiping
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Header Actions */}
       <div className="px-6 py-4 flex justify-between items-center z-10">
         <button className="p-3 bg-white rounded-2xl shadow-soft text-muted hover:text-primary transition-colors">

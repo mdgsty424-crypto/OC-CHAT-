@@ -33,12 +33,14 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "name": { "type": "string", "description": "Name of the group or channel." },
+        "photo": { "type": "string", "description": "Photo URL for the group or channel." },
         "participants": { "type": "array", "items": { "type": "string" }, "description": "UIDs of participants." },
         "lastMessage": { "type": "string" },
         "lastMessageTime": { "type": "string", "format": "date-time" },
         "unreadCount": { "type": "object", "description": "Map of UID to unread message count." },
         "typing": { "type": "object", "description": "Map of UID to boolean typing status." },
-        "type": { "type": "string", "enum": ["direct", "group"] }
+        "type": { "type": "string", "enum": ["direct", "group", "channel"] }
       }
     },
     "Message": {
@@ -73,6 +75,21 @@
         "endTime": { "type": "string", "format": "date-time" }
       }
     },
+    "Group": {
+      "title": "Group",
+      "description": "A community group.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "photo": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastMessageTime": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["group", "channel"] }
+      }
+    },
     "Match": {
       "title": "Match",
       "description": "A dating match between two users.",
@@ -101,6 +118,7 @@
     "/chats/{chatId}/messages/{messageId}": { "schema": "Message", "description": "Messages within a chat." },
     "/matches/{matchId}": { "schema": "Match", "description": "Dating matches." },
     "/swipes/{swipeId}": { "schema": "Swipe", "description": "User swipe history." },
-    "/calls/{callId}": { "schema": "CallSession", "description": "Real-time call sessions." }
+    "/calls/{callId}": { "schema": "CallSession", "description": "Real-time call sessions." },
+    "/groups/{groupId}": { "schema": "Group", "description": "Community groups and channels." }
   }
 }

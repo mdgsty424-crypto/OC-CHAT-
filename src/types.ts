@@ -25,9 +25,9 @@ export interface Chat {
   lastMessageTime?: string;
   unreadCount?: Record<string, number>;
   typing?: Record<string, boolean>;
-  type: 'direct' | 'group';
+  type: 'direct' | 'group' | 'channel';
   name?: string; // For group chats
-  photoURL?: string; // For group chats
+  photo?: string; // For group chats
 }
 
 export interface Message {
@@ -41,6 +41,8 @@ export interface Message {
   fileType?: string;
   timestamp: string;
   status: 'sent' | 'delivered' | 'seen';
+  reactions?: Record<string, string[]>; // emoji -> list of userIds
+  replyTo?: string; // ID of the message being replied to
 }
 
 export interface Match {
@@ -67,4 +69,16 @@ export interface CallSession {
   receiverId: string;
   status: CallStatus;
   startTime?: string;
+  timestamp: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string;
+  photo: string;
+  members: string[];
+  lastMessage: string;
+  lastMessageTime: string;
+  type: 'group' | 'channel';
 }

@@ -1,22 +1,102 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Phone, Video, Search, Clock, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react';
+import { Phone, Video, Search, Clock, ArrowUpRight, ArrowDownLeft, X, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../lib/utils';
+import { collection, query, where, onSnapshot, orderBy, getDoc, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { CallSession, User } from '../types';
+
+interface CallWithUser extends CallSession {
+  otherUser?: User;
+}
 
 export default function Calls() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'missed'>('all');
+  const [calls, setCalls] = useState<CallWithUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Mock call history
-  const mockCalls = [
-    { id: '1', name: 'Alex Johnson', type: 'video', status: 'incoming', time: new Date(Date.now() - 1000 * 60 * 30).toISOString(), photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex' },
-    { id: '2', name: 'Sarah Miller', type: 'audio', status: 'outgoing', time: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah' },
-    { id: '3', name: 'Mike Ross', type: 'video', status: 'missed', time: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike' },
-    { id: '4', name: 'Emma Watson', type: 'audio', status: 'incoming', time: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma' },
-  ];
+  useEffect(() => {
+    if (!user) return;
 
-  const filteredCalls = activeTab === 'all' ? mockCalls : mockCalls.filter(c => c.status === 'missed');
+    // Query calls where user is caller
+    const q1 = query(
+      collection(db, 'calls'),
+      where('callerId', '==', user.uid),
+      orderBy('timestamp', 'desc')
+    );
+
+    // Query calls where user is receiver
+    const q2 = query(
+      collection(db, 'calls'),
+      where('receiverId', '==', user.uid),
+      orderBy('timestamp', 'desc')
+    );
+
+    const fetchOtherUsers = async (callList: CallSession[]) => {
+      const callsWithUsers = await Promise.all(
+        callList.map(async (call) => {
+          const otherId = call.callerId === user.uid ? call.receiverId : call.callerId;
+          const userDoc = await getDoc(doc(db, 'users', otherId));
+          return { ...call, otherUser: userDoc.data() as User };
+        })
+      );
+      return callsWithUsers;
+    };
+
+    const unsub1 = onSnapshot(q1, async (snapshot) => {
+      const callerCalls = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CallSession));
+      setCalls(prev => {
+        const otherCalls = prev.filter(c => c.receiverId === user.uid);
+        const combined = [...callerCalls, ...otherCalls].sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        return combined as CallWithUser[];
+      });
+      
+      const enriched = await fetchOtherUsers(callerCalls);
+      setCalls(prev => {
+        const updated = prev.map(p => {
+          const found = enriched.find(e => e.id === p.id);
+          return found || p;
+        });
+        return updated;
+      });
+      setLoading(false);
+    });
+
+    const unsub2 = onSnapshot(q2, async (snapshot) => {
+      const receiverCalls = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CallSession));
+      setCalls(prev => {
+        const otherCalls = prev.filter(c => c.callerId === user.uid);
+        const combined = [...receiverCalls, ...otherCalls].sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        return combined as CallWithUser[];
+      });
+
+      const enriched = await fetchOtherUsers(receiverCalls);
+      setCalls(prev => {
+        const updated = prev.map(p => {
+          const found = enriched.find(e => e.id === p.id);
+          return found || p;
+        });
+        return updated;
+      });
+      setLoading(false);
+    });
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [user]);
+
+  const filteredCalls = calls
+    .filter(c => activeTab === 'all' || c.status === 'ended') // In a real app 'missed' would be a status
+    .filter(c => c.otherUser?.displayName.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <main className="flex-1 overflow-y-auto pb-24 bg-background">
@@ -27,6 +107,8 @@ export default function Calls() {
           <input
             type="text"
             placeholder="Search calls..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white border border-border rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
           />
         </div>
@@ -55,47 +137,59 @@ export default function Calls() {
 
       {/* Call List */}
       <div className="mt-2">
-        {filteredCalls.map((call) => (
-          <div key={call.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/50 transition-all group">
-            <div className="relative flex-shrink-0">
-              <img
-                src={call.photo}
-                alt={call.name}
-                className="w-14 h-14 rounded-2xl object-cover shadow-sm"
-              />
-              <div className={cn(
-                "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center",
-                call.type === 'video' ? "bg-secondary text-white" : "bg-primary text-white"
-              )}>
-                {call.type === 'video' ? <Video size={12} /> : <Phone size={12} />}
-              </div>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <h3 className={cn(
-                "text-base font-bold truncate",
-                call.status === 'missed' ? "text-red-500" : "text-text"
-              )}>
-                {call.name}
-              </h3>
-              <div className="flex items-center gap-1 text-xs text-muted">
-                {call.status === 'incoming' && <ArrowDownLeft size={14} className="text-green-500" />}
-                {call.status === 'outgoing' && <ArrowUpRight size={14} className="text-primary" />}
-                {call.status === 'missed' && <X size={14} className="text-red-500" />}
-                <span>{formatDistanceToNow(new Date(call.time), { addSuffix: true })}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button className="p-3 bg-primary/10 text-primary rounded-2xl hover:bg-primary hover:text-white transition-all active:scale-90">
-                <Phone size={20} />
-              </button>
-              <button className="p-3 bg-secondary/10 text-secondary rounded-2xl hover:bg-secondary hover:text-white transition-all active:scale-90">
-                <Video size={20} />
-              </button>
-            </div>
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="animate-spin text-primary" size={32} />
           </div>
-        ))}
+        ) : filteredCalls.length > 0 ? (
+          filteredCalls.map((call) => (
+            <div key={call.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/50 transition-all group">
+              <div className="relative flex-shrink-0">
+                <img
+                  src={call.otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${call.otherUser?.uid}`}
+                  alt={call.otherUser?.displayName}
+                  className="w-14 h-14 rounded-2xl object-cover shadow-sm"
+                />
+                <div className={cn(
+                  "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center",
+                  call.type === 'video' ? "bg-secondary text-white" : "bg-primary text-white"
+                )}>
+                  {call.type === 'video' ? <Video size={12} /> : <Phone size={12} />}
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <h3 className={cn(
+                  "text-base font-bold truncate",
+                  call.status === 'ended' && call.receiverId === user?.uid && !call.startTime ? "text-red-500" : "text-text"
+                )}>
+                  {call.otherUser?.displayName || 'Unknown User'}
+                </h3>
+                <div className="flex items-center gap-1 text-xs text-muted">
+                  {call.receiverId === user?.uid ? (
+                    <ArrowDownLeft size={14} className={call.startTime ? "text-green-500" : "text-red-500"} />
+                  ) : (
+                    <ArrowUpRight size={14} className="text-primary" />
+                  )}
+                  <span>{formatDistanceToNow(new Date(call.timestamp), { addSuffix: true })}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button className="p-3 bg-primary/10 text-primary rounded-2xl hover:bg-primary hover:text-white transition-all active:scale-90">
+                  <Phone size={20} />
+                </button>
+                <button className="p-3 bg-secondary/10 text-secondary rounded-2xl hover:bg-secondary hover:text-white transition-all active:scale-90">
+                  <Video size={20} />
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-20 px-10 opacity-60">
+            <p className="text-sm">No call history found.</p>
+          </div>
+        )}
       </div>
     </main>
   );

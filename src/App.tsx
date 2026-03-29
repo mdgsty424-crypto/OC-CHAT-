@@ -8,6 +8,7 @@ import Calls from './pages/Calls';
 import Profile from './pages/Profile';
 import ChatDetail from './pages/ChatDetail';
 import CallScreen from './pages/CallScreen';
+import Sidebar from './components/layout/Sidebar';
 import BottomNav from './components/layout/BottomNav';
 import TopBar from './components/layout/TopBar';
 import IncomingCall from './components/common/IncomingCall';
@@ -35,18 +36,21 @@ function AppRoutes() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background max-w-md mx-auto shadow-2xl relative overflow-hidden">
-      <IncomingCall />
-      <Routes>
-        <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
-        <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />
-        <Route path="/dating" element={<><TopBar title="Dating" /><Dating /><BottomNav /></>} />
-        <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
-        <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
-        <Route path="/chat/:id" element={<ChatDetail />} />
-        <Route path="/call/:id" element={<CallScreen />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+    <div className="flex h-screen bg-background overflow-hidden">
+      <Sidebar />
+      <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-white/30 backdrop-blur-xl border-l border-border/50">
+        <IncomingCall />
+        <Routes>
+          <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
+          <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />
+          <Route path="/dating" element={<><TopBar title="Dating" /><Dating /><BottomNav /></>} />
+          <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
+          <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
+          <Route path="/chat/:id" element={<ChatDetail />} />
+          <Route path="/call/:id" element={<CallScreen />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </div>
     </div>
   );
 }
