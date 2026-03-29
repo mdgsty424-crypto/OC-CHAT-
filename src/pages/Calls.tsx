@@ -24,15 +24,13 @@ export default function Calls() {
     // Query calls where user is caller
     const q1 = query(
       collection(db, 'calls'),
-      where('callerId', '==', user.uid),
-      orderBy('timestamp', 'desc')
+      where('callerId', '==', user.uid)
     );
 
     // Query calls where user is receiver
     const q2 = query(
       collection(db, 'calls'),
-      where('receiverId', '==', user.uid),
-      orderBy('timestamp', 'desc')
+      where('receiverId', '==', user.uid)
     );
 
     const fetchOtherUsers = async (callList: CallSession[]) => {
@@ -96,7 +94,10 @@ export default function Calls() {
 
   const filteredCalls = calls
     .filter(c => activeTab === 'all' || c.status === 'ended') // In a real app 'missed' would be a status
-    .filter(c => c.otherUser?.displayName.toLowerCase().includes(searchQuery.toLowerCase()));
+    .filter(c => {
+      const name = c.otherUser?.displayName || '';
+      return name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
   return (
     <main className="flex-1 overflow-y-auto pb-24 bg-background">

@@ -1,3 +1,4 @@
+import "./src/lib/sanitize-env.ts";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -5,11 +6,8 @@ import { fileURLToPath } from "url";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
-import dotenv from "dotenv";
 
 import crypto from "crypto";
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

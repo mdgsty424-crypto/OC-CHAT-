@@ -5,7 +5,8 @@ import { useAuth } from '../hooks/useAuth';
 import { Chat, User } from '../types';
 import StorySection from '../components/chat/StorySection';
 import ChatListItem from '../components/chat/ChatListItem';
-import { Search } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export default function Home() {
   const { user } = useAuth();
@@ -17,12 +18,17 @@ export default function Home() {
 
     const q = query(
       collection(db, 'chats'),
-      where('participants', 'array-contains', user.uid),
-      orderBy('lastMessageTime', 'desc')
+      where('participants', 'array-contains', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
+      // Sort client-side to avoid composite index requirement
+      chatList.sort((a, b) => {
+        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+        return timeB - timeA;
+      });
       setChats(chatList);
     });
 
@@ -86,6 +92,14 @@ export default function Home() {
           </div>
         </div>
       </div>
+      {/* Floating Action Button */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        className="fixed bottom-24 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center z-50 ripple"
+      >
+        <Plus size={28} />
+      </motion.button>
     </main>
   );
 }

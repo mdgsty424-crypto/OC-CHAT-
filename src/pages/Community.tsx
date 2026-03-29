@@ -6,6 +6,7 @@ import { collection, query, where, onSnapshot, addDoc, orderBy, updateDoc, doc, 
 import { db } from '../lib/firebase';
 import { Group } from '../types';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 
 export default function Community() {
   const { user } = useAuth();
@@ -21,12 +22,17 @@ export default function Community() {
   useEffect(() => {
     const q = query(
       collection(db, 'groups'),
-      where('type', '==', activeTab),
-      orderBy('lastMessageTime', 'desc')
+      where('type', '==', activeTab)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
+      // Sort client-side to avoid composite index requirement
+      list.sort((a, b) => {
+        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+        return timeB - timeA;
+      });
       setItems(list);
       setLoading(false);
     });
@@ -96,14 +102,15 @@ export default function Community() {
     }
   };
 
-  const filteredItems = items.filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredItems = items.filter(item => {
+    const name = item.name || '';
+    return name.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   return (
-    <main className="flex-1 overflow-y-auto pb-24 bg-background">
+    <main className="flex-1 overflow-y-auto pb-24 bg-background no-scrollbar">
       {/* Search & Tabs */}
-      <div className="px-6 py-4 space-y-4">
+      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-border/50 px-6 py-4 space-y-4">
         <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
           <input
@@ -111,16 +118,16 @@ export default function Community() {
             placeholder={`Search ${activeTab}s...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-border rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+            className="w-full bg-background border border-border/50 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
           />
         </div>
 
-        <div className="flex bg-border/50 p-1 rounded-2xl">
+        <div className="flex bg-border/30 p-1 rounded-2xl">
           <button
             onClick={() => setActiveTab('group')}
             className={cn(
-              "flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2",
-              activeTab === 'group' ? "bg-white text-primary shadow-sm" : "text-muted hover:text-text"
+              "flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest",
+              activeTab === 'group' ? "bg-white text-primary shadow-md" : "text-muted hover:text-text"
             )}
           >
             <Users size={16} />
@@ -129,8 +136,8 @@ export default function Community() {
           <button
             onClick={() => setActiveTab('channel')}
             className={cn(
-              "flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2",
-              activeTab === 'channel' ? "bg-white text-primary shadow-sm" : "text-muted hover:text-text"
+              "flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest",
+              activeTab === 'channel' ? "bg-white text-primary shadow-md" : "text-muted hover:text-text"
             )}
           >
             <Radio size={16} />
@@ -140,57 +147,70 @@ export default function Community() {
       </div>
 
       {/* List */}
-      <div className="mt-2">
+      <div className="mt-2 px-2">
         {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="animate-spin text-primary" size={32} />
           </div>
         ) : filteredItems.length > 0 ? (
-          filteredItems.map((item) => {
-            const isMember = user ? item.members.includes(user.uid) : false;
-            return (
-              <div 
-                key={item.id} 
-                onClick={() => handleJoin(item)}
-                className="flex items-center gap-4 px-6 py-4 hover:bg-white/50 transition-all group cursor-pointer"
-              >
-                <div className="relative flex-shrink-0">
-                  <img
-                    src={item.photo}
-                    alt={item.name}
-                    className="w-16 h-16 rounded-3xl object-cover shadow-sm group-hover:shadow-md transition-all"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary text-white rounded-full border-2 border-white flex items-center justify-center">
-                    {item.type === 'group' ? <Hash size={12} /> : <Radio size={12} />}
+          <div className="grid grid-cols-1 gap-2">
+            {filteredItems.map((item) => {
+              const isMember = user ? item.members.includes(user.uid) : false;
+              return (
+                <motion.div 
+                  key={item.id} 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={() => handleJoin(item)}
+                  className="flex items-center gap-4 px-4 py-4 hover:bg-white/60 rounded-3xl transition-all group cursor-pointer border border-transparent hover:border-border/50"
+                >
+                  <div className="relative flex-shrink-0">
+                    <div className="p-[2px] bg-white rounded-full shadow-md group-hover:scale-105 transition-transform">
+                      <img
+                        src={item.photo}
+                        alt={item.name}
+                        className="w-16 h-16 rounded-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary text-white rounded-full border-2 border-white flex items-center justify-center shadow-lg">
+                      {item.type === 'group' ? <Hash size={12} /> : <Radio size={12} />}
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-1">
-                    <h3 className="text-base font-bold text-text truncate">{item.name}</h3>
-                    <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      {item.members.length} members
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="text-base font-black text-text truncate group-hover:text-primary transition-colors">{item.name}</h3>
+                      <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                        {item.members.length}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted truncate font-medium">{item.lastMessage}</p>
                   </div>
-                  <p className="text-sm text-muted truncate">{item.lastMessage}</p>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  {joiningId === item.id ? (
-                    <Loader2 className="animate-spin text-primary" size={20} />
-                  ) : isMember ? (
-                    <Check size={20} className="text-green-500" />
-                  ) : (
-                    <ChevronRight size={20} className="text-border group-hover:text-primary transition-colors" />
-                  )}
-                </div>
-              </div>
-            );
-          })
+                  <div className="flex items-center gap-2">
+                    {joiningId === item.id ? (
+                      <Loader2 className="animate-spin text-primary" size={20} />
+                    ) : isMember ? (
+                      <div className="w-8 h-8 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center">
+                        <Check size={18} />
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+                        <ChevronRight size={18} />
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
         ) : (
           <div className="text-center py-20 px-10">
-            <p className="text-muted text-sm">No {activeTab}s found. Be the first to create one!</p>
+            <div className="w-20 h-20 bg-muted/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search size={32} className="text-muted" />
+            </div>
+            <p className="text-muted text-sm font-bold">No {activeTab}s found. Be the first to create one!</p>
           </div>
         )}
 

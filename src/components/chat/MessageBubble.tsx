@@ -72,7 +72,7 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
         style={{ x }}
         onDragEnd={handleDragEnd}
         className={cn(
-          "px-4 py-3 rounded-2xl shadow-sm relative",
+          "px-4 py-3 rounded-3xl shadow-sm relative",
           isMe 
             ? "bg-primary text-white rounded-tr-none" 
             : "bg-white text-text rounded-tl-none border border-border"

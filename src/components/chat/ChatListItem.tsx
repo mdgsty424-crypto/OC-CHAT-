@@ -42,14 +42,16 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0">
-        <img
-          src={chatPhoto}
-          alt={chatName}
-          className="w-14 h-14 rounded-2xl object-cover border-2 border-white/30 shadow-sm group-hover:shadow-md transition-all group-hover:scale-105"
-          referrerPolicy="no-referrer"
-        />
-        {otherUser?.online && chat.type === 'direct' && (
-          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full shadow-sm"></div>
+        <div className="p-[2px] bg-white rounded-full shadow-sm group-hover:shadow-md transition-all group-hover:scale-105">
+          <img
+            src={chatPhoto}
+            alt={chatName}
+            className="w-14 h-14 rounded-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+        {(otherUser?.online || chat.type !== 'direct') && (
+          <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full shadow-sm"></div>
         )}
       </div>
 

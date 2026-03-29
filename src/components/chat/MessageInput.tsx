@@ -265,14 +265,14 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-white/90 backdrop-blur-lg border-t border-border z-50">
+    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-3 bg-white/90 backdrop-blur-xl border-t border-border/50 z-50">
       <AnimatePresence>
         {replyingTo && (
           <motion.div 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="flex items-center justify-between bg-background p-3 rounded-t-2xl border-x border-t border-border mb-[-1px]"
+            className="flex items-center justify-between bg-background/50 p-3 rounded-t-3xl border-x border-t border-border/50 mb-[-1px]"
           >
             <div className="flex items-center gap-3 border-l-4 border-primary pl-3">
               <div className="flex flex-col">
@@ -280,14 +280,14 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
                 <p className="text-xs text-muted truncate max-w-[200px]">{replyingTo.text || 'Media'}</p>
               </div>
             </div>
-            <button onClick={onCancelReply} className="p-1 hover:bg-border rounded-full">
+            <button onClick={onCancelReply} className="p-1.5 hover:bg-border/50 rounded-full transition-colors">
               <X size={16} className="text-muted" />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-end gap-2">
         <input 
           type="file" 
           ref={fileInputRef} 
@@ -296,24 +296,28 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
           accept="image/*,video/*,application/pdf"
         />
         
-        {!isRecording && !audioBlob && (
-          <div className="flex items-center gap-2">
-            <button className="p-2 text-muted hover:text-primary transition-colors">
-              <Smile size={22} />
-            </button>
+        {!isRecording && !audioBlob && text.length === 0 && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-1 mb-1"
+          >
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="p-2 text-muted hover:text-primary transition-colors"
+              className="p-2 text-primary hover:bg-primary/10 rounded-full transition-all active:scale-90"
             >
+              <Camera size={22} />
+            </button>
+            <button className="p-2 text-primary hover:bg-primary/10 rounded-full transition-all active:scale-90">
               <Paperclip size={22} />
             </button>
-          </div>
+          </motion.div>
         )}
 
-        <div className="flex-1 relative">
+        <div className="flex-1 relative mb-1">
           {isRecording ? (
-            <div className="flex items-center gap-2 bg-background border border-border rounded-2xl py-3 px-4">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            <div className="flex items-center gap-3 bg-background border border-border/50 rounded-3xl py-2.5 px-4">
+              <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></div>
               <div className="flex-1 flex items-end gap-[2px] h-6">
                 {waveforms.map((h, i) => (
                   <div 
@@ -323,54 +327,73 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
                   ></div>
                 ))}
               </div>
-              <span className="text-xs font-mono text-muted">Recording...</span>
+              <span className="text-[11px] font-bold text-muted uppercase tracking-wider">Recording</span>
             </div>
           ) : audioBlob ? (
-            <div className="flex items-center gap-3 bg-background border border-border rounded-2xl py-2 px-4">
-              <button className="p-2 bg-primary text-white rounded-full">
+            <div className="flex items-center gap-3 bg-background border border-border/50 rounded-3xl py-2 px-4">
+              <button className="p-2 bg-primary text-white rounded-full shadow-lg shadow-primary/20">
                 <Play size={16} fill="white" />
               </button>
-              <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
                 <div className="w-1/2 h-full bg-primary"></div>
               </div>
-              <button onClick={() => setAudioBlob(null)} className="p-1 text-muted">
+              <button onClick={() => setAudioBlob(null)} className="p-1.5 text-muted hover:bg-border/50 rounded-full">
                 <X size={16} />
               </button>
             </div>
           ) : (
-            <input
-              type="text"
-              value={text}
-              onChange={handleInputChange}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={text.startsWith('@ai') ? "Ask AI anything..." : "Type a message..."}
-              className="w-full bg-background border border-border rounded-2xl py-3 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-            />
+            <div className="relative flex items-center">
+              <button className="absolute left-2 p-1.5 text-muted hover:text-primary transition-colors">
+                <Smile size={20} />
+              </button>
+              <textarea
+                rows={1}
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                  handleInputChange(e as any);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder={text.startsWith('@ai') ? "Ask AI anything..." : "Type a message..."}
+                className="w-full bg-background border border-border/50 rounded-3xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none max-h-32 text-sm leading-relaxed"
+              />
+            </div>
           )}
         </div>
 
-        {text.trim() || audioBlob ? (
-          <button
-            onClick={audioBlob ? handleSendVoice : handleSend}
-            disabled={isUploading}
-            className="p-3 bg-primary text-white rounded-full shadow-lg shadow-primary/30 hover:opacity-90 transition-all active:scale-90 disabled:opacity-50"
-          >
-            {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
-          </button>
-        ) : (
-          <button
-            onMouseDown={startRecording}
-            onMouseUp={stopRecording}
-            onTouchStart={startRecording}
-            onTouchEnd={stopRecording}
-            className={cn(
-              "p-3 rounded-full shadow-lg transition-all active:scale-90",
-              isRecording ? "bg-red-500 text-white scale-125" : "bg-primary text-white shadow-primary/30"
-            )}
-          >
-            <Mic size={20} />
-          </button>
-        )}
+        <div className="mb-1">
+          {text.trim() || audioBlob ? (
+            <motion.button
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              onClick={audioBlob ? handleSendVoice : handleSend}
+              disabled={isUploading}
+              className="p-3 bg-primary text-white rounded-full shadow-lg shadow-primary/30 hover:opacity-90 transition-all active:scale-90 disabled:opacity-50 flex items-center justify-center ripple"
+            >
+              {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+            </motion.button>
+          ) : (
+            <button
+              onMouseDown={startRecording}
+              onMouseUp={stopRecording}
+              onTouchStart={startRecording}
+              onTouchEnd={stopRecording}
+              className={cn(
+                "p-3 rounded-full shadow-lg transition-all active:scale-90 flex items-center justify-center",
+                isRecording ? "bg-red-500 text-white scale-125" : "bg-primary text-white shadow-primary/30 ripple"
+              )}
+            >
+              <Mic size={20} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

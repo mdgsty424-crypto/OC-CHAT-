@@ -17,6 +17,19 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-72 h-full bg-white border-r border-border p-6 shadow-sm z-50">
+      {/* Logo Section */}
+      <div className="flex items-center gap-3 mb-10 px-2">
+        <div className="w-10 h-10 flex items-center justify-center">
+          <img 
+            src="https://res.cloudinary.com/dxiolmmdv/image/upload/v1774764015/1000000295-removebg-preview_pviysv.png" 
+            alt="OC Chat Logo" 
+            className="w-full h-full object-contain"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+        <h1 className="text-xl font-black text-text tracking-tighter">OC Chat</h1>
+      </div>
+
       {/* Profile Section */}
       <div className="flex items-center gap-4 mb-10 p-2 rounded-3xl bg-background/50 border border-border/50">
         <div className="relative">

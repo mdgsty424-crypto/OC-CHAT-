@@ -27,18 +27,21 @@ export default function StorySection({ stories }: StorySectionProps) {
 
       {/* Other Stories */}
       {stories.map((story) => (
-        <div key={story.id} className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer">
-          <div className="relative p-1 rounded-3xl border-2 border-primary shadow-sm shadow-primary/20">
-            <img
-              src={story.photo}
-              alt={story.name}
-              className="w-14 h-14 rounded-2xl object-cover"
-            />
+        <div key={story.id} className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
+          <div className="relative p-[3px] rounded-full bg-gradient-to-tr from-primary to-secondary shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-300">
+            <div className="p-[2px] bg-white rounded-full">
+              <img
+                src={story.photo}
+                alt={story.name}
+                className="w-14 h-14 rounded-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
             {story.active && (
-              <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+              <div className="absolute bottom-0 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
             )}
           </div>
-          <span className="text-xs font-medium text-muted truncate w-16 text-center">{story.name}</span>
+          <span className="text-[11px] font-bold text-muted truncate w-16 text-center group-hover:text-text transition-colors">{story.name}</span>
         </div>
       ))}
     </section>

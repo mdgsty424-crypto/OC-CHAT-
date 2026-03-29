@@ -1,36 +1,45 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #6A0DAD;
-  --color-secondary: #00BFFF;
-  --color-accent: #6A0DAD;
-  --color-background: #F8F9FA;
+  --color-primary: #0084FF;
+  --color-secondary: #00D2FF;
+  --color-accent: #0084FF;
+  --color-background: #F0F2F5;
   --color-surface: #FFFFFF;
-  --color-text: #1A1A1A;
-  --color-muted: #6C757D;
-  --color-border: #E9ECEF;
+  --color-text: #050505;
+  --color-muted: #65676B;
+  --color-border: #E4E6EB;
 }
 
 :root {
-  --primary: #6A0DAD;
-  --secondary: #00BFFF;
+  --primary: #0084FF;
+  --secondary: #00D2FF;
 }
 
 body {
   background-color: var(--color-background);
   color: var(--color-text);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-dark {
+  background: rgba(24, 25, 26, 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .shadow-soft {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
 
 .rounded-xl {
@@ -45,6 +54,10 @@ body {
   border-radius: 2rem;
 }
 
+.rounded-4xl {
+  border-radius: 2.5rem;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -53,9 +66,47 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #E9ECEF;
+  background: #BCC0C4;
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #DEE2E6;
+  background: #8D949E;
+}
+
+/* Animations */
+@keyframes pulse-logo {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+.animate-pulse-logo {
+  animation: pulse-logo 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple::after {
+  content: "";
+  display: block;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+  background-repeat: no-repeat;
+  background-position: 50%;
+  transform: scale(10, 10);
+  opacity: 0;
+  transition: transform .5s, opacity 1s;
+}
+
+.ripple:active::after {
+  transform: scale(0, 0);
+  opacity: .3;
+  transition: 0s;
 }

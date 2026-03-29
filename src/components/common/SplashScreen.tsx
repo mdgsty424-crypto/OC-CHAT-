@@ -32,9 +32,14 @@ export default function SplashScreen() {
           damping: 20,
           delay: 0.2
         }}
-        className="w-32 h-32 bg-white rounded-[2.5rem] flex items-center justify-center shadow-2xl mb-8 relative z-10"
+        className="w-48 h-48 flex items-center justify-center mb-8 relative z-10"
       >
-        <span className="text-primary text-5xl font-black tracking-tighter">OC</span>
+        <img 
+          src="https://res.cloudinary.com/dxiolmmdv/image/upload/v1774764015/1000000295-removebg-preview_pviysv.png" 
+          alt="OC Chat Logo" 
+          className="w-full h-full object-contain drop-shadow-2xl animate-pulse-logo"
+          referrerPolicy="no-referrer"
+        />
       </motion.div>
 
       {/* Text Elements */}

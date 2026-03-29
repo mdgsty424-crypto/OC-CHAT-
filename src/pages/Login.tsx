@@ -43,9 +43,14 @@ export default function Login() {
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl mb-6"
+          className="w-24 h-24 flex items-center justify-center mb-6"
         >
-          <span className="text-primary text-3xl font-black">OC</span>
+          <img 
+            src="https://res.cloudinary.com/dxiolmmdv/image/upload/v1774764015/1000000295-removebg-preview_pviysv.png" 
+            alt="OC Chat Logo" 
+            className="w-full h-full object-contain drop-shadow-xl"
+            referrerPolicy="no-referrer"
+          />
         </motion.div>
         <motion.h1 
           initial={{ y: 20, opacity: 0 }}

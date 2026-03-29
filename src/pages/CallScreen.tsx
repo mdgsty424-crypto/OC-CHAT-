@@ -114,35 +114,40 @@ export default function CallScreen() {
       )}
 
       {/* Header Info */}
-      <div className="pt-20 flex flex-col items-center gap-4 z-10">
+      <div className="pt-24 flex flex-col items-center gap-6 z-10">
         <AnimatePresence mode="wait">
           {status !== 'connected' && (
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="w-32 h-32 rounded-3xl border-4 border-primary/30 p-1 mb-4"
+              className="relative"
             >
-              <img 
-                src={otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`} 
-                className="w-full h-full rounded-2xl object-cover shadow-2xl"
-                alt="User"
-              />
+              <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
+              <div className="w-36 h-36 rounded-full border-4 border-white/20 p-1 relative z-10 shadow-2xl">
+                <img 
+                  src={otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`} 
+                  className="w-full h-full rounded-full object-cover"
+                  alt="User"
+                />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <h2 className="text-3xl font-black text-white tracking-tight">
-          {otherUser?.displayName || 'Loading...'}
-        </h2>
-        <div className="flex items-center gap-2">
-          <div className={cn(
-            "w-2 h-2 rounded-full animate-pulse",
-            status === 'connected' ? "bg-green-500" : status === 'ended' ? "bg-red-500" : "bg-primary"
-          )}></div>
-          <span className="text-white/70 text-sm font-bold uppercase tracking-widest">
-            {status === 'connected' ? formatTime(duration) : status === 'ended' ? 'Call Ended' : status.charAt(0).toUpperCase() + status.slice(1) + '...'}
-          </span>
+        <div className="text-center">
+          <h2 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">
+            {otherUser?.displayName || 'Loading...'}
+          </h2>
+          <div className="flex items-center justify-center gap-2">
+            <div className={cn(
+              "w-2.5 h-2.5 rounded-full",
+              status === 'connected' ? "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]" : status === 'ended' ? "bg-red-500" : "bg-primary animate-pulse shadow-[0_0_10px_rgba(0,132,255,0.6)]"
+            )}></div>
+            <span className="text-white/80 text-xs font-black uppercase tracking-[0.2em] drop-shadow-md">
+              {status === 'connected' ? formatTime(duration) : status === 'ended' ? 'Call Ended' : status.charAt(0).toUpperCase() + status.slice(1)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -192,13 +197,13 @@ export default function CallScreen() {
       )}
 
       {/* Controls */}
-      <div className="pb-16 px-8 w-full z-10 max-w-2xl">
-        <div className="bg-white/10 backdrop-blur-2xl rounded-[2.5rem] p-6 flex flex-wrap justify-center gap-4 shadow-2xl border border-white/10">
+      <div className="pb-16 px-6 w-full z-10 max-w-2xl">
+        <div className="bg-white/10 backdrop-blur-3xl rounded-[3rem] p-6 flex flex-wrap justify-center gap-5 shadow-2xl border border-white/20">
           <button 
             onClick={() => setIsMuted(!isMuted)}
             className={cn(
-              "w-16 h-16 rounded-3xl flex items-center justify-center transition-all active:scale-90",
-              isMuted ? "bg-red-500 text-white" : "bg-white/10 text-white hover:bg-white/20"
+              "w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg",
+              isMuted ? "bg-white text-text" : "bg-white/10 text-white hover:bg-white/20"
             )}
           >
             {isMuted ? <MicOff size={28} /> : <Mic size={28} />}
@@ -209,23 +214,14 @@ export default function CallScreen() {
               <button 
                 onClick={() => setIsVideoOn(!isVideoOn)}
                 className={cn(
-                  "w-16 h-16 rounded-3xl flex items-center justify-center transition-all active:scale-90",
-                  !isVideoOn ? "bg-red-500 text-white" : "bg-white/10 text-white hover:bg-white/20"
+                  "w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg",
+                  !isVideoOn ? "bg-white text-text" : "bg-white/10 text-white hover:bg-white/20"
                 )}
               >
                 {isVideoOn ? <Video size={28} /> : <VideoOff size={28} />}
               </button>
-              <button className="w-16 h-16 rounded-3xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all active:scale-90">
+              <button className="w-16 h-16 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all active:scale-90 shadow-lg">
                 <SwitchCamera size={28} />
-              </button>
-              <button 
-                onClick={() => setIsScreenSharing(!isScreenSharing)}
-                className={cn(
-                  "w-16 h-16 rounded-3xl flex items-center justify-center transition-all active:scale-90",
-                  isScreenSharing ? "bg-secondary text-white" : "bg-white/10 text-white hover:bg-white/20"
-                )}
-              >
-                <Monitor size={28} />
               </button>
             </>
           )}
@@ -233,22 +229,18 @@ export default function CallScreen() {
           <button 
             onClick={() => setIsSpeakerOn(!isSpeakerOn)}
             className={cn(
-              "w-16 h-16 rounded-3xl flex items-center justify-center transition-all active:scale-90",
+              "w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg",
               isSpeakerOn ? "bg-white text-text" : "bg-white/10 text-white hover:bg-white/20"
             )}
           >
             {isSpeakerOn ? <Volume2 size={28} /> : <VolumeX size={28} />}
           </button>
 
-          <button className="w-16 h-16 rounded-3xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all active:scale-90">
-            <MessageSquare size={28} />
-          </button>
-
           <button 
             onClick={handleEndCall}
-            className="w-16 h-16 rounded-3xl bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/40 hover:bg-red-600 transition-all active:scale-90"
+            className="w-20 h-20 rounded-full bg-red-500 text-white flex items-center justify-center shadow-xl shadow-red-500/40 hover:bg-red-600 transition-all active:scale-90"
           >
-            <PhoneOff size={28} />
+            <PhoneOff size={32} />
           </button>
         </div>
       </div>

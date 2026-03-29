@@ -12,15 +12,15 @@ export default function TopBar({ title }: TopBarProps) {
   return (
     <header className="md:hidden sticky top-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-b border-border py-4 px-6 flex items-center justify-between z-50">
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <img
-            src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`}
-            alt="Profile"
-            className="w-10 h-10 rounded-full border-2 border-primary/20 object-cover"
+        <div className="w-8 h-8 flex items-center justify-center">
+          <img 
+            src="https://res.cloudinary.com/dxiolmmdv/image/upload/v1774764015/1000000295-removebg-preview_pviysv.png" 
+            alt="OC Chat Logo" 
+            className="w-full h-full object-contain"
+            referrerPolicy="no-referrer"
           />
-          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
         </div>
-        <h1 className="text-2xl font-bold text-text tracking-tight">{title}</h1>
+        <h1 className="text-xl font-black text-text tracking-tighter">{title}</h1>
       </div>
       <div className="flex items-center gap-4">
         <button className="p-2 bg-background rounded-full hover:bg-border transition-colors">
