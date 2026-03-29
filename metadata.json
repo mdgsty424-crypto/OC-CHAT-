@@ -1,0 +1,9 @@
+{
+  "name": "OC Chat",
+  "description": "A modern all-in-one communication app featuring real-time messaging, community groups, dating matches, and high-quality audio/video calls.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

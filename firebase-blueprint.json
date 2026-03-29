@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user profile in the OC Chat application.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "photoURL": { "type": "string", "description": "URL to the user's profile picture." },
+        "bio": { "type": "string", "description": "A short biography." },
+        "status": { "type": "string", "description": "Current status message." },
+        "online": { "type": "boolean", "description": "Whether the user is currently online." },
+        "lastSeen": { "type": "string", "format": "date-time", "description": "ISO 8601 timestamp of last activity." },
+        "interests": { "type": "array", "items": { "type": "string" }, "description": "List of user interests for dating." },
+        "location": { "type": "string", "description": "User's location." },
+        "age": { "type": "number", "description": "User's age." },
+        "gender": { "type": "string", "enum": ["male", "female", "other"], "description": "User's gender." },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "interestedIn": { "type": "string", "enum": ["male", "female", "all"] },
+            "minAge": { "type": "number" },
+            "maxAge": { "type": "number" }
+          }
+        }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "A 1-to-1 or group chat session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participants": { "type": "array", "items": { "type": "string" }, "description": "UIDs of participants." },
+        "lastMessage": { "type": "string" },
+        "lastMessageTime": { "type": "string", "format": "date-time" },
+        "unreadCount": { "type": "object", "description": "Map of UID to unread message count." },
+        "typing": { "type": "object", "description": "Map of UID to boolean typing status." },
+        "type": { "type": "string", "enum": ["direct", "group"] }
+      }
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A single message within a chat.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "image", "video", "voice", "file"] },
+        "mediaUrl": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "fileType": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["sent", "delivered", "seen"] }
+      }
+    },
+    "CallSession": {
+      "title": "CallSession",
+      "description": "A real-time audio or video call session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "callerId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "type": { "type": "string", "enum": ["audio", "video"] },
+        "status": { "type": "string", "enum": ["calling", "ringing", "connected", "ended"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Match": {
+      "title": "Match",
+      "description": "A dating match between two users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uids": { "type": "array", "items": { "type": "string" } },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Swipe": {
+      "title": "Swipe",
+      "description": "A swipe action in the dating system.",
+      "type": "object",
+      "properties": {
+        "fromUid": { "type": "string" },
+        "toUid": { "type": "string" },
+        "type": { "type": "string", "enum": ["like", "skip"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profile documents." },
+    "/chats/{chatId}": { "schema": "Chat", "description": "Chat session documents." },
+    "/chats/{chatId}/messages/{messageId}": { "schema": "Message", "description": "Messages within a chat." },
+    "/matches/{matchId}": { "schema": "Match", "description": "Dating matches." },
+    "/swipes/{swipeId}": { "schema": "Swipe", "description": "User swipe history." },
+    "/calls/{callId}": { "schema": "CallSession", "description": "Real-time call sessions." }
+  }
+}

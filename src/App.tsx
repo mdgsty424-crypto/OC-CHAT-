@@ -1,0 +1,62 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import Home from './pages/Home';
+import Community from './pages/Community';
+import Dating from './pages/Dating';
+import Calls from './pages/Calls';
+import Profile from './pages/Profile';
+import ChatDetail from './pages/ChatDetail';
+import CallScreen from './pages/CallScreen';
+import BottomNav from './components/layout/BottomNav';
+import TopBar from './components/layout/TopBar';
+import IncomingCall from './components/common/IncomingCall';
+import SplashScreen from './components/common/SplashScreen';
+import Login from './pages/Login';
+
+function AppRoutes() {
+  const { user, loading, signIn } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3000); // 3 seconds splash
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showSplash || loading) {
+    return <SplashScreen />;
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-background max-w-md mx-auto shadow-2xl relative overflow-hidden">
+      <IncomingCall />
+      <Routes>
+        <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
+        <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />
+        <Route path="/dating" element={<><TopBar title="Dating" /><Dating /><BottomNav /></>} />
+        <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
+        <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
+        <Route path="/chat/:id" element={<ChatDetail />} />
+        <Route path="/call/:id" element={<CallScreen />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <AppRoutes />
+      </Router>
+    </AuthProvider>
+  );
+}
