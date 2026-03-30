@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Volume2, VolumeX, Monitor, SwitchCamera, MessageSquare, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { doc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { CallSession, User } from '../types';
 import { useAuth } from '../hooks/useAuth';
@@ -27,12 +27,52 @@ export default function CallScreen() {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [otherUser, setOtherUser] = useState<User | null>(null);
 
+  const logCallMessage = async (status: 'started' | 'ended') => {
+    if (!currentUser || !otherUser) return;
+    
+    try {
+      // Find chat
+      const chatsRef = collection(db, 'chats');
+      const q = query(
+        chatsRef,
+        where('type', '==', 'direct'),
+        where('participants', 'array-contains', currentUser.uid)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      let chatId = null;
+      querySnapshot.forEach((doc) => {
+        if (doc.data().participants.includes(otherUser.uid)) {
+          chatId = doc.id;
+        }
+      });
+
+      if (chatId) {
+        await addDoc(collection(db, 'chats', chatId, 'messages'), {
+          senderId: currentUser.uid,
+          type: 'call',
+          timestamp: serverTimestamp(),
+          status: 'sent',
+          call: {
+            type: type as 'audio' | 'video',
+            status: status,
+            duration: status === 'ended' ? duration : undefined
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error logging call message:", error);
+    }
+  };
+
   useEffect(() => {
     if (status === 'connected' && callId && currentUser) {
       startCall(callId, currentUser.uid, currentUser.displayName, type === 'video');
+      logCallMessage('started');
     }
     if (status === 'ended' && callId) {
       endCall(callId);
+      logCallMessage('ended');
     }
   }, [status, callId, currentUser, type]);
 

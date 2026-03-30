@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Message } from '../../types';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
-import { Check, CheckCheck, Paperclip, Smile, Reply, Play, MoreVertical, Trash2, MapPin, UserPlus, BarChart2, Languages, Timer, FileText } from 'lucide-react';
+import { Check, CheckCheck, Paperclip, Smile, Reply, Play, MoreVertical, Trash2, MapPin, UserPlus, BarChart2, Languages, Timer, FileText, Phone, Video } from 'lucide-react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -12,12 +12,13 @@ interface MessageBubbleProps {
   message: Message;
   isMe: boolean;
   onReply?: (message: Message) => void;
+  onCall?: (type: 'audio' | 'video') => void;
   key?: string | number;
 }
 
 const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
-export default function MessageBubble({ message, isMe, onReply }: MessageBubbleProps) {
+export default function MessageBubble({ message, isMe, onReply, onCall }: MessageBubbleProps) {
   const { user } = useAuth();
   const [showReactions, setShowReactions] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -128,6 +129,38 @@ export default function MessageBubble({ message, isMe, onReply }: MessageBubbleP
           )}>
             <p className="font-bold opacity-70">Replying to message</p>
             <p className="truncate opacity-90">Original message content...</p>
+          </div>
+        )}
+
+        {message.type === 'call' && message.call && (
+          <div className="flex items-center gap-3 min-w-[200px]">
+            <div className={cn(
+              "p-2 rounded-full",
+              isMe ? "bg-white/20" : "bg-primary/20"
+            )}>
+              {message.call.type === 'video' ? <Video size={20} /> : <Phone size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold">
+                {message.call.type === 'video' ? 'Video' : 'Audio'} call {message.call.status}
+              </p>
+              {message.call.duration !== undefined && (
+                <p className="text-[10px] opacity-70">
+                  Duration: {Math.floor(message.call.duration / 60)}:{(message.call.duration % 60).toString().padStart(2, '0')}
+                </p>
+              )}
+            </div>
+            {onCall && (
+              <button 
+                onClick={() => onCall(message.call!.type)}
+                className={cn(
+                  "p-2 rounded-full",
+                  isMe ? "bg-white text-primary" : "bg-primary text-white"
+                )}
+              >
+                <Phone size={16} />
+              </button>
+            )}
           </div>
         )}
 

@@ -151,6 +151,7 @@ export default function ChatDetail() {
             message={msg} 
             isMe={msg.senderId === currentUser?.uid} 
             onReply={setReplyingTo}
+            onCall={handleCall}
           />
         ))}
         {isOtherTyping && (

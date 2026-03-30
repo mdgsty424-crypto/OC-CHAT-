@@ -46,7 +46,7 @@ export interface Message {
   chatId: string;
   senderId: string;
   text?: string;
-  type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll';
+  type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call';
   mediaUrl?: string;
   fileUrl?: string;
   fileType?: string;
@@ -71,6 +71,11 @@ export interface Message {
   contact?: {
     name: string;
     phone: string;
+  };
+  call?: {
+    type: 'audio' | 'video';
+    status: 'started' | 'ended';
+    duration?: number; // in seconds
   };
 }
 
