@@ -18,8 +18,8 @@ export default function Home() {
   const [showHiddenInput, setShowHiddenInput] = useState(false);
   const [hiddenPassword, setHiddenPassword] = useState('');
 
-  const onlineUsers = allUsers.filter(u => u.online).slice(0, 5);
-  const usersWithoutChats = allUsers.filter(u => !chats.some(c => c.participants.includes(u.uid)));
+  const onlineUsers = allUsers.filter(u => u.online && u.uid).slice(0, 5);
+  const usersWithoutChats = allUsers.filter(u => u.uid && !chats.some(c => c.participants.includes(u.uid)));
 
   useEffect(() => {
     if (!user) return;
@@ -44,8 +44,8 @@ export default function Home() {
     const usersQ = query(collection(db, 'users'));
     const usersUnsubscribe = onSnapshot(usersQ, (snapshot) => {
       const usersList = snapshot.docs
-        .map(doc => doc.data() as User)
-        .filter(u => u.uid !== user.uid);
+        .map(doc => ({ uid: doc.id, ...doc.data() } as User))
+        .filter(u => u.uid && u.uid !== user.uid);
       setAllUsers(usersList);
     });
 
@@ -124,7 +124,7 @@ export default function Home() {
           </div>
 
           {onlineUsers.map(u => (
-            <div key={u.uid} className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group">
+            <div key={`online-${u.uid}`} className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group">
               <div className="relative">
                 <div className="rounded-full overflow-hidden">
                   <img 
@@ -177,10 +177,10 @@ export default function Home() {
         
         <div className="divide-y divide-gray-100">
           {filteredChats.map((chat) => (
-            <ChatListItem key={chat.id} chat={chat} />
+            <ChatListItem key={`chat-${chat.id}`} chat={chat} />
           ))}
           {view === 'all' && usersWithoutChats.map((u) => (
-            <UserChatListItem key={u.uid} user={u} />
+            <UserChatListItem key={`user-${u.uid}`} user={u} />
           ))}
           {filteredChats.length === 0 && (view !== 'all' || usersWithoutChats.length === 0) && (
             <div className="flex flex-col items-center justify-center py-24 px-10 text-center opacity-40">
