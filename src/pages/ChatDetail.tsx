@@ -4,7 +4,9 @@ import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, g
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Message, Chat, User } from '../types';
+import { getMessages, saveMessage, initDB } from '../lib/db';
 import { ChevronLeft, Phone, Video, MoreVertical, Smile, Paperclip, Camera, Mic, Send } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import MessageBubble from '../components/chat/MessageBubble';
 import MessageInput from '../components/chat/MessageInput';
 
@@ -16,10 +18,34 @@ export default function ChatDetail() {
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!id || !currentUser) return;
+
+    // Load from IndexedDB first
+    const loadLocalData = async () => {
+      const localMessages = await getMessages(id);
+      if (localMessages.length > 0) {
+        setMessages(localMessages as any);
+      }
+      const dbInstance = await initDB();
+      const localChat = await dbInstance.get('chats', id);
+      if (localChat) {
+        setChat(localChat as any);
+        if (localChat.type === 'direct') {
+          const otherId = localChat.participants.find((uid: string) => uid !== currentUser.uid);
+          if (otherId) {
+            const localOtherUser = await dbInstance.get('users', otherId);
+            if (localOtherUser) {
+              setOtherUser(localOtherUser as any);
+            }
+          }
+        }
+      }
+    };
+    loadLocalData();
 
     // Fetch Chat info and listen for changes (typing indicator)
     const chatUnsubscribe = onSnapshot(doc(db, 'chats', id), (snapshot) => {
@@ -52,6 +78,9 @@ export default function ChatDetail() {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       setMessages(msgs);
       
+      // Save to IndexedDB
+      msgs.forEach(msg => saveMessage(msg as any));
+
       // Mark as read
       if (currentUser) {
         updateDoc(doc(db, 'chats', id), {
@@ -91,10 +120,36 @@ export default function ChatDetail() {
     }
   };
 
+  const handleForward = (message: Message) => {
+    setForwardingMessage(message);
+  };
+
   const isOtherTyping = chat?.typing && otherUser?.uid && chat.typing[otherUser.uid];
 
   return (
     <div className="flex flex-col h-screen bg-white w-full relative">
+      {/* Forward Modal */}
+      <AnimatePresence>
+        {forwardingMessage && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-white rounded-[2rem] p-8 w-full max-w-xs border border-gray-100"
+            >
+              <h3 className="text-xl font-black mb-6">Forward Message</h3>
+              <p className="text-sm text-muted mb-6">Select a chat to forward this message to.</p>
+              <button onClick={() => setForwardingMessage(null)} className="w-full py-3 bg-border text-text rounded-2xl font-bold">Cancel</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="sticky top-0 left-0 right-0 bg-white border-b border-gray-100 py-3 px-4 flex items-center justify-between z-50">
         <div className="flex items-center gap-3">
@@ -151,6 +206,7 @@ export default function ChatDetail() {
             message={msg} 
             isMe={msg.senderId === currentUser?.uid} 
             onReply={setReplyingTo}
+            onForward={handleForward}
             onCall={handleCall}
           />
         ))}

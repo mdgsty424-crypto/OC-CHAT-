@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Message } from '../../types';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
-import { Check, CheckCheck, Paperclip, Smile, Reply, Play, MoreVertical, Trash2, MapPin, UserPlus, BarChart2, Languages, Timer, FileText, Phone, Video } from 'lucide-react';
+import { Check, CheckCheck, Paperclip, Smile, Reply, Play, Pause, MoreVertical, Trash2, MapPin, UserPlus, BarChart2, Languages, Timer, FileText, Phone, Video, Loader2, Clock } from 'lucide-react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -12,18 +12,31 @@ interface MessageBubbleProps {
   message: Message;
   isMe: boolean;
   onReply?: (message: Message) => void;
+  onForward?: (message: Message) => void;
   onCall?: (type: 'audio' | 'video') => void;
   key?: string | number;
 }
 
 const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
-export default function MessageBubble({ message, isMe, onReply, onCall }: MessageBubbleProps) {
+export default function MessageBubble({ message, isMe, onReply, onForward, onCall }: MessageBubbleProps) {
   const { user } = useAuth();
   const [showReactions, setShowReactions] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
   const [showV2T, setShowV2T] = useState(false);
-  const time = format(new Date(message.timestamp), 'HH:mm');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const time = message.timestamp && !isNaN(new Date(message.timestamp).getTime()) 
+    ? format(new Date(message.timestamp), 'HH:mm') 
+    : '';
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Self-destruct logic
   useEffect(() => {
@@ -39,17 +52,30 @@ export default function MessageBubble({ message, isMe, onReply, onCall }: Messag
     }
   }, [message]);
 
-  // Swipe to reply logic
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Swipe logic
   const x = useMotionValue(0);
+  const y = useMotionValue(0);
   const swipeThreshold = 50;
   const opacity = useTransform(x, [0, swipeThreshold], [0, 1]);
   const scale = useTransform(x, [0, swipeThreshold], [0.5, 1]);
 
-  const handleDragEnd = () => {
-    if (x.get() >= swipeThreshold && onReply) {
+  const handleDragEnd = (_: any, info: any) => {
+    if (info.offset.x >= swipeThreshold && onReply) {
       onReply(message);
+    } else if (info.offset.y <= -swipeThreshold && onForward) {
+      onForward(message);
     }
     x.set(0);
+    y.set(0);
   };
 
   const toggleReaction = async (emoji: string) => {
@@ -103,15 +129,15 @@ export default function MessageBubble({ message, isMe, onReply, onCall }: Messag
 
       <motion.div
         drag={!isMe ? "x" : false}
-        dragConstraints={{ left: 0, right: swipeThreshold + 20 }}
+        dragConstraints={{ left: 0, right: swipeThreshold + 20, top: -swipeThreshold - 20, bottom: 0 }}
         dragElastic={0.1}
-        style={{ x }}
+        style={{ x, y }}
         onDragEnd={handleDragEnd}
         className={cn(
           "px-4 py-2.5 rounded-xl relative overflow-hidden",
-          isMe 
+          message.messageType === 'voice' ? "bg-transparent p-0" : (isMe 
             ? "bg-primary text-white rounded-tr-none" 
-            : "bg-gray-100 text-text rounded-tl-none"
+            : "bg-gray-100 text-text rounded-tl-none")
         )}
       >
         {/* Self-destruct Indicator */}
@@ -188,39 +214,61 @@ export default function MessageBubble({ message, isMe, onReply, onCall }: Messag
           />
         )}
 
-        {message.type === 'voice' && (
-          <div className="space-y-2 min-w-[200px]">
-            <div className="flex items-center gap-3">
-              <button className={cn(
-                "p-2 rounded-full",
-                isMe ? "bg-white text-primary" : "bg-primary text-white"
-              )}>
-                <Play size={16} fill="currentColor" />
-              </button>
-              <div className="flex-1 flex items-end gap-[1px] h-6">
-                {[...Array(20)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={cn(
-                      "w-[2px] rounded-full",
-                      isMe ? "bg-white/40" : "bg-primary/20"
-                    )}
-                    style={{ height: `${Math.random() * 100}%` }}
-                  ></div>
-                ))}
+        {message.messageType === 'voice' && (
+          <div className="w-[200px] p-3 rounded-2xl bg-gray-100">
+            {message.status === 'uploading' ? (
+              <div className="flex items-center justify-center h-10">
+                <Loader2 className="animate-spin text-primary" size={24} />
               </div>
-              <span className="text-[10px] opacity-70">0:12</span>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => {
+                    try {
+                      if (isPlaying) {
+                        audioRef.current?.pause();
+                        setIsPlaying(false);
+                      } else {
+                        if (!audioRef.current) {
+                          audioRef.current = new Audio(message.audioUrl);
+                          audioRef.current.preload = 'metadata';
+                          audioRef.current.onended = () => setIsPlaying(false);
+                        }
+                        audioRef.current.play();
+                        setIsPlaying(true);
+                      }
+                    } catch (error) {
+                      console.error("Audio playback error:", error);
+                    }
+                  }}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-white"
+                >
+                  {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                </button>
+                <div className="flex-1 flex items-end gap-[2px] h-8">
+                  {[...Array(15)].map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="w-[3px] rounded-full bg-gray-300"
+                      style={{ height: `${Math.random() * 100}%` }}
+                    ></div>
+                  ))}
+                </div>
+                <span className="text-xs font-mono text-gray-500">
+                  {message.audioDuration ? formatTime(message.audioDuration) : '0:00'}
+                </span>
+              </div>
+            )}
             {message.voiceToText && (
               <div className="mt-2">
                 <button 
                   onClick={() => setShowV2T(!showV2T)}
-                  className={cn("text-[10px] font-bold flex items-center gap-1 mb-1", isMe ? "text-white/70" : "text-primary")}
+                  className="text-[10px] font-bold flex items-center gap-1 mb-1 text-primary"
                 >
                   <FileText size={12} />
                   {showV2T ? "Hide Transcription" : "Show Transcription"}
                 </button>
-                {showV2T && <p className="text-[11px] italic opacity-80 border-t border-white/10 pt-1">{message.voiceToText}</p>}
+                {showV2T && <p className="text-[11px] italic opacity-80 border-t border-gray-200 pt-1">{message.voiceToText}</p>}
               </div>
             )}
           </div>
@@ -318,6 +366,8 @@ export default function MessageBubble({ message, isMe, onReply, onCall }: Messag
           {isMe && (
             message.status === 'seen' 
               ? <CheckCheck size={12} className="text-secondary" />
+              : message.status === 'pending'
+              ? <Clock size={10} className="animate-pulse" />
               : <Check size={12} />
           )}
         </div>

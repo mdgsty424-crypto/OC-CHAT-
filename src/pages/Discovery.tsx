@@ -12,7 +12,40 @@ export default function Discovery() {
   const [activeTab, setActiveTab] = useState<'nearby' | 'swipe' | 'random'>('swipe');
   const [nearbyUsers, setNearbyUsers] = useState<User[]>([]);
   const [swipeUsers, setSwipeUsers] = useState<User[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isMatching, setIsMatching] = useState(false);
+  const [matchedUser, setMatchedUser] = useState<User | null>(null);
+
+  const startRandomMatch = () => {
+    setIsMatching(true);
+    setMatchedUser(null);
+    
+    // Simulate matching delay
+    setTimeout(() => {
+      const randomUser = nearbyUsers[Math.floor(Math.random() * nearbyUsers.length)];
+      if (randomUser) {
+        setMatchedUser(randomUser);
+      }
+      setIsMatching(false);
+    }, 3000);
+  };
+
+  const handleStartRandomCall = async (type: 'audio' | 'video') => {
+    if (!currentUser || !matchedUser) return;
+
+    try {
+      const callRef = await addDoc(collection(db, 'calls'), {
+        type,
+        callerId: currentUser.uid,
+        receiverId: matchedUser.uid,
+        status: 'calling',
+        timestamp: new Date().toISOString()
+      });
+
+      navigate(`/call/${matchedUser.uid}?type=${type}&callId=${callRef.id}`);
+    } catch (error) {
+      console.error("Error starting random call:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -191,21 +224,55 @@ export default function Discovery() {
         {activeTab === 'random' && (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-6">
             <div className="relative">
-              <div className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center animate-pulse">
-                <Video size={60} className="text-primary" />
+              <div className={cn(
+                "w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center",
+                isMatching && "animate-pulse"
+              )}>
+                {matchedUser ? (
+                  <img 
+                    src={matchedUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${matchedUser.uid}`} 
+                    className="w-full h-full rounded-full object-cover border-4 border-primary"
+                    alt="Matched"
+                  />
+                ) : (
+                  <Video size={60} className="text-primary" />
+                )}
               </div>
               <div className="absolute -top-2 -right-2 bg-secondary text-white px-3 py-1 rounded-full text-[10px] font-black animate-bounce">
                 LIVE
               </div>
             </div>
             <div className="space-y-2">
-              <h3 className="text-2xl font-black">Random Video Chat</h3>
-              <p className="text-muted text-sm max-w-xs">Connect with random people around the world instantly.</p>
+              <h3 className="text-2xl font-black">{matchedUser ? `Matched with ${matchedUser.displayName}!` : 'Random Video Chat'}</h3>
+              <p className="text-muted text-sm max-w-xs">
+                {isMatching ? 'Finding someone special for you...' : matchedUser ? 'Start a conversation now!' : 'Connect with random people around the world instantly.'}
+              </p>
             </div>
             <div className="flex flex-col gap-3 w-full max-w-xs">
-              <button className="w-full py-4 bg-primary text-white rounded-2xl font-black hover:scale-[1.02] active:scale-[0.98] transition-all">
-                START MATCHING
-              </button>
+              {matchedUser ? (
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleStartRandomCall('video')}
+                    className="flex-1 py-4 bg-primary text-white rounded-2xl font-black hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  >
+                    VIDEO CALL
+                  </button>
+                  <button 
+                    onClick={() => setMatchedUser(null)}
+                    className="flex-1 py-4 bg-border text-text rounded-2xl font-black hover:bg-border/80 transition-all"
+                  >
+                    NEXT
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={startRandomMatch}
+                  disabled={isMatching}
+                  className="w-full py-4 bg-primary text-white rounded-2xl font-black hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {isMatching ? 'MATCHING...' : 'START MATCHING'}
+                </button>
+              )}
               <div className="flex items-center gap-2 justify-center text-[10px] text-muted">
                 <ShieldCheck size={12} />
                 Safe & Moderated Environment

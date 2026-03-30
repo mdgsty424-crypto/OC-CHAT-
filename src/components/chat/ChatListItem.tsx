@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Chat, User } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
+import { initDB } from '../../lib/db';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../../lib/utils';
 import { Check, CheckCheck, Archive, BellOff, Users, Megaphone, Phone } from 'lucide-react';
@@ -27,9 +28,19 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
       
       const otherId = chat.participants.find(id => id !== currentUser?.uid);
       if (otherId) {
+        // Try IndexedDB first
+        const dbInstance = await initDB();
+        const localUser = await dbInstance.get('users', otherId);
+        if (localUser) {
+          setOtherUser(localUser as any);
+        }
+
         const userDoc = await getDoc(doc(db, 'users', otherId));
         if (userDoc.exists()) {
-          setOtherUser(userDoc.data() as User);
+          const userData = userDoc.data() as User;
+          setOtherUser(userData);
+          // Save to IndexedDB
+          await dbInstance.put('users', userData);
         }
       }
     };
@@ -104,6 +115,10 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                 )}
               </h3>
               <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-2.5 h-2.5 rounded-full",
+                  unreadCount > 0 ? "bg-primary" : "border border-muted"
+                )}></div>
                 <span className="text-[10px] font-bold text-muted uppercase tracking-widest">
                   {chat.lastMessageTime && !isNaN(new Date(chat.lastMessageTime).getTime()) 
                     ? formatDistanceToNow(new Date(chat.lastMessageTime), { addSuffix: false }) 

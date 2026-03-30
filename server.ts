@@ -27,7 +27,12 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: "oc-chat",
-    resource_type: "auto",
+    resource_type: (req, file) => {
+      if (file.mimetype.startsWith('audio/')) return 'video';
+      if (file.mimetype.startsWith('video/')) return 'video';
+      return 'image';
+    },
+    format: (req, file) => file.mimetype.split('/')[1],
   } as any,
 });
 
@@ -40,7 +45,15 @@ async function startServer() {
   app.use(express.json());
 
   // API Route for Cloudinary Upload
-  app.post("/api/upload", upload.single("file"), (req: any, res) => {
+  app.post("/api/upload", (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+      if (err) {
+        console.error("Multer error:", err);
+        return res.status(500).json({ error: err.message });
+      }
+      next();
+    });
+  }, (req: any, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
@@ -56,24 +69,29 @@ async function startServer() {
     const { userId, roomId } = req.body;
     if (!userId) return res.status(400).json({ error: "userId is required" });
 
-    // In a real app, you'd use the Zego Server Assistant SDK
-    // For this prototype, we'll generate a secure-looking token
-    // that the client can use. Zego's Web SDK usually requires a 
-    // token generated with the ServerSecret.
-    
+    // Zego Token Generation (Simplified but more realistic)
     const nonce = crypto.randomBytes(16).toString('hex');
     const expired = Math.floor(Date.now() / 1000) + 3600; // 1 hour
     
-    // This is a simplified version of Zego's token generation
-    // In production, use the official Zego Server Assistant SDK
-    const payload = {
+    // In a real app, use Zego's official Server Assistant SDK
+    // This is a placeholder that simulates the structure
+    const tokenPayload = {
       app_id: ZEGO_APP_ID,
       user_id: userId,
       nonce: nonce,
       expired: expired,
+      room_id: roomId || "",
+      privilege: {
+        1: 1, // login
+        2: 1  // publish
+      }
     };
 
-    const token = Buffer.from(JSON.stringify(payload)).toString('base64');
+    // For the prototype, we'll return a base64 encoded JSON string
+    // Note: The real Zego SDK expects a specific binary format signed with HMAC-SHA256
+    // If the Zego SDK fails with this token, we might need to use a simpler "test" token
+    // or the user might need to provide a real token generation service.
+    const token = Buffer.from(JSON.stringify(tokenPayload)).toString('base64');
     
     res.json({ token });
   });

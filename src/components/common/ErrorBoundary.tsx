@@ -25,6 +25,18 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      let errorMessage = "An unexpected error occurred. Please try again later.";
+      try {
+        const errorInfo = JSON.parse(this.state.error?.message || '{}');
+        if (errorInfo.error) {
+          errorMessage = errorInfo.error;
+        }
+      } catch (e) {
+        if (this.state.error?.message.includes('the client is offline')) {
+          errorMessage = "Please check your Firebase configuration or internet connection.";
+        }
+      }
+
       return (
         <div className="h-screen w-screen flex flex-col items-center justify-center bg-background p-6 text-center">
           <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center mb-6 text-red-500">
@@ -36,9 +48,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           </div>
           <h2 className="text-2xl font-bold text-text mb-2">Something went wrong</h2>
           <p className="text-muted mb-8 max-w-xs">
-            {this.state.error?.message.includes('the client is offline') 
-              ? "Please check your Firebase configuration or internet connection."
-              : "An unexpected error occurred. Please try again later."}
+            {errorMessage}
           </p>
           <button
             onClick={() => window.location.reload()}

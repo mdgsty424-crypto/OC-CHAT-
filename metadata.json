@@ -1,6 +1,6 @@
 {
-  "name": "OC Chat",
-  "description": "A modern all-in-one communication app featuring real-time messaging, community groups, dating matches, and high-quality audio/video calls.",
+  "name": "OC-CHAT",
+  "description": "A high-performance, offline-first PWA chat application for OCSTHAEL, optimized for unstable internet conditions in Bangladesh.",
   "requestFramePermissions": [
     "camera",
     "microphone",

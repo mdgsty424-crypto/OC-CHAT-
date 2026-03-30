@@ -47,11 +47,14 @@ export interface Message {
   senderId: string;
   text?: string;
   type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call';
+  messageType?: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call';
   mediaUrl?: string;
   fileUrl?: string;
+  audioUrl?: string;
+  audioDuration?: number;
   fileType?: string;
   timestamp: string;
-  status: 'sent' | 'delivered' | 'seen';
+  status: 'sent' | 'delivered' | 'seen' | 'uploading' | 'pending';
   reactions?: Record<string, string[]>; // emoji -> list of userIds
   replyTo?: string; // ID of the message being replied to
   isSelfDestruct?: boolean;

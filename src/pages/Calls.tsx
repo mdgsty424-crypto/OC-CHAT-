@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Phone, Video, Search, Clock, ArrowUpRight, ArrowDownLeft, X, Loader2, Sparkles, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../lib/utils';
-import { collection, query, where, onSnapshot, orderBy, getDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, getDoc, doc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { CallSession, User } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -37,9 +37,17 @@ export default function Calls() {
         isActive: true,
         type: 'public'
       });
-      navigate(`/meeting/${id}`);
+      setMeetingId(id);
+      setShowMeetingModal(true);
     } catch (error) {
       console.error("Error creating meeting:", error);
+    }
+  };
+
+  const handleJoinMeeting = (idToJoin?: string) => {
+    const finalId = idToJoin || meetingId;
+    if (finalId) {
+      navigate(`/meeting/${finalId}`);
     }
   };
 
@@ -124,6 +132,25 @@ export default function Calls() {
       return name.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
+  const handleCall = async (otherUser: User, type: 'audio' | 'video') => {
+    if (!user || !otherUser) return;
+
+    try {
+      const callRef = await addDoc(collection(db, 'calls'), {
+        type,
+        callerId: user.uid,
+        receiverId: otherUser.uid,
+        status: 'calling',
+        timestamp: new Date().toISOString()
+      });
+
+      navigate(`/call/${otherUser.uid}?type=${type}&callId=${callRef.id}`);
+    } catch (error) {
+      console.error("Error starting call:", error);
+      alert("Failed to start call");
+    }
+  };
+
   return (
     <main className="flex-1 overflow-y-auto pb-24 bg-background no-scrollbar">
       {/* Header Tabs */}
@@ -158,6 +185,7 @@ export default function Calls() {
             START MEETING
           </button>
           <button 
+            onClick={() => navigate('/discovery')}
             className="flex-1 bg-secondary text-white py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
             <Sparkles size={18} />
@@ -220,7 +248,10 @@ export default function Calls() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button className="p-3 bg-primary/10 text-primary rounded-2xl hover:bg-primary hover:text-white transition-all active:scale-90">
+                  <button 
+                    onClick={() => call.otherUser && handleCall(call.otherUser, call.type as 'audio' | 'video')}
+                    className="p-3 bg-primary/10 text-primary rounded-2xl hover:bg-primary hover:text-white transition-all active:scale-90"
+                  >
                     <Phone size={20} />
                   </button>
                 </div>
@@ -241,10 +272,19 @@ export default function Calls() {
             <h3 className="text-xl font-black mb-2">Personal Meeting Room</h3>
             <p className="text-sm text-muted mb-6">Host professional meetings with screen sharing and high-quality audio.</p>
             <div className="bg-background p-4 rounded-2xl border border-border mb-6">
-              <span className="text-[10px] font-black text-muted uppercase tracking-widest block mb-1">Your Meeting ID</span>
-              <span className="text-2xl font-black tracking-[0.2em] text-primary">OC-778-990</span>
+              <span className="text-[10px] font-black text-muted uppercase tracking-widest block mb-1">Join Meeting</span>
+              <input 
+                type="text"
+                placeholder="Enter Meeting ID"
+                value={meetingId}
+                onChange={(e) => setMeetingId(e.target.value.toUpperCase())}
+                className="w-full bg-transparent text-center text-2xl font-black tracking-[0.2em] text-primary focus:outline-none"
+              />
             </div>
-            <button className="w-full py-4 bg-primary text-white rounded-2xl font-black">
+            <button 
+              onClick={() => handleJoinMeeting()}
+              className="w-full py-4 bg-primary text-white rounded-2xl font-black"
+            >
               JOIN NOW
             </button>
           </div>
@@ -297,9 +337,10 @@ export default function Calls() {
                   CLOSE
                 </button>
                 <button 
+                  onClick={() => handleJoinMeeting(meetingId)}
                   className="flex-1 py-4 bg-primary text-white rounded-2xl font-black"
                 >
-                  SHARE
+                  JOIN NOW
                 </button>
               </div>
             </motion.div>

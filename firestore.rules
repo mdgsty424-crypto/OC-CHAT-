@@ -31,13 +31,18 @@ service cloud.firestore {
     // Domain Validators
     // ===============================================================
     function isValidUser(data) {
-      return data.uid is string && data.uid.size() > 0 &&
-             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 50;
+      return data.uid is string && data.uid.size() > 0 && data.uid.size() < 128 &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() < 500)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 1000));
     }
     function isValidMessage(data) {
-      return data.chatId is string && data.senderId is string &&
-             (data.text is string || data.mediaUrl is string || data.fileUrl is string) &&
-             data.type in ['text', 'image', 'video', 'voice', 'file'];
+      return data.chatId is string && data.chatId.size() < 128 &&
+             data.senderId is string && data.senderId.size() < 128 &&
+             (!('text' in data) || (data.text is string && data.text.size() < 5000)) &&
+             (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() < 1000)) &&
+             (!('fileUrl' in data) || (data.fileUrl is string && data.fileUrl.size() < 1000)) &&
+             data.type in ['text', 'image', 'video', 'voice', 'file', 'location', 'poll', 'money', 'call'];
     }
     function isValidCall(data) {
       return data.callerId is string && data.receiverId is string &&

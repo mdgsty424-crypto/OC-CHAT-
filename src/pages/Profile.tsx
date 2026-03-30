@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { 
   Settings, 
@@ -14,7 +14,8 @@ import {
   Heart,
   Check,
   X,
-  Loader2
+  Loader2,
+  Download
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -27,7 +28,30 @@ export default function Profile() {
   const [editBio, setEditBio] = useState(user?.bio || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   const handleSave = async () => {
     if (!user) return;
@@ -123,6 +147,16 @@ export default function Profile() {
     { icon: Globe, label: 'Language', color: 'text-indigo-500', bg: 'bg-indigo-50', value: 'English' },
     { icon: HelpCircle, label: 'Help & Support', color: 'text-gray-500', bg: 'bg-gray-50' },
   ];
+
+  if (deferredPrompt) {
+    menuItems.unshift({
+      icon: Download,
+      label: 'Install OC-CHAT',
+      color: 'text-primary',
+      bg: 'bg-primary/10',
+      onToggle: handleInstallClick
+    } as any);
+  }
 
   return (
     <main className="flex-1 overflow-y-auto pb-24 bg-background">

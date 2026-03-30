@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/f
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Chat, User } from '../types';
+import { getChats, saveChat, initDB } from '../lib/db';
 import ChatListItem from '../components/chat/ChatListItem';
 import UserChatListItem from '../components/chat/UserChatListItem';
 import { Search, Plus, Archive, EyeOff, Lock } from 'lucide-react';
@@ -24,6 +25,20 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
 
+    // Load from IndexedDB first
+    const loadLocalData = async () => {
+      const localChats = await getChats();
+      if (localChats.length > 0) {
+        setChats(localChats as any);
+      }
+      const dbInstance = await initDB();
+      const localUsers = await dbInstance.getAll('users');
+      if (localUsers.length > 0) {
+        setAllUsers(localUsers as any);
+      }
+    };
+    loadLocalData();
+
     const q = query(
       collection(db, 'chats'),
       where('participants', 'array-contains', user.uid)
@@ -38,6 +53,8 @@ export default function Home() {
         return timeB - timeA;
       });
       setChats(chatList);
+      // Save to IndexedDB
+      chatList.forEach(chat => saveChat(chat as any));
     });
 
     // Fetch all users
@@ -47,6 +64,14 @@ export default function Home() {
         .map(doc => ({ uid: doc.id, ...doc.data() } as User))
         .filter(u => u.uid && u.uid !== user.uid);
       setAllUsers(usersList);
+      // Save users to IndexedDB
+      const saveUsers = async () => {
+        const dbInstance = await initDB();
+        for (const u of usersList) {
+          await dbInstance.put('users', u);
+        }
+      };
+      saveUsers();
     });
 
     return () => {

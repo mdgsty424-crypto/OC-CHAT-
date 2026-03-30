@@ -13,6 +13,7 @@ import { cn } from '../lib/utils';
 import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { User } from '../types';
+import { initZego, joinMeeting, endCall } from '../lib/callService';
 
 export default function MeetingRoom() {
   const { id } = useParams();
@@ -27,10 +28,58 @@ export default function MeetingRoom() {
   const [loading, setLoading] = useState(true);
   const [layout, setLayout] = useState<'grid' | 'speaker'>('grid');
 
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
+  const [zegoEngine, setZegoEngine] = useState<any>(null);
+
   useEffect(() => {
     if (!id || !user) return;
 
-    // Join meeting
+    const init = async () => {
+      const engine = await initZego();
+      if (engine) {
+        setZegoEngine(engine);
+        
+        // Listen for remote streams
+        engine.on('roomStreamUpdate', async (roomID, updateType, streamList) => {
+          if (updateType === 'ADD') {
+            for (const streamInfo of streamList) {
+              const stream = await engine.startPlayingStream(streamInfo.streamID);
+              setRemoteStreams(prev => ({ ...prev, [streamInfo.streamID]: stream }));
+              
+              // Attach to video element
+              setTimeout(() => {
+                const videoEl = document.getElementById(`video-${streamInfo.streamID}`) as HTMLVideoElement;
+                if (videoEl) videoEl.srcObject = stream;
+              }, 500);
+            }
+          } else if (updateType === 'DELETE') {
+            for (const streamInfo of streamList) {
+              engine.stopPlayingStream(streamInfo.streamID);
+              setRemoteStreams(prev => {
+                const updated = { ...prev };
+                delete updated[streamInfo.streamID];
+                return updated;
+              });
+            }
+          }
+        });
+
+        // Join meeting and start local stream
+        const stream = await joinMeeting(id, user.uid, user.displayName);
+        if (stream) {
+          setLocalStream(stream);
+          setTimeout(() => {
+            const localVideo = document.getElementById('localVideo') as HTMLVideoElement;
+            if (localVideo) localVideo.srcObject = stream;
+          }, 500);
+        }
+      }
+    };
+
+    init();
+
+    // Join meeting in Firestore
     const meetingRef = doc(db, 'meetings', id);
     updateDoc(meetingRef, {
       participants: arrayUnion(user.uid)
@@ -60,11 +109,30 @@ export default function MeetingRoom() {
       updateDoc(meetingRef, {
         participants: arrayRemove(user.uid)
       });
+      if (localStream) {
+        endCall(id, localStream);
+      } else {
+        endCall(id);
+      }
     };
   }, [id, user, navigate]);
 
   const handleEndCall = () => {
     navigate('/calls');
+  };
+
+  const toggleMute = () => {
+    if (zegoEngine) {
+      zegoEngine.muteMicrophone(!isMuted);
+    }
+    setIsMuted(!isMuted);
+  };
+
+  const toggleVideo = () => {
+    if (zegoEngine) {
+      // zegoEngine.muteVideo(!isVideoOff);
+    }
+    setIsVideoOff(!isVideoOff);
   };
 
   if (loading) {
@@ -127,22 +195,33 @@ export default function MeetingRoom() {
                 layout === 'speaker' && idx === 0 ? "flex-1" : layout === 'speaker' ? "h-32 w-48 absolute bottom-4 right-4 z-10" : ""
               )}
             >
-              {/* Video Placeholder */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-primary to-secondary mb-4 mx-auto">
-                    <img 
-                      src={p.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid}`} 
-                      className="w-full h-full rounded-full object-cover border-4 border-[#2a2a2a]"
-                      alt={p.displayName}
-                    />
-                  </div>
-                  <h3 className="text-lg font-black tracking-tight">{p.displayName}</h3>
-                  <p className="text-[10px] font-bold text-muted uppercase tracking-widest">
-                    {p.uid === user?.uid ? 'You' : 'Participant'}
-                  </p>
-                </div>
+              {/* Video Stream */}
+              <div className="absolute inset-0">
+                {p.uid === user?.uid ? (
+                  <video id="localVideo" autoPlay playsInline muted className="w-full h-full object-cover" />
+                ) : (
+                  <video id={`video-${p.uid}`} autoPlay playsInline className="w-full h-full object-cover" />
+                )}
               </div>
+
+              {/* Video Placeholder (if no stream) */}
+              {((p.uid === user?.uid && !localStream) || (p.uid !== user?.uid && !remoteStreams[p.uid])) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-[#2a2a2a]">
+                  <div className="text-center">
+                    <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-primary to-secondary mb-4 mx-auto">
+                      <img 
+                        src={p.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid}`} 
+                        className="w-full h-full rounded-full object-cover border-4 border-[#2a2a2a]"
+                        alt={p.displayName}
+                      />
+                    </div>
+                    <h3 className="text-lg font-black tracking-tight">{p.displayName}</h3>
+                    <p className="text-[10px] font-bold text-muted uppercase tracking-widest">
+                      {p.uid === user?.uid ? 'You' : 'Participant'}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Participant Info Overlay */}
               <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
@@ -209,7 +288,7 @@ export default function MeetingRoom() {
 
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => setIsMuted(!isMuted)}
+              onClick={toggleMute}
               className={cn(
                 "w-14 h-14 rounded-[1.5rem] flex items-center justify-center transition-all",
                 isMuted ? "bg-red-500 text-white" : "bg-[#333] text-white hover:bg-[#444]"
@@ -219,7 +298,7 @@ export default function MeetingRoom() {
             </button>
             
             <button 
-              onClick={() => setIsVideoOff(!isVideoOff)}
+              onClick={toggleVideo}
               className={cn(
                 "w-14 h-14 rounded-[1.5rem] flex items-center justify-center transition-all",
                 isVideoOff ? "bg-red-500 text-white" : "bg-[#333] text-white hover:bg-[#444]"

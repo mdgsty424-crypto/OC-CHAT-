@@ -7,8 +7,9 @@ import { doc, onSnapshot, updateDoc, getDoc, collection, query, where, getDocs, 
 import { db } from '../lib/firebase';
 import { CallSession, User } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
 
-import { startCall, endCall } from '../lib/callService';
+import { initZego, startCall, endCall } from '../lib/callService';
 
 export default function CallScreen() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +27,53 @@ export default function CallScreen() {
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [otherUser, setOtherUser] = useState<User | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [zegoEngine, setZegoEngine] = useState<ZegoExpressEngine | null>(null);
+
+  useEffect(() => {
+    const init = async () => {
+      const engine = await initZego();
+      if (engine) {
+        setZegoEngine(engine);
+        
+        // Listen for remote stream
+        engine.on('roomStreamUpdate', async (roomID, updateType, streamList) => {
+          if (updateType === 'ADD') {
+            const stream = await engine.startPlayingStream(streamList[0].streamID);
+            setRemoteStream(stream);
+            
+            if (type === 'video') {
+              const remoteVideo = document.getElementById('remoteVideo') as HTMLVideoElement;
+              if (remoteVideo) {
+                remoteVideo.srcObject = stream;
+              }
+            } else {
+              const remoteAudio = document.getElementById('remoteAudio') as HTMLAudioElement;
+              if (remoteAudio) {
+                remoteAudio.srcObject = stream;
+              }
+            }
+          } else if (updateType === 'DELETE') {
+            engine.stopPlayingStream(streamList[0].streamID);
+            setRemoteStream(null);
+          }
+        });
+      }
+    };
+    init();
+  }, []);
+
+  const toggleMute = () => {
+    if (zegoEngine) {
+      zegoEngine.muteMicrophone(!isMuted);
+    }
+    setIsMuted(!isMuted);
+  };
+
+  const toggleSpeaker = () => {
+    setIsSpeakerOn(!isSpeakerOn);
+  };
 
   const logCallMessage = async (status: 'started' | 'ended') => {
     if (!currentUser || !otherUser) return;
@@ -65,16 +113,39 @@ export default function CallScreen() {
     }
   };
 
+  const startStream = async () => {
+    try {
+      if (callId && currentUser) {
+        const stream = await startCall(callId, currentUser.uid, currentUser.displayName, type === 'video');
+        if (stream) {
+          setLocalStream(stream);
+          const localVideo = document.getElementById('localVideo') as HTMLVideoElement;
+          if (localVideo) {
+            localVideo.srcObject = stream;
+          }
+          logCallMessage('started');
+        }
+      }
+    } catch (err) {
+      console.error("Error accessing media devices:", err);
+      alert("Camera/Microphone access denied. Please allow permissions to continue.");
+    }
+  };
+
   useEffect(() => {
-    if (status === 'connected' && callId && currentUser) {
-      startCall(callId, currentUser.uid, currentUser.displayName, type === 'video');
-      logCallMessage('started');
+    if (status === 'connected' && callId && currentUser && !localStream) {
+      startStream();
     }
     if (status === 'ended' && callId) {
-      endCall(callId);
+      if (localStream) {
+        endCall(callId, localStream);
+        setLocalStream(null);
+      } else {
+        endCall(callId);
+      }
       logCallMessage('ended');
     }
-  }, [status, callId, currentUser, type]);
+  }, [status, callId, currentUser, type, localStream]);
 
   useEffect(() => {
     if (!id) return;
@@ -130,7 +201,32 @@ export default function CallScreen() {
         endTime: new Date().toISOString()
       });
     }
-    navigate(-1);
+    
+    // Find chat and navigate
+    try {
+      const chatsRef = collection(db, 'chats');
+      const q = query(
+        chatsRef,
+        where('type', '==', 'direct'),
+        where('participants', 'array-contains', currentUser?.uid || '')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      let chatId = null;
+      querySnapshot.forEach((doc) => {
+        if (doc.data().participants.includes(id || '')) {
+          chatId = doc.id;
+        }
+      });
+      
+      if (chatId) {
+        navigate('/chat/' + chatId);
+      } else {
+        navigate(-1);
+      }
+    } catch (e) {
+      navigate(-1);
+    }
   };
 
   return (
@@ -146,9 +242,13 @@ export default function CallScreen() {
           <div className="absolute inset-0 bg-black/40"></div>
           {/* Main Remote Video Placeholder */}
           <div className="h-full w-full flex items-center justify-center">
-            <div className="w-48 h-48 rounded-full border-4 border-primary/50 overflow-hidden animate-pulse">
-               <img src={otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`} className="w-full h-full object-cover" alt="Remote" />
-            </div>
+            {remoteStream ? (
+              <video id="remoteVideo" autoPlay playsInline className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-48 h-48 rounded-full border-4 border-primary/50 overflow-hidden animate-pulse">
+                 <img src={otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`} className="w-full h-full object-cover" alt="Remote" />
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -198,17 +298,12 @@ export default function CallScreen() {
           dragConstraints={{ left: -100, right: 100, top: -200, bottom: 200 }}
           className="absolute top-10 right-6 w-32 h-44 bg-black rounded-2xl border-2 border-white/20 overflow-hidden z-20"
         >
-          {isVideoOn ? (
-            <div className="w-full h-full bg-primary/20 flex items-center justify-center">
-               <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Me" className="w-full h-full object-cover" alt="Me" />
-            </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-white/40">
-              <VideoOff size={32} />
-            </div>
-          )}
+          <video id="localVideo" autoPlay playsInline muted className="w-full h-full object-cover" />
         </motion.div>
       )}
+
+      {/* Hidden Remote Audio */}
+      <audio id="remoteAudio" autoPlay />
 
       {/* Audio Waveform (Simulated) */}
       {type === 'audio' && status === 'connected' && (
@@ -240,7 +335,7 @@ export default function CallScreen() {
       <div className="pb-16 px-6 w-full z-10 max-w-2xl">
         <div className="bg-white/10 rounded-[3rem] p-6 flex flex-wrap justify-center gap-5 border border-white/20">
           <button 
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={toggleMute}
             className={cn(
               "w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg",
               isMuted ? "bg-white text-text" : "bg-white/10 text-white hover:bg-white/20"
@@ -267,7 +362,7 @@ export default function CallScreen() {
           )}
 
           <button 
-            onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+            onClick={toggleSpeaker}
             className={cn(
               "w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg",
               isSpeakerOn ? "bg-white text-text" : "bg-white/10 text-white hover:bg-white/20"
@@ -278,7 +373,7 @@ export default function CallScreen() {
 
           <button 
             onClick={handleEndCall}
-            className="w-20 h-20 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all active:scale-90"
+            className="bg-red-500 p-4 rounded-full text-white shadow-lg hover:bg-red-600 transition-all active:scale-90"
           >
             <PhoneOff size={32} />
           </button>

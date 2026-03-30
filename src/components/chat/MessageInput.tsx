@@ -5,8 +5,12 @@ import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { Message } from '../../types';
 import { cn } from '../../lib/utils';
+import { useNetwork } from '../../hooks/useNetwork';
+import { addToQueue, saveMessage } from '../../lib/db';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
+import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
+import { initZego, startRecording, stopRecording } from '../../lib/callService';
 
 interface MessageInputProps {
   chatId: string;
@@ -17,12 +21,27 @@ interface MessageInputProps {
 
 export default function MessageInput({ chatId, participants, replyingTo, onCancelReply }: MessageInputProps) {
   const { user } = useAuth();
+  const { isOnline } = useNetwork();
   const [text, setText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
   const [waveforms, setWaveforms] = useState<number[]>([]);
+  const [zegoEngine, setZegoEngine] = useState<ZegoExpressEngine | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const startTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    const init = async () => {
+      const engine = await initZego();
+      setZegoEngine(engine);
+    };
+    init();
+  }, []);
   
   // Advanced Features State
   const [showMore, setShowMore] = useState(false);
@@ -31,28 +50,6 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const [showPollModal, setShowPollModal] = useState(false);
   const [showMoneyModal, setShowMoneyModal] = useState(false);
   const [moneyAmount, setMoneyAmount] = useState('');
-
-  const sendMoney = async () => {
-    if (!moneyAmount || isNaN(Number(moneyAmount))) return;
-    
-    const messageData: any = {
-      chatId,
-      senderId: user?.uid,
-      text: `Sent ৳${moneyAmount}`,
-      type: 'text', // For now, just send as text with a special prefix or we could add a 'payment' type
-      timestamp: new Date().toISOString(),
-      status: 'sent'
-    };
-
-    try {
-      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
-      setShowMoneyModal(false);
-      setMoneyAmount('');
-      setShowMore(false);
-    } catch (error) {
-      console.error("Error sending money:", error);
-    }
-  };
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
 
@@ -63,90 +60,129 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  const updateTypingStatus = async (isTyping: boolean) => {
-    if (!user || !chatId) return;
-    try {
-      await updateDoc(doc(db, 'chats', chatId), {
-        [`typing.${user.uid}`]: isTyping
-      });
-    } catch (error) {
-      console.error("Error updating typing status:", error);
+  useEffect(() => {
+    if (isRecording && !isPaused) {
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
     }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isRecording, isPaused]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const sendMoney = async () => {
+    if (!moneyAmount || !user) return;
+    const messageData = {
+      chatId,
+      senderId: user.uid,
+      type: 'money',
+      amount: parseFloat(moneyAmount),
+      timestamp: serverTimestamp(),
+      status: 'sent'
+    };
+    await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+    setShowMoneyModal(false);
+    setMoneyAmount('');
+  };
+
+  const updateTypingStatus = async (isTyping: boolean) => {
+    if (!user) return;
+    await updateDoc(doc(db, 'chats', chatId), {
+      [`typing.${user.uid}`]: isTyping
+    });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
-    updateTypingStatus(true);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      updateTypingStatus(false);
-    }, 3000);
+    updateTypingStatus(true);
+    typingTimeoutRef.current = setTimeout(() => updateTypingStatus(false), 3000);
   };
 
-  // AI Bot Logic
   const handleAIResponse = async (prompt: string) => {
     if (!process.env.GEMINI_API_KEY) return;
-    
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          systemInstruction: "You are OC Chat AI, a professional and helpful assistant. Keep responses concise and friendly."
-        }
-      });
-
-      if (response.text) {
-        const aiMessage = {
-          chatId,
-          senderId: 'ai-bot',
-          text: response.text,
-          type: 'text',
-          timestamp: new Date().toISOString(),
-          status: 'sent'
-        };
-        await addDoc(collection(db, 'chats', chatId, 'messages'), aiMessage);
-      }
-    } catch (error) {
-      console.error("AI Error:", error);
-    }
+    const aiRes = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+    });
+    const messageData = {
+      chatId,
+      senderId: 'ai-bot',
+      text: aiRes.text || "I couldn't generate a response.",
+      type: 'text',
+      timestamp: new Date().toISOString(),
+      status: 'sent'
+    };
+    await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
   };
 
   // Voice Recording Logic
   const startRecording = async () => {
+    if (!zegoEngine) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      // Use ZegoCloud's stream capture for high-quality microphone input
+      const stream = await zegoEngine.createStream({
+        camera: { video: false, audio: true },
+        aec: true,
+        ans: true
+      });
+      
+      // Use MediaRecorder with the Zego stream
+      const mediaRecorder = new MediaRecorder(stream, { 
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 64000 // 64kbps for high quality/small size
+      });
       mediaRecorderRef.current = mediaRecorder;
       
-      const audioContext = new AudioContext();
+      chunksRef.current = [];
+      startTimeRef.current = Date.now();
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm;codecs=opus' });
+        console.log('Recording data size:', blob.size);
+        setAudioBlob(blob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorder.start();
+      setIsRecording(true);
+      setIsPaused(false);
+      setRecordingTime(0);
+      
+      // Waveform visualization
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
+      analyser.fftSize = 64; 
       source.connect(analyser);
       
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
       
-      const chunks: Blob[] = [];
-      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        setAudioBlob(blob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingTime(0);
-      
       const updateWaveform = () => {
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-        setWaveforms(prev => [...prev.slice(-40), average]);
-        animationFrameRef.current = requestAnimationFrame(updateWaveform);
+        if (mediaRecorder.state === 'recording') {
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            setWaveforms(prev => [...prev.slice(-40), average]);
+            animationFrameRef.current = requestAnimationFrame(updateWaveform);
+        }
       };
       updateWaveform();
 
@@ -155,11 +191,40 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     }
   };
 
-  const stopRecording = () => {
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+    }
+  };
+
+  const cancelRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsPaused(false);
+      setAudioBlob(null);
+      setWaveforms([]);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current) audioContextRef.current.close();
+    }
+  };
+
+  const stopRecording = async () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setAudioDuration(Math.round((Date.now() - startTimeRef.current) / 1000));
+      setIsRecording(false);
+      setIsPaused(false);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current) audioContextRef.current.close();
     }
   };
 
@@ -167,6 +232,17 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     if (!audioBlob || !user) return;
     
     setIsUploading(true);
+    
+    // 1. Add pending message
+    const pendingMessageData = {
+      chatId,
+      senderId: user.uid,
+      messageType: 'voice',
+      status: 'uploading',
+      timestamp: new Date().toISOString(),
+    };
+    const messageRef = await addDoc(collection(db, 'chats', chatId, 'messages'), pendingMessageData);
+
     const formData = new FormData();
     formData.append('file', audioBlob, 'voice.webm');
 
@@ -177,9 +253,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Upload failed with status:", response.status, errorText);
-        throw new Error(`Upload failed: ${response.statusText}`);
+        throw new Error(`Upload failed: ${response.status}`);
       }
       
       const data = await response.json();
@@ -196,21 +270,20 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         v2t = aiRes.text || "";
       }
 
-      const messageData = {
-        chatId,
-        senderId: user.uid,
-        type: 'voice',
-        fileUrl: data.url,
+      // 2. Update the pending message
+      await updateDoc(messageRef, {
+        audioUrl: data.url,
+        audioDuration: audioDuration,
+        fileType: 'audio/webm;codecs=opus',
         voiceToText: v2t,
-        timestamp: new Date().toISOString(),
         status: 'sent'
-      };
-
-      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      });
+      
       setAudioBlob(null);
       setWaveforms([]);
     } catch (error) {
       console.error("Voice upload error:", error);
+      // Optionally handle error by deleting the pending message or setting status to 'failed'
     } finally {
       setIsUploading(false);
     }
@@ -293,7 +366,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       text: text.trim(),
       type: 'text',
       timestamp: new Date().toISOString(),
-      status: 'sent',
+      status: isOnline ? 'sent' : 'pending',
       translatedText: translated,
       isSelfDestruct: selfDestructTime !== null,
       destructTime: selfDestructTime
@@ -306,6 +379,21 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
 
     setText('');
     setSelfDestructTime(null);
+
+    // Save locally first
+    const localId = `local-${Date.now()}`;
+    const localMsg = { ...messageData, id: localId };
+    await saveMessage(localMsg);
+
+    if (!isOnline) {
+      await addToQueue({
+        type: 'message',
+        chatId,
+        data: messageData,
+        id: localId
+      });
+      return;
+    }
 
     try {
       await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
@@ -477,18 +565,21 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
 
         <div className="flex-1 relative mb-1">
           {isRecording ? (
-            <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl py-2.5 px-4">
-              <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></div>
+            <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 rounded-full py-2.5 px-4 w-full">
+              <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-xs font-mono text-blue-600">{formatTime(recordingTime)}</span>
               <div className="flex-1 flex items-end gap-[2px] h-6">
                 {waveforms.map((h, i) => (
                   <div 
                     key={i} 
-                    className="w-[2px] bg-primary rounded-full" 
+                    className="w-[2px] bg-blue-500 rounded-full" 
                     style={{ height: `${Math.max(10, (h / 255) * 100)}%` }}
                   ></div>
                 ))}
               </div>
-              <span className="text-[11px] font-bold text-muted uppercase tracking-wider">Recording</span>
+              <button onClick={cancelRecording} className="text-blue-500 hover:text-red-500">
+                <X size={16} />
+              </button>
             </div>
           ) : audioBlob ? (
             <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl py-2 px-4">
