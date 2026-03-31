@@ -52,8 +52,20 @@ export default function Calls() {
   };
 
   const isValidDate = (date: any) => {
+    if (!date) return false;
+    // Handle Firestore Timestamp
+    if (typeof date === 'object' && date.toDate) {
+      return true;
+    }
     const d = new Date(date);
     return d instanceof Date && !isNaN(d.getTime());
+  };
+
+  const parseDate = (date: any) => {
+    if (typeof date === 'object' && date.toDate) {
+      return date.toDate();
+    }
+    return new Date(date);
   };
 
   useEffect(() => {
@@ -75,8 +87,12 @@ export default function Calls() {
       const callsWithUsers = await Promise.all(
         callList.map(async (call) => {
           const otherId = call.callerId === user.uid ? call.receiverId : call.callerId;
-          const userDoc = await getDoc(doc(db, 'users', otherId));
-          return { ...call, otherUser: userDoc.data() as User };
+          try {
+            const userDoc = await getDoc(doc(db, 'users', otherId));
+            return { ...call, otherUser: userDoc.data() as User };
+          } catch (e) {
+            return call;
+          }
         })
       );
       return callsWithUsers;
@@ -87,8 +103,8 @@ export default function Calls() {
       setCalls(prev => {
         const otherCalls = prev.filter(c => c.receiverId === user.uid);
         const combined = [...callerCalls, ...otherCalls].sort((a, b) => {
-          const timeA = a.timestamp && isValidDate(a.timestamp) ? new Date(a.timestamp).getTime() : 0;
-          const timeB = b.timestamp && isValidDate(b.timestamp) ? new Date(b.timestamp).getTime() : 0;
+          const timeA = a.timestamp && isValidDate(a.timestamp) ? parseDate(a.timestamp).getTime() : 0;
+          const timeB = b.timestamp && isValidDate(b.timestamp) ? parseDate(b.timestamp).getTime() : 0;
           return timeB - timeA;
         });
         return combined as CallWithUser[];
@@ -110,8 +126,8 @@ export default function Calls() {
       setCalls(prev => {
         const otherCalls = prev.filter(c => c.callerId === user.uid);
         const combined = [...receiverCalls, ...otherCalls].sort((a, b) => {
-          const timeA = a.timestamp && isValidDate(a.timestamp) ? new Date(a.timestamp).getTime() : 0;
-          const timeB = b.timestamp && isValidDate(b.timestamp) ? new Date(b.timestamp).getTime() : 0;
+          const timeA = a.timestamp && isValidDate(a.timestamp) ? parseDate(a.timestamp).getTime() : 0;
+          const timeB = b.timestamp && isValidDate(b.timestamp) ? parseDate(b.timestamp).getTime() : 0;
           return timeB - timeA;
         });
         return combined as CallWithUser[];
@@ -257,7 +273,7 @@ export default function Calls() {
                     ) : (
                       <ArrowUpRight size={12} className="text-primary" />
                     )}
-                    <span>{call.timestamp && isValidDate(call.timestamp) ? formatDistanceToNow(new Date(call.timestamp), { addSuffix: true }) : 'Recently'}</span>
+                    <span>{call.timestamp && isValidDate(call.timestamp) ? formatDistanceToNow(parseDate(call.timestamp), { addSuffix: true }) : 'Recently'}</span>
                   </div>
                 </div>
 

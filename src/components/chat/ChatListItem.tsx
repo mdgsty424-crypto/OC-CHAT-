@@ -26,7 +26,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
     const fetchOtherUser = async () => {
       if (chat.type === 'group' || chat.type === 'channel') return;
       
-      const otherId = chat.participants.find(id => id !== currentUser?.uid);
+      const otherId = chat.participants?.find(id => id !== currentUser?.uid);
       if (otherId) {
         // Try IndexedDB first
         const dbInstance = await initDB();
@@ -37,7 +37,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
 
         const userDoc = await getDoc(doc(db, 'users', otherId));
         if (userDoc.exists()) {
-          const userData = { uid: userDoc.id, ...userDoc.data() } as User;
+          const userData = userDoc.data() as User;
           setOtherUser(userData);
           // Save to IndexedDB
           await dbInstance.put('users', userData);

@@ -77,7 +77,7 @@ export default function Community() {
   const handleJoin = async (item: Group) => {
     if (!user) return;
     
-    const isMember = item.members.includes(user.uid);
+    const isMember = item.members?.includes(user.uid) || false;
     if (isMember) {
       navigate(`/chat/${item.id}`);
       return;
@@ -205,9 +205,9 @@ export default function Community() {
           ))}
 
           {/* Create Voice Club Button */}
-          <button 
+            <button 
             onClick={() => {
-              const myGroup = items.find(g => g.members.includes(user?.uid || ''));
+              const myGroup = items.find(g => g.members?.includes(user?.uid || ''));
               if (myGroup) handleStartVoiceClub(myGroup.id);
             }}
             className="flex-shrink-0 w-40 bg-white border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-white/30 transition-all group"
@@ -229,7 +229,7 @@ export default function Community() {
         ) : filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 gap-2">
             {filteredItems.map((item) => {
-              const isMember = user ? item.members.includes(user.uid) : false;
+              const isMember = user && item.members ? item.members.includes(user.uid) : false;
               return (
                 <motion.div 
                   key={item.id} 

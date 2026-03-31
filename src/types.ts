@@ -139,6 +139,7 @@ export interface Group {
     isActive: boolean;
     participants: string[];
     startTime: string;
+    hostId?: string;
   };
 }
 
