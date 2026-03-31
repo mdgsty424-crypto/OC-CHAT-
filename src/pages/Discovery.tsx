@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapPin, Heart, X, Video, Users, Sparkles, ShieldCheck } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { User } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 export default function Discovery() {
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'nearby' | 'swipe' | 'random'>('swipe');
   const [nearbyUsers, setNearbyUsers] = useState<User[]>([]);
   const [swipeUsers, setSwipeUsers] = useState<User[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isMatching, setIsMatching] = useState(false);
   const [matchedUser, setMatchedUser] = useState<User | null>(null);
 
@@ -115,7 +118,7 @@ export default function Discovery() {
         {activeTab === 'swipe' && (
           <div className="h-full flex flex-col items-center justify-center relative max-w-md mx-auto">
             <AnimatePresence mode="popLayout">
-              {currentIndex < swipeUsers.length ? (
+              {currentIndex < swipeUsers.length && swipeUsers[currentIndex] ? (
                 <motion.div
                   key={swipeUsers[currentIndex].uid}
                   initial={{ scale: 0.9, opacity: 0 }}
@@ -190,7 +193,7 @@ export default function Discovery() {
           <div className="grid grid-cols-2 gap-4">
             {nearbyUsers.map((user, i) => (
               <motion.div
-                key={user.id}
+                key={user.uid}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
@@ -198,7 +201,7 @@ export default function Discovery() {
               >
                 <div className="relative aspect-square rounded-2xl overflow-hidden mb-3">
                   <img 
-                    src={user.photoURL || `https://picsum.photos/seed/${user.id}/300/300`}
+                    src={user.photoURL || `https://picsum.photos/seed/${user.uid}/300/300`}
                     alt={user.displayName}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     referrerPolicy="no-referrer"

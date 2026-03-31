@@ -51,6 +51,11 @@ export default function Calls() {
     }
   };
 
+  const isValidDate = (date: any) => {
+    const d = new Date(date);
+    return d instanceof Date && !isNaN(d.getTime());
+  };
+
   useEffect(() => {
     if (!user) return;
 
@@ -81,9 +86,11 @@ export default function Calls() {
       const callerCalls = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CallSession));
       setCalls(prev => {
         const otherCalls = prev.filter(c => c.receiverId === user.uid);
-        const combined = [...callerCalls, ...otherCalls].sort((a, b) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
+        const combined = [...callerCalls, ...otherCalls].sort((a, b) => {
+          const timeA = a.timestamp && isValidDate(a.timestamp) ? new Date(a.timestamp).getTime() : 0;
+          const timeB = b.timestamp && isValidDate(b.timestamp) ? new Date(b.timestamp).getTime() : 0;
+          return timeB - timeA;
+        });
         return combined as CallWithUser[];
       });
       
@@ -102,9 +109,11 @@ export default function Calls() {
       const receiverCalls = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CallSession));
       setCalls(prev => {
         const otherCalls = prev.filter(c => c.callerId === user.uid);
-        const combined = [...receiverCalls, ...otherCalls].sort((a, b) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
+        const combined = [...receiverCalls, ...otherCalls].sort((a, b) => {
+          const timeA = a.timestamp && isValidDate(a.timestamp) ? new Date(a.timestamp).getTime() : 0;
+          const timeB = b.timestamp && isValidDate(b.timestamp) ? new Date(b.timestamp).getTime() : 0;
+          return timeB - timeA;
+        });
         return combined as CallWithUser[];
       });
 
@@ -126,7 +135,12 @@ export default function Calls() {
   }, [user]);
 
   const filteredCalls = calls
-    .filter(c => activeTab === 'all' || c.status === 'ended') // In a real app 'missed' would be a status
+    .filter(c => {
+      if (activeTab === 'recent') return true;
+      // In a real app 'meetings' would be a separate collection or filtered differently
+      // For now, let's assume 'meetings' are calls with a meetingLink
+      return !!c.meetingLink;
+    })
     .filter(c => {
       const name = c.otherUser?.displayName || '';
       return name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -243,7 +257,7 @@ export default function Calls() {
                     ) : (
                       <ArrowUpRight size={12} className="text-primary" />
                     )}
-                    <span>{formatDistanceToNow(new Date(call.timestamp), { addSuffix: true })}</span>
+                    <span>{call.timestamp && isValidDate(call.timestamp) ? formatDistanceToNow(new Date(call.timestamp), { addSuffix: true }) : 'Recently'}</span>
                   </div>
                 </div>
 

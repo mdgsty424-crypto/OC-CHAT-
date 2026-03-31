@@ -22,23 +22,38 @@ export interface LocalChat {
 }
 
 const DB_NAME = 'oc-chat-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export async function initDB(): Promise<IDBPDatabase> {
   return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('messages')) {
-        const messageStore = db.createObjectStore('messages', { keyPath: 'id' });
-        messageStore.createIndex('chatId', 'chatId');
-        messageStore.createIndex('status', 'status');
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        if (!db.objectStoreNames.contains('messages')) {
+          const messageStore = db.createObjectStore('messages', { keyPath: 'id' });
+          messageStore.createIndex('chatId', 'chatId');
+          messageStore.createIndex('status', 'status');
+        }
+        if (!db.objectStoreNames.contains('chats')) {
+          db.createObjectStore('chats', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('users')) {
+          db.createObjectStore('users', { keyPath: 'uid' });
+        }
+        if (!db.objectStoreNames.contains('queue')) {
+          db.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
+        }
       }
-      if (!db.objectStoreNames.contains('chats')) {
-        db.createObjectStore('chats', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('users')) {
-        db.createObjectStore('users', { keyPath: 'uid' });
-      }
-      if (!db.objectStoreNames.contains('queue')) {
+      
+      if (oldVersion < 2) {
+        // Ensure queue has autoIncrement if it didn't before
+        if (db.objectStoreNames.contains('queue')) {
+          // We can't modify an existing store's autoIncrement property directly.
+          // We'd have to delete and recreate it, but that loses data.
+          // For a queue, losing data might be okay if it's just a few pending messages,
+          // but better to just ensure it's right for new users.
+          // However, if the error is persistent, we should probably recreate it.
+          db.deleteObjectStore('queue');
+        }
         db.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
       }
     },
@@ -75,7 +90,7 @@ export async function getQueue(): Promise<any[]> {
   return db.getAll('queue');
 }
 
-export async function removeFromQueue(id: number) {
+export async function removeFromQueue(id: string | number) {
   const db = await initDB();
   await db.delete('queue', id);
 }

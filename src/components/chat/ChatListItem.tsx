@@ -37,7 +37,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
 
         const userDoc = await getDoc(doc(db, 'users', otherId));
         if (userDoc.exists()) {
-          const userData = userDoc.data() as User;
+          const userData = { uid: userDoc.id, ...userDoc.data() } as User;
           setOtherUser(userData);
           // Save to IndexedDB
           await dbInstance.put('users', userData);

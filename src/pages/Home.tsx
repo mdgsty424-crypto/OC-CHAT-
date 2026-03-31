@@ -20,7 +20,7 @@ export default function Home() {
   const [hiddenPassword, setHiddenPassword] = useState('');
 
   const onlineUsers = allUsers.filter(u => u.online && u.uid).slice(0, 5);
-  const usersWithoutChats = allUsers.filter(u => u.uid && !chats.some(c => c.participants.includes(u.uid)));
+  const usersWithoutChats = allUsers.filter(u => u.uid && !chats.some(c => c.participants && Array.isArray(c.participants) && c.participants.includes(u.uid)));
 
   useEffect(() => {
     if (!user) return;

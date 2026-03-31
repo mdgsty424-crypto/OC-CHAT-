@@ -32,7 +32,7 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
       let existingChat = null;
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.participants.includes(user.uid)) {
+        if (data.participants && Array.isArray(data.participants) && data.participants.includes(user.uid)) {
           existingChat = { id: doc.id, ...data };
         }
       });

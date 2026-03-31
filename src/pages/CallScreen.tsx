@@ -90,7 +90,8 @@ export default function CallScreen() {
       
       let chatId = null;
       querySnapshot.forEach((doc) => {
-        if (doc.data().participants.includes(otherUser.uid)) {
+        const data = doc.data();
+        if (data.participants && Array.isArray(data.participants) && data.participants.includes(otherUser.uid)) {
           chatId = doc.id;
         }
       });
@@ -214,7 +215,8 @@ export default function CallScreen() {
       
       let chatId = null;
       querySnapshot.forEach((doc) => {
-        if (doc.data().participants.includes(id || '')) {
+        const data = doc.data();
+        if (data.participants && Array.isArray(data.participants) && data.participants.includes(id || '')) {
           chatId = doc.id;
         }
       });

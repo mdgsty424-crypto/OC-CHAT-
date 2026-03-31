@@ -81,7 +81,7 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
   const toggleReaction = async (emoji: string) => {
     if (!user) return;
     const messageRef = doc(db, 'chats', message.chatId, 'messages', message.id);
-    const hasReacted = message.reactions?.[emoji]?.includes(user.uid);
+    const hasReacted = message.reactions?.[emoji] && Array.isArray(message.reactions[emoji]) ? message.reactions[emoji].includes(user.uid) : false;
 
     try {
       await updateDoc(messageRef, {
@@ -97,7 +97,7 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
     if (!user || !message.poll) return;
     const messageRef = doc(db, 'chats', message.chatId, 'messages', message.id);
     const newOptions = [...message.poll.options];
-    const hasVoted = newOptions[optionIndex].votes.includes(user.uid);
+    const hasVoted = newOptions[optionIndex].votes && Array.isArray(newOptions[optionIndex].votes) ? newOptions[optionIndex].votes.includes(user.uid) : false;
 
     if (hasVoted) {
       newOptions[optionIndex].votes = newOptions[optionIndex].votes.filter(id => id !== user.uid);
@@ -306,7 +306,7 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
               {message.poll.options.map((opt, i) => {
                 const totalVotes = message.poll?.options.reduce((acc, curr) => acc + curr.votes.length, 0) || 1;
                 const percentage = (opt.votes.length / totalVotes) * 100;
-                const hasVoted = opt.votes.includes(user?.uid || '');
+                const hasVoted = opt.votes && Array.isArray(opt.votes) ? opt.votes.includes(user?.uid || '') : false;
                 return (
                   <button 
                     key={i}
