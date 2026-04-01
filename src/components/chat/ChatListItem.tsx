@@ -18,38 +18,50 @@ interface ChatListItemProps {
 export default function ChatListItem({ chat }: ChatListItemProps) {
   const { user: currentUser } = useAuth();
   const [otherUser, setOtherUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-100, 0], [1, 0]);
   const scale = useTransform(x, [-100, 0], [1, 0.5]);
 
-  useEffect(() => {
-    const fetchOtherUser = async () => {
-      if (chat.type === 'group' || chat.type === 'channel') return;
-      
-      const otherId = chat.participants?.find(id => id !== currentUser?.uid);
-      if (otherId) {
-        // Try IndexedDB first
-        const dbInstance = await initDB();
-        const localUser = await dbInstance.get('users', otherId);
-        if (localUser) {
-          setOtherUser(localUser as any);
-        }
+  const otherId = chat.type === 'direct' ? chat.participants?.find(id => id !== currentUser?.uid) : null;
 
-        const userDoc = await getDoc(doc(db, 'users', otherId));
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as User;
-          setOtherUser(userData);
-          // Save to IndexedDB
-          await dbInstance.put('users', userData);
-        }
+  useEffect(() => {
+    if (chat.type !== 'direct' || !otherId) {
+      setLoading(false);
+      return;
+    }
+    
+    // If we already have the user, don't fetch again
+    if (otherUser && otherUser.uid === otherId) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchOtherUser = async () => {
+      setLoading(true);
+      // Try IndexedDB first
+      const dbInstance = await initDB();
+      const localUser = await dbInstance.get('users', otherId);
+      if (localUser) {
+        setOtherUser(localUser as any);
+        setLoading(false);
       }
+
+      const userDoc = await getDoc(doc(db, 'users', otherId));
+      if (userDoc.exists()) {
+        const userData = { ...userDoc.data(), uid: userDoc.id } as User;
+        setOtherUser(userData);
+        // Save to IndexedDB
+        await dbInstance.put('users', userData);
+      }
+      setLoading(false);
     };
     fetchOtherUser();
-  }, [chat, currentUser]);
+  }, [otherId, otherUser]);
 
   const unreadCount = currentUser ? chat.unreadCount?.[currentUser.uid] || 0 : 0;
-  const chatName = chat.type === 'group' || chat.type === 'channel' ? chat.name : otherUser?.displayName || 'Loading...';
-  const chatPhoto = chat.type === 'group' || chat.type === 'channel' ? chat.photo : (otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || chat.id}`);
+  const chatName = chat.type === 'group' || chat.type === 'channel' ? chat.name : (loading ? '' : (otherUser?.displayName || 'Unknown User'));
+  const chatPhoto = chat.type === 'group' || chat.type === 'channel' ? chat.photo : (otherUser?.photoURL || '');
   
   const isTyping = chat.typing && Object.values(chat.typing).some(t => t);
 
@@ -86,10 +98,13 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                 </div>
               ) : (
                 <img
-                  src={chatPhoto}
+                  src={chatPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(chatName)}&background=random`}
                   alt={chatName}
                   className="w-12 h-12 rounded-full object-cover"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(chatName)}&background=random`;
+                  }}
                 />
               )}
             </div>
@@ -102,16 +117,22 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-0.5">
               <h3 className="text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center">
-                {chatName}
-                {chat.type === 'group' && (
-                  <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
-                    <Users size={10} /> GROUP
-                  </span>
-                )}
-                {chat.type === 'channel' && (
-                  <span className="text-[9px] font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
-                    <Megaphone size={10} /> BROADCAST
-                  </span>
+                {loading ? (
+                  <div className="h-5 w-24 bg-gray-200 animate-pulse rounded" />
+                ) : (
+                  <>
+                    {chatName}
+                    {chat.type === 'group' && (
+                      <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
+                        <Users size={10} /> GROUP
+                      </span>
+                    )}
+                    {chat.type === 'channel' && (
+                      <span className="text-[9px] font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
+                        <Megaphone size={10} /> BROADCAST
+                      </span>
+                    )}
+                  </>
                 )}
               </h3>
               <div className="flex items-center gap-2">
@@ -135,7 +156,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                   "text-sm truncate",
                   isTyping ? "text-blue-500 font-medium" : (unreadCount > 0 ? "text-text font-black" : "text-muted")
                 )}>
-                  {isTyping ? 'Typing...' : (chat.lastMessage || 'Start a conversation')}
+                  {isTyping ? 'Typing...' : (chat.lastMessage || 'No messages yet')}
                 </p>
               </div>
               {unreadCount > 0 && (

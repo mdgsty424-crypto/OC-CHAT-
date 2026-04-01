@@ -40,21 +40,16 @@ export async function initDB(): Promise<IDBPDatabase> {
           db.createObjectStore('users', { keyPath: 'uid' });
         }
         if (!db.objectStoreNames.contains('queue')) {
-          db.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
+          db.createObjectStore('queue', { autoIncrement: true });
         }
       }
       
       if (oldVersion < 2) {
         // Ensure queue has autoIncrement if it didn't before
         if (db.objectStoreNames.contains('queue')) {
-          // We can't modify an existing store's autoIncrement property directly.
-          // We'd have to delete and recreate it, but that loses data.
-          // For a queue, losing data might be okay if it's just a few pending messages,
-          // but better to just ensure it's right for new users.
-          // However, if the error is persistent, we should probably recreate it.
           db.deleteObjectStore('queue');
         }
-        db.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
+        db.createObjectStore('queue', { autoIncrement: true });
       }
     },
   });

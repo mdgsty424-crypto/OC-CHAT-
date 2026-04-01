@@ -59,7 +59,7 @@ export default function ChatDetail() {
             // Listen for other user's real-time status
             const userUnsubscribe = onSnapshot(doc(db, 'users', otherId), (userDoc) => {
               if (userDoc.exists()) {
-                setOtherUser(userDoc.data() as User);
+                setOtherUser({ ...userDoc.data(), uid: userDoc.id } as User);
               }
             });
             return () => userUnsubscribe();
@@ -102,7 +102,15 @@ export default function ChatDetail() {
   }, [messages, chat?.typing]);
 
   const handleCall = async (type: 'audio' | 'video') => {
-    if (!currentUser || !otherUser) return;
+    console.log("handleCall called", { currentUser, otherUser });
+    if (!currentUser || !otherUser) {
+      console.error("Cannot start call: currentUser or otherUser is missing", { currentUser, otherUser });
+      return;
+    }
+    if (!otherUser.uid) {
+      console.error("Cannot start call: otherUser.uid is missing", { otherUser });
+      return;
+    }
 
     try {
       const callRef = await addDoc(collection(db, 'calls'), {
