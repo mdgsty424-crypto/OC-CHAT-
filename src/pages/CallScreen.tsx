@@ -32,22 +32,23 @@ export default function CallScreen() {
       serverSecret,
       roomID,
       userID,
-      userName
+      currentUser.displayName || `User_${userID.slice(0, 4)}`
     );
 
     const zp = ZegoUIKitPrebuilt.create(kitToken);
 
     zp.joinRoom({
       container: containerRef.current,
+      showPreJoinView: false, // Disable pre-join screen
       scenario: {
         mode: isGroup ? ZegoUIKitPrebuilt.GroupCall : ZegoUIKitPrebuilt.OneONoneCall,
       },
+      turnOnMicrophoneWhenJoining: true, // Auto-join with mic on
+      turnOnCameraWhenJoining: true, // Auto-join with camera on
       showScreenSharingButton: true,
       showTextChat: true,
       showUserList: true,
       maxUsers: isGroup ? 50 : 2,
-      turnOnMicrophoneWhenJoining: true,
-      turnOnCameraWhenJoining: true,
       showMyCameraToggleButton: true,
       showMyMicrophoneToggleButton: true,
       showAudioVideoSettingsButton: true,
