@@ -1,7 +1,7 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
-import ErrorBoundary from './components/common/ErrorBoundary.tsx';
+import ErrorBoundary from '@/src/components/common/ErrorBoundary';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 

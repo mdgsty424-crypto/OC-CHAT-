@@ -21,7 +21,8 @@ import {
   Video, 
   Loader2, 
   Clock,
-  X
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
@@ -39,6 +40,113 @@ interface MessageBubbleProps {
 
 const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
+const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) => {
+  const [preview, setPreview] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [showPlayer, setShowPlayer] = useState(false);
+
+  useEffect(() => {
+    const fetchPreview = async () => {
+      try {
+        const res = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setPreview(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch link preview", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPreview();
+  }, [url]);
+
+  if (loading) return null;
+  if (!preview) return null;
+
+  const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
+  const isFacebook = url.includes('facebook.com');
+  
+  let videoId = '';
+  if (isYouTube) {
+    const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+    videoId = match ? match[1] : '';
+  }
+
+  if (showPlayer && isYouTube && videoId) {
+    return (
+      <div className="mt-2 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-black aspect-video relative">
+        <iframe
+          src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+          className="w-full h-full"
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+        />
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowPlayer(false);
+          }}
+          className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full hover:bg-black/70 z-10"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className={cn(
+        "mt-2 rounded-xl overflow-hidden border shadow-sm transition-all hover:bg-opacity-90 cursor-pointer max-w-[300px] group",
+        isMe ? "bg-white/10 border-white/20 text-white" : "bg-white border-gray-100 text-black"
+      )} 
+      onClick={() => {
+        if (isYouTube || isFacebook) {
+          setShowPlayer(true);
+        } else {
+          window.open(url, '_blank');
+        }
+      }}
+    >
+      {preview.image && (
+        <div className="relative aspect-video bg-gray-100 overflow-hidden">
+          <img 
+            src={preview.image} 
+            alt={preview.title} 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+          {(isYouTube || isFacebook) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center text-[#0084ff] shadow-lg">
+                <Play size={24} fill="currentColor" className="ml-1" />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="p-3 space-y-1">
+        <h4 className="text-xs font-bold line-clamp-2 leading-tight">
+          {preview.title}
+        </h4>
+        {preview.description && (
+          <p className="text-[10px] opacity-70 line-clamp-2 leading-tight">
+            {preview.description}
+          </p>
+        )}
+        <div className="flex items-center gap-1 opacity-50 pt-1">
+          <ExternalLink size={10} />
+          <span className="text-[9px] font-medium uppercase tracking-wider">
+            {preview.siteName || new URL(url).hostname}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ 
   message, 
   isMe, 
@@ -51,6 +159,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [showReactions, setShowReactions] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioError, setAudioError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const timestamp = new Date(message.timestamp);
@@ -230,6 +339,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <p className="text-[14px] leading-tight font-normal">
               {showTranslation ? message.translatedText : message.text}
             </p>
+            {/* Link Previews */}
+            {!showTranslation && message.text.match(/(https?:\/\/[^\s]+)/g)?.map((url, idx) => (
+              <LinkPreview key={idx} url={url} isMe={isMe} />
+            ))}
             {message.translatedText && (
               <button 
                 onClick={() => setShowTranslation(!showTranslation)}
@@ -315,7 +428,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       if (isPlaying) {
                         audioRef.current.pause();
                       } else {
-                        audioRef.current.play();
+                        const playPromise = audioRef.current.play();
+                        if (playPromise !== undefined) {
+                          playPromise.catch(error => {
+                            console.error("Audio play failed:", error);
+                          });
+                        }
                       }
                     }
                   }}
@@ -342,19 +460,26 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
 
                 <span className="text-[10px] font-bold opacity-70 flex-shrink-0">
-                  {message.audioDuration ? formatVoiceTime(message.audioDuration) : '0:00'}
+                  {audioError ? 'Format Error' : (message.audioDuration ? formatVoiceTime(message.audioDuration) : '0:00')}
                 </span>
 
                 {/* Hidden standard audio element for reliability */}
                 {message.audioUrl && (
                   <audio 
                     ref={audioRef}
-                    src={message.audioUrl}
                     onPlay={() => setIsPlaying(true)}
                     onPause={() => setIsPlaying(false)}
                     onEnded={() => setIsPlaying(false)}
+                    onError={() => {
+                      console.error("Audio playback error for URL:", message.audioUrl);
+                      setAudioError(true);
+                      setIsPlaying(false);
+                    }}
                     className="hidden"
-                  />
+                  >
+                    <source src={message.audioUrl} type="audio/webm" />
+                    <source src={message.audioUrl} type="audio/mpeg" />
+                  </audio>
                 )}
               </div>
             )}

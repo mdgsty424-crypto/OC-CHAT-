@@ -72,16 +72,32 @@ async function startServer() {
       }
       
       try {
-        console.log("Uploading to Cloudinary manually...");
+        console.log("Uploading to Cloudinary manually...", {
+          mimetype: (req as any).file.mimetype,
+          originalname: (req as any).file.originalname,
+          size: (req as any).file.size
+        });
+        
         const result: any = await new Promise((resolve, reject) => {
+          const isAudio = (req as any).file.mimetype.startsWith('audio/') || 
+                          (req as any).file.mimetype.startsWith('video/webm') ||
+                          (req as any).file.originalname.endsWith('.webm') || 
+                          (req as any).file.originalname.endsWith('.mp3');
+          
           const uploadStream = cloudinary.uploader.upload_stream(
             { 
               folder: "oc-chat", 
-              resource_type: "auto" 
+              resource_type: isAudio ? "video" : "auto",
+              // Force format if we know it's audio to help Cloudinary
+              format: isAudio ? "webm" : undefined
             },
             (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
+              if (error) {
+                console.error("Cloudinary upload_stream error callback:", error);
+                reject(error);
+              } else {
+                resolve(result);
+              }
             }
           );
           uploadStream.end((req as any).file!.buffer);
@@ -133,6 +149,50 @@ async function startServer() {
     const token = Buffer.from(JSON.stringify(tokenPayload)).toString('base64');
     
     res.json({ token });
+  });
+
+  // API Route for Link Preview
+  app.get("/api/link-preview", async (req, res) => {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ error: "URL is required" });
+    }
+
+    try {
+      console.log("Fetching link preview for:", url);
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+        }
+      });
+      const html = await response.text();
+
+      const getMeta = (name: string) => {
+        const regex = new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']+)["']`, 'i');
+        const match = html.match(regex);
+        if (match) return match[1];
+        
+        const altRegex = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${name}["']`, 'i');
+        const altMatch = html.match(altRegex);
+        return altMatch ? altMatch[1] : null;
+      };
+
+      const title = getMeta('og:title') || getMeta('title') || html.match(/<title>([^<]+)<\/title>/i)?.[1];
+      const description = getMeta('og:description') || getMeta('description');
+      const image = getMeta('og:image');
+      const siteName = getMeta('og:site_name');
+
+      res.json({
+        title: title || url,
+        description: description || "",
+        image: image || "",
+        siteName: siteName || new URL(url).hostname,
+        url
+      });
+    } catch (error) {
+      console.error("Link preview error:", error);
+      res.status(500).json({ error: "Failed to fetch link preview" });
+    }
   });
 
   app.post('*', (req, res) => {

@@ -141,9 +141,11 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       setLocalStream(stream);
       
       // 2. Initialize MediaRecorder with the Zego stream
-      const mediaRecorder = new MediaRecorder(stream, { 
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : 'audio/webm';
+        
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       
       // 3. Chunked Collection
@@ -157,11 +159,16 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm;codecs=opus' });
-        setAudioBlob(blob);
-        // Calculate duration manually
-        const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
-        setAudioDuration(duration);
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        if (blob.size === 0) {
+          console.error("Recorded blob is empty");
+          setAudioBlob(null);
+        } else {
+          setAudioBlob(blob);
+          // Calculate duration manually
+          const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
+          setAudioDuration(duration);
+        }
         
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
@@ -222,7 +229,10 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   };
 
   const handleSendVoice = async () => {
-    if (!audioBlob || !user) return;
+    if (!audioBlob || !user || audioBlob.size === 0) {
+      console.error("Cannot send empty audio blob");
+      return;
+    }
     
     setIsUploading(true);
     
@@ -259,10 +269,16 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         console.error("Failed to parse JSON response:", body);
         throw new Error("Invalid response from server");
       }
+
+      // Ensure URL has extension
+      let finalUrl = data.url;
+      if (finalUrl && !finalUrl.toLowerCase().endsWith('.webm') && !finalUrl.toLowerCase().endsWith('.mp3')) {
+        finalUrl += '.webm';
+      }
       
       // 2. Update the pending message
       await updateDoc(messageRef, {
-        audioUrl: data.url,
+        audioUrl: finalUrl,
         audioDuration: audioDuration,
         fileType: 'audio/webm;codecs=opus',
         status: 'sent'
