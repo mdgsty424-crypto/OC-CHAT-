@@ -10,7 +10,7 @@ import { addToQueue, saveMessage } from '../../lib/db';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
 import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
-import { initZego, startRecording, stopRecording } from '../../lib/callService';
+import { initZego } from '../../lib/callService';
 
 interface MessageInputProps {
   chatId: string;
@@ -31,6 +31,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [waveforms, setWaveforms] = useState<number[]>([]);
   const [zegoEngine, setZegoEngine] = useState<ZegoExpressEngine | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startTimeRef = useRef<number>(0);
@@ -130,43 +131,50 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const startRecording = async () => {
     if (!zegoEngine) return;
     try {
-      // Use ZegoCloud's stream capture for high-quality microphone input
+      // 1. Create Local Audio Stream using Zego SDK
       const stream = await zegoEngine.createStream({
         camera: { video: false, audio: true },
         aec: true,
-        ans: true
+        ans: true,
+        agc: true
       });
+      setLocalStream(stream);
       
-      // Use MediaRecorder with the Zego stream
+      // 2. Initialize MediaRecorder with the Zego stream
       const mediaRecorder = new MediaRecorder(stream, { 
-        mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 64000 // 64kbps for high quality/small size
+        mimeType: 'audio/webm;codecs=opus'
       });
       mediaRecorderRef.current = mediaRecorder;
       
+      // 3. Chunked Collection
       chunksRef.current = [];
       startTimeRef.current = Date.now();
       
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+        if (e.data && e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
       };
+
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm;codecs=opus' });
-        console.log('Recording data size:', blob.size);
         setAudioBlob(blob);
+        // Calculate duration manually
+        const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
+        setAudioDuration(duration);
+        
+        // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
+        setLocalStream(null);
       };
       
-      mediaRecorder.start();
+      mediaRecorder.start(100); // Collect chunks every 100ms
       setIsRecording(true);
       setIsPaused(false);
       setRecordingTime(0);
       
       // Waveform visualization
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 64; 
@@ -191,17 +199,13 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     }
   };
 
-  const pauseRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.pause();
-      setIsPaused(true);
-    }
-  };
-
-  const resumeRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
-      mediaRecorderRef.current.resume();
+  const stopRecording = async () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
       setIsPaused(false);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current) audioContextRef.current.close();
     }
   };
 
@@ -215,29 +219,6 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (audioContextRef.current) audioContextRef.current.close();
     }
-  };
-
-  const stopRecording = async () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-      setAudioDuration(Math.round((Date.now() - startTimeRef.current) / 1000));
-      setIsRecording(false);
-      setIsPaused(false);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      if (audioContextRef.current) audioContextRef.current.close();
-    }
-  };
-
-  const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = (reader.result as string).split(',')[1];
-        resolve(base64String);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
   };
 
   const handleSendVoice = async () => {
@@ -279,40 +260,16 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         throw new Error("Invalid response from server");
       }
       
-      // Voice-to-Text using Gemini
-      let v2t = "";
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-          const base64Audio = await blobToBase64(audioBlob);
-          const aiRes = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: [
-              {
-                inlineData: {
-                  data: base64Audio,
-                  mimeType: audioBlob.type
-                }
-              },
-              { text: "Transcribe this voice message accurately. Transcribe only. No extra text." }
-            ]
-          });
-          v2t = aiRes.text || "";
-        } catch (aiErr) {
-          console.error("Gemini transcription error:", aiErr);
-        }
-      }
-
       // 2. Update the pending message
       await updateDoc(messageRef, {
         audioUrl: data.url,
         audioDuration: audioDuration,
         fileType: 'audio/webm;codecs=opus',
-        voiceToText: v2t,
         status: 'sent'
       });
       
       setAudioBlob(null);
+      setAudioDuration(0);
       setWaveforms([]);
     } catch (error) {
       console.error("Voice upload error:", error);

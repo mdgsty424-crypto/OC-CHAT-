@@ -50,7 +50,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const { user } = useAuth();
   const [showReactions, setShowReactions] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
-  const [showV2T, setShowV2T] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -284,12 +283,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <X size={24} />
                 <span className="text-[10px] font-bold uppercase">Failed to upload</span>
               </div>
-            ) : (
+            ) : (message.fileUrl || message.mediaUrl) ? (
               <video 
                 src={message.fileUrl || message.mediaUrl} 
                 className="w-full h-full object-cover"
                 controls
               />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                <Video size={32} />
+              </div>
             )}
           </div>
         )}
@@ -308,45 +311,51 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => {
-                    if (isPlaying) {
-                      audioRef.current?.pause();
-                      setIsPlaying(false);
-                    } else {
-                      if (!audioRef.current) {
-                        audioRef.current = new Audio(message.audioUrl);
-                        audioRef.current.onended = () => setIsPlaying(false);
+                    if (audioRef.current) {
+                      if (isPlaying) {
+                        audioRef.current.pause();
+                      } else {
+                        audioRef.current.play();
                       }
-                      audioRef.current.play();
-                      setIsPlaying(true);
                     }
                   }}
                   className={cn(
-                    "w-10 h-10 flex items-center justify-center rounded-full transition-transform active:scale-90",
+                    "w-10 h-10 flex items-center justify-center rounded-full transition-transform active:scale-90 flex-shrink-0",
                     isMe ? "bg-white text-[#0084ff]" : "bg-[#0084ff] text-white"
                   )}
                 >
                   {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
                 </button>
-                <div className="flex-1 flex items-center h-8">
-                  <div className="w-full h-1 bg-current opacity-20 rounded-full relative">
-                    <div className="absolute inset-0 bg-current rounded-full w-1/3"></div>
-                  </div>
+                
+                {/* Static Waveform */}
+                <div className="flex-1 flex items-center gap-[2px] h-6">
+                  {[...Array(20)].map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={cn(
+                        "w-[2px] rounded-full",
+                        isMe ? "bg-white/40" : "bg-black/20"
+                      )}
+                      style={{ height: `${20 + Math.random() * 80}%` }}
+                    ></div>
+                  ))}
                 </div>
-                <span className="text-[10px] font-bold opacity-70">
+
+                <span className="text-[10px] font-bold opacity-70 flex-shrink-0">
                   {message.audioDuration ? formatVoiceTime(message.audioDuration) : '0:00'}
                 </span>
-              </div>
-            )}
-            {message.voiceToText && (
-              <div className="mt-2 pt-2 border-t border-current/10">
-                <button 
-                  onClick={() => setShowV2T(!showV2T)}
-                  className="text-[10px] font-bold flex items-center gap-1 mb-1 opacity-70"
-                >
-                  <FileText size={12} />
-                  {showV2T ? "Hide text" : "Show text"}
-                </button>
-                {showV2T && <p className="text-[11px] italic opacity-90">{message.voiceToText}</p>}
+
+                {/* Hidden standard audio element for reliability */}
+                {message.audioUrl && (
+                  <audio 
+                    ref={audioRef}
+                    src={message.audioUrl}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
+                    className="hidden"
+                  />
+                )}
               </div>
             )}
           </div>
