@@ -487,25 +487,38 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
 
         {/* Location Message */}
-        {message.type === 'location' && message.location && (
-          <div className="space-y-2 min-w-[200px]">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500/20 text-green-500 rounded-xl flex items-center justify-center">
-                <MapPin size={20} />
+        {message.type === 'location' && (
+          <div className="space-y-3 min-w-[240px] max-w-[300px]">
+            {message.location ? (
+              <>
+                <div className="rounded-[12px] overflow-hidden border border-gray-100 shadow-sm bg-gray-100">
+                  <iframe
+                    width="100%"
+                    height="200"
+                    style={{ border: 0, borderRadius: '12px' }}
+                    loading="lazy"
+                    src={`https://maps.google.com/maps?q=${message.location.latitude},${message.location.longitude}&z=15&output=embed`}
+                  ></iframe>
+                </div>
+                <a 
+                  href={`https://www.google.com/maps?q=${message.location.latitude},${message.location.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95",
+                    isMe ? "bg-white text-[#0084ff]" : "bg-[#0084ff] text-white"
+                  )}
+                >
+                  <MapPin size={14} />
+                  Open in Google Maps
+                </a>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <MapPin size={16} />
+                <span className="text-sm font-medium underline cursor-pointer">View Location</span>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold">Location</span>
-                <span className="text-[10px] opacity-70">Shared via GPS</span>
-              </div>
-            </div>
-            <a 
-              href={`https://www.google.com/maps?q=${message.location.latitude},${message.location.longitude}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full py-2 bg-green-500 text-white text-center rounded-xl text-[10px] font-bold hover:bg-green-600 transition-colors"
-            >
-              View on Maps
-            </a>
+            )}
           </div>
         )}
 
