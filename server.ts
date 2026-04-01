@@ -66,7 +66,7 @@ async function startServer() {
         });
       }
       
-      if (!req.file) {
+      if (!(req as any).file) {
         console.error("No file in request");
         return res.status(400).json({ error: "No file uploaded" });
       }
@@ -84,7 +84,7 @@ async function startServer() {
               else resolve(result);
             }
           );
-          uploadStream.end(req.file!.buffer);
+          uploadStream.end((req as any).file!.buffer);
         });
         
         console.log("Cloudinary upload success:", result.secure_url);

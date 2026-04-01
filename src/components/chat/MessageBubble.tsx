@@ -33,11 +33,19 @@ interface MessageBubbleProps {
   onReply?: (message: Message) => void;
   onForward?: (message: Message) => void;
   onCall?: (type: 'audio' | 'video') => void | Promise<void>;
+  otherUserPhoto?: string;
 }
 
 const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, onReply, onForward, onCall }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ 
+  message, 
+  isMe, 
+  onReply, 
+  onForward, 
+  onCall,
+  otherUserPhoto
+}) => {
   const { user } = useAuth();
   const [showReactions, setShowReactions] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -427,9 +435,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, onR
       )}>
         <span className="text-[9px] font-medium text-gray-400 uppercase">{timeStr}</span>
         {isMe && (
-          <div className="flex items-center">
+          <div className="flex items-center ml-1">
             {message.status === 'seen' ? (
-              <CheckCheck size={12} className="text-[#0084ff]" />
+              otherUserPhoto ? (
+                <img 
+                  src={otherUserPhoto} 
+                  alt="Seen" 
+                  className="w-3 h-3 rounded-full object-cover border border-white shadow-sm"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <CheckCheck size={12} className="text-[#0084ff]" />
+              )
             ) : message.status === 'delivered' ? (
               <CheckCheck size={12} className="text-gray-300" />
             ) : message.status === 'pending' ? (

@@ -70,6 +70,8 @@ export default function CallScreen() {
       scenario: {
         mode: isGroup ? ZegoUIKitPrebuilt.GroupCall : ZegoUIKitPrebuilt.OneONoneCall,
       },
+      showUserInVideo: true,
+      addLeaveConfirmation: true,
       turnOnMicrophoneWhenJoining: true, // Auto-join with mic on
       turnOnCameraWhenJoining: true, // Auto-join with camera on
       showScreenSharingButton: true,
@@ -108,7 +110,7 @@ export default function CallScreen() {
         // Navigate back to chat if possible
         navigate(-1);
       },
-    });
+    } as any);
 
     return () => {
       zp.destroy();

@@ -224,6 +224,7 @@ export default function ChatDetail() {
             onReply={setReplyingTo}
             onForward={handleForward}
             onCall={handleCall}
+            otherUserPhoto={chat?.type === 'direct' ? (otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || id}`) : undefined}
           />
         ))}
         {isOtherTyping && (
