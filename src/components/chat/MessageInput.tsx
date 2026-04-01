@@ -228,6 +228,18 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     }
   };
 
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
   const handleSendVoice = async () => {
     if (!audioBlob || !user) return;
     
@@ -253,21 +265,42 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Upload failed with status:", response.status, "Body:", errorText);
         throw new Error(`Upload failed: ${response.status}`);
       }
       
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        const body = await response.text();
+        console.error("Failed to parse JSON response:", body);
+        throw new Error("Invalid response from server");
+      }
       
-      // Simulated Voice-to-Text using Gemini
+      // Voice-to-Text using Gemini
       let v2t = "";
       if (process.env.GEMINI_API_KEY) {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const aiRes = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: "Transcribe this voice message accurately.",
-          config: { systemInstruction: "Transcribe only. No extra text." }
-        });
-        v2t = aiRes.text || "";
+        try {
+          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+          const base64Audio = await blobToBase64(audioBlob);
+          const aiRes = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: [
+              {
+                inlineData: {
+                  data: base64Audio,
+                  mimeType: audioBlob.type
+                }
+              },
+              { text: "Transcribe this voice message accurately. Transcribe only. No extra text." }
+            ]
+          });
+          v2t = aiRes.text || "";
+        } catch (aiErr) {
+          console.error("Gemini transcription error:", aiErr);
+        }
       }
 
       // 2. Update the pending message
@@ -283,7 +316,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       setWaveforms([]);
     } catch (error) {
       console.error("Voice upload error:", error);
-      // Optionally handle error by deleting the pending message or setting status to 'failed'
+      // Update message status to failed
+      await updateDoc(messageRef, { status: 'failed' });
     } finally {
       setIsUploading(false);
     }
@@ -303,9 +337,20 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Upload failed');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Upload failed with status:", response.status, "Body:", errorText);
+        throw new Error('Upload failed');
+      }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        const body = await response.text();
+        console.error("Failed to parse JSON response:", body);
+        throw new Error("Invalid response from server");
+      }
       
       const messageData = {
         chatId,

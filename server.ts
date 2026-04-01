@@ -28,48 +28,78 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "oc-chat",
-    resource_type: (req, file) => {
-      if (file.mimetype.startsWith('audio/')) return 'video';
-      if (file.mimetype.startsWith('video/')) return 'video';
-      return 'image';
-    },
-    format: (req, file) => file.mimetype.split('/')[1],
-  } as any,
-});
-
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Global request logger
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+
   app.use(express.json());
 
+  // Health check route
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      env: process.env.NODE_ENV,
+      cloudinary: !!process.env.CLOUDINARY_API_KEY
+    });
+  });
+
   // API Route for Cloudinary Upload
-  app.post("/api/upload", (req, res, next) => {
-    console.log("Received upload request");
-    upload.single("file")(req, res, (err) => {
+  app.post("/api/upload", (req, res) => {
+    console.log("POST /api/upload - Received request");
+    
+    upload.single("file")(req, res, async (err) => {
       if (err) {
         console.error("Multer error:", err);
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({ 
+          error: "Upload failed", 
+          message: err.message,
+          code: (err as any).code
+        });
       }
-      console.log("Multer success");
-      next();
-    });
-  }, (req: any, res) => {
-    console.log("File:", req.file);
-    if (!req.file) {
-      console.error("No file uploaded");
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-    res.json({ 
-      url: req.file.path,
-      format: req.file.format,
-      resource_type: req.file.resource_type
+      
+      if (!req.file) {
+        console.error("No file in request");
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      try {
+        console.log("Uploading to Cloudinary manually...");
+        const result: any = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            { 
+              folder: "oc-chat", 
+              resource_type: "auto" 
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          uploadStream.end(req.file!.buffer);
+        });
+        
+        console.log("Cloudinary upload success:", result.secure_url);
+        res.json({ 
+          url: result.secure_url,
+          resource_type: result.resource_type,
+          format: result.format
+        });
+      } catch (uploadErr: any) {
+        console.error("Cloudinary upload error:", uploadErr);
+        res.status(500).json({ 
+          error: "Cloudinary upload failed", 
+          message: uploadErr.message 
+        });
+      }
     });
   });
 
@@ -108,6 +138,16 @@ async function startServer() {
   app.post('*', (req, res) => {
     console.log("POST request to unknown route:", req.path);
     res.status(404).json({ error: "Not found" });
+  });
+
+  // Global error handler to ensure JSON responses
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Unhandled server error:", err);
+    res.status(err.status || 500).json({ 
+      error: "Internal server error", 
+      message: err.message,
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   });
 
   // Vite middleware for development
