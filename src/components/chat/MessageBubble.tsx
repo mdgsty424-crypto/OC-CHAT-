@@ -1,8 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Message } from '../../types';
 import { cn } from '../../lib/utils';
-import { format } from 'date-fns';
-import { Check, CheckCheck, Paperclip, Smile, Reply, Play, Pause, MoreVertical, Trash2, MapPin, UserPlus, BarChart2, Languages, Timer, FileText, Phone, Video, Loader2, Clock } from 'lucide-react';
+import { format, isToday, isYesterday } from 'date-fns';
+import { 
+  Check, 
+  CheckCheck, 
+  Paperclip, 
+  Smile, 
+  Reply, 
+  Play, 
+  Pause, 
+  MoreVertical, 
+  MapPin, 
+  UserPlus, 
+  BarChart2, 
+  Languages, 
+  Timer, 
+  FileText, 
+  Phone, 
+  Video, 
+  Loader2, 
+  Clock 
+} from 'lucide-react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -13,30 +32,42 @@ interface MessageBubbleProps {
   isMe: boolean;
   onReply?: (message: Message) => void;
   onForward?: (message: Message) => void;
-  onCall?: (type: 'audio' | 'video') => void;
-  key?: string | number;
+  onCall?: (type: 'audio' | 'video') => void | Promise<void>;
 }
 
 const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
-export default function MessageBubble({ message, isMe, onReply, onForward, onCall }: MessageBubbleProps) {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, onReply, onForward, onCall }) => {
   const { user } = useAuth();
   const [showReactions, setShowReactions] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
   const [showV2T, setShowV2T] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const time = message.timestamp && !isNaN(new Date(message.timestamp).getTime()) 
-    ? format(new Date(message.timestamp), 'HH:mm') 
-    : '';
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const formatTime = (seconds: number) => {
+  const timestamp = new Date(message.timestamp);
+  const timeStr = !isNaN(timestamp.getTime()) ? format(timestamp, 'HH:mm') : '';
+  
+  const getFullTimestamp = (date: Date) => {
+    if (isNaN(date.getTime())) return '';
+    const day = format(date, 'EEE').toUpperCase();
+    const time = format(date, 'HH:mm');
+    return `${day} ${time}`;
+  };
+
+  const formatDuration = (seconds: number | undefined) => {
+    if (seconds === undefined || isNaN(seconds)) return 'Tap to call again';
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    return `${mins} min${mins > 1 ? 's' : ''}`;
+  };
+
+  const formatVoiceTime = (seconds: number) => {
     if (isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Self-destruct logic
   useEffect(() => {
@@ -63,7 +94,6 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
 
   // Swipe logic
   const x = useMotionValue(0);
-  const y = useMotionValue(0);
   const swipeThreshold = 50;
   const opacity = useTransform(x, [0, swipeThreshold], [0, 1]);
   const scale = useTransform(x, [0, swipeThreshold], [0.5, 1]);
@@ -71,17 +101,14 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
   const handleDragEnd = (_: any, info: any) => {
     if (info.offset.x >= swipeThreshold && onReply) {
       onReply(message);
-    } else if (info.offset.y <= -swipeThreshold && onForward) {
-      onForward(message);
     }
     x.set(0);
-    y.set(0);
   };
 
   const toggleReaction = async (emoji: string) => {
     if (!user) return;
     const messageRef = doc(db, 'chats', message.chatId, 'messages', message.id);
-    const hasReacted = message.reactions?.[emoji] && Array.isArray(message.reactions[emoji]) ? message.reactions[emoji].includes(user.uid) : false;
+    const hasReacted = message.reactions?.[emoji]?.includes(user.uid);
 
     try {
       await updateDoc(messageRef, {
@@ -97,7 +124,7 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
     if (!user || !message.poll) return;
     const messageRef = doc(db, 'chats', message.chatId, 'messages', message.id);
     const newOptions = [...message.poll.options];
-    const hasVoted = newOptions[optionIndex].votes && Array.isArray(newOptions[optionIndex].votes) ? newOptions[optionIndex].votes.includes(user.uid) : false;
+    const hasVoted = newOptions[optionIndex].votes.includes(user.uid);
 
     if (hasVoted) {
       newOptions[optionIndex].votes = newOptions[optionIndex].votes.filter(id => id !== user.uid);
@@ -112,9 +139,37 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
     }
   };
 
+  // 1. Call History Rendering (Messenger Style)
+  if (message.type === 'call_history' || message.messageType === 'call_history') {
+    return (
+      <div className="flex flex-col items-center w-full my-6">
+        {/* Centered Timestamp */}
+        <span className="text-[10px] font-bold text-gray-400 mb-3 tracking-wider uppercase">
+          {getFullTimestamp(timestamp)}
+        </span>
+        
+        {/* Pill Bubble */}
+        <div className="bg-[#f0f2f5] px-6 py-2 rounded-full border border-gray-100 flex items-center gap-3 shadow-sm hover:bg-gray-200 transition-colors cursor-pointer active:scale-95">
+          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
+            {message.callType === 'video' ? <Video size={18} /> : <Phone size={18} />}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-gray-800">
+              {message.callType === 'video' ? 'Video chat' : 'Audio call'}
+            </span>
+            <span className="text-[10px] text-gray-500 font-medium">
+              {formatDuration(message.duration)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Regular Message Rendering
   return (
     <div className={cn(
-      "flex flex-col max-w-[92%] gap-1 group relative",
+      "flex flex-col max-w-[85%] gap-1 group relative mb-1",
       isMe ? "ml-auto items-end" : "mr-auto items-start"
     )}>
       {/* Swipe to Reply Indicator */}
@@ -129,20 +184,23 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
 
       <motion.div
         drag={!isMe ? "x" : false}
-        dragConstraints={{ left: 0, right: swipeThreshold + 20, top: -swipeThreshold - 20, bottom: 0 }}
+        dragConstraints={{ left: 0, right: swipeThreshold }}
         dragElastic={0.1}
-        style={{ x, y }}
+        style={{ x }}
         onDragEnd={handleDragEnd}
         className={cn(
-          "px-4 py-2.5 rounded-xl relative overflow-hidden",
-          message.messageType === 'voice' ? "bg-transparent p-0" : (isMe 
-            ? "bg-primary text-white rounded-tr-none" 
-            : "bg-gray-100 text-text rounded-tl-none")
+          "relative rounded-[20px] overflow-visible transition-all",
+          message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
+            isMe 
+              ? "bg-[#0084ff] text-white rounded-tr-[4px]" 
+              : "bg-[#e4e6eb] text-black rounded-tl-[4px]"
+          ),
+          (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5 shadow-sm"
         )}
       >
         {/* Self-destruct Indicator */}
         {message.isSelfDestruct && (
-          <div className="absolute top-1 right-2 opacity-50">
+          <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-sm">
             <Timer size={10} />
           </div>
         )}
@@ -150,138 +208,111 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
         {/* Reply Context */}
         {message.replyTo && (
           <div className={cn(
-            "mb-2 p-2 rounded-lg text-[10px] border-l-4",
-            isMe ? "bg-primary/20 border-white/30" : "bg-gray-200 border-primary/30"
+            "mb-2 p-2 rounded-xl text-[10px] border-l-4",
+            isMe ? "bg-white/10 border-white/30" : "bg-black/5 border-primary/30"
           )}>
             <p className="font-bold opacity-70">Replying to message</p>
-            <p className="truncate opacity-90">Original message content...</p>
+            <p className="truncate opacity-90 italic">Original message...</p>
           </div>
         )}
 
-        {message.type === 'call' && message.call && (
-          <div className="flex items-center gap-3 min-w-[200px]">
-            <div className={cn(
-              "p-2 rounded-full",
-              isMe ? "bg-white/20" : "bg-primary/20"
-            )}>
-              {message.call.type === 'video' ? <Video size={20} /> : <Phone size={20} />}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold">
-                {message.call.type === 'video' ? 'Video' : 'Audio'} call {message.call.status}
-              </p>
-              {message.call.duration !== undefined && (
-                <p className="text-[10px] opacity-70">
-                  Duration: {Math.floor(message.call.duration / 60)}:{(message.call.duration % 60).toString().padStart(2, '0')}
-                </p>
-              )}
-            </div>
-            {onCall && (
-              <button 
-                onClick={() => onCall(message.call!.type)}
-                className={cn(
-                  "p-2 rounded-full",
-                  isMe ? "bg-white text-primary" : "bg-primary text-white"
-                )}
-              >
-                <Phone size={16} />
-              </button>
-            )}
-          </div>
-        )}
-
+        {/* Text Message */}
         {message.type === 'text' && (
-          <div className="space-y-2">
-            <p className="text-sm leading-relaxed">{showTranslation ? message.translatedText : message.text}</p>
+          <div className="space-y-1">
+            <p className="text-[14px] leading-tight font-normal">
+              {showTranslation ? message.translatedText : message.text}
+            </p>
             {message.translatedText && (
               <button 
                 onClick={() => setShowTranslation(!showTranslation)}
-                className={cn("text-[10px] font-bold flex items-center gap-1", isMe ? "text-white/70" : "text-primary")}
+                className={cn("text-[10px] font-bold flex items-center gap-1 mt-1", isMe ? "text-white/70" : "text-primary")}
               >
                 <Languages size={12} />
-                {showTranslation ? "Show Original" : "Translate to Bengali"}
+                {showTranslation ? "Original" : "Translate"}
               </button>
             )}
           </div>
         )}
         
+        {/* Image Message */}
         {(message.type === 'image' || message.fileType === 'image') && (
-          <img 
-            src={message.fileUrl || message.mediaUrl} 
-            alt="Sent image" 
-            className="w-full h-auto rounded-xl object-cover max-h-60"
-            referrerPolicy="no-referrer"
-          />
+          <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+            <img 
+              src={message.fileUrl || message.mediaUrl} 
+              alt="Sent image" 
+              className="w-full h-auto object-cover max-h-80"
+              referrerPolicy="no-referrer"
+            />
+          </div>
         )}
 
-        {message.messageType === 'voice' && (
-          <div className="w-[200px] p-3 rounded-2xl bg-gray-100">
+        {/* Voice Message */}
+        {(message.type === 'voice' || message.messageType === 'voice') && (
+          <div className={cn(
+            "w-[240px] p-3 rounded-[24px] shadow-sm",
+            isMe ? "bg-[#0084ff] text-white" : "bg-[#e4e6eb] text-black"
+          )}>
             {message.status === 'uploading' ? (
               <div className="flex items-center justify-center h-10">
-                <Loader2 className="animate-spin text-primary" size={24} />
+                <Loader2 className="animate-spin" size={24} />
               </div>
             ) : (
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => {
-                    try {
-                      if (isPlaying) {
-                        audioRef.current?.pause();
-                        setIsPlaying(false);
-                      } else {
-                        if (!audioRef.current) {
-                          audioRef.current = new Audio(message.audioUrl);
-                          audioRef.current.preload = 'metadata';
-                          audioRef.current.onended = () => setIsPlaying(false);
-                        }
-                        audioRef.current.play();
-                        setIsPlaying(true);
+                    if (isPlaying) {
+                      audioRef.current?.pause();
+                      setIsPlaying(false);
+                    } else {
+                      if (!audioRef.current) {
+                        audioRef.current = new Audio(message.audioUrl);
+                        audioRef.current.onended = () => setIsPlaying(false);
                       }
-                    } catch (error) {
-                      console.error("Audio playback error:", error);
+                      audioRef.current.play();
+                      setIsPlaying(true);
                     }
                   }}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-white"
+                  className={cn(
+                    "w-10 h-10 flex items-center justify-center rounded-full transition-transform active:scale-90",
+                    isMe ? "bg-white text-[#0084ff]" : "bg-[#0084ff] text-white"
+                  )}
                 >
-                  {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                  {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
                 </button>
-                <div className="flex-1 flex items-end gap-[2px] h-8">
-                  {[...Array(15)].map((_, i) => (
-                    <div 
-                      key={i} 
-                      className="w-[3px] rounded-full bg-gray-300"
-                      style={{ height: `${Math.random() * 100}%` }}
-                    ></div>
-                  ))}
+                <div className="flex-1 flex items-center h-8">
+                  <div className="w-full h-1 bg-current opacity-20 rounded-full relative">
+                    <div className="absolute inset-0 bg-current rounded-full w-1/3"></div>
+                  </div>
                 </div>
-                <span className="text-xs font-mono text-gray-500">
-                  {message.audioDuration ? formatTime(message.audioDuration) : '0:00'}
+                <span className="text-[10px] font-bold opacity-70">
+                  {message.audioDuration ? formatVoiceTime(message.audioDuration) : '0:00'}
                 </span>
               </div>
             )}
             {message.voiceToText && (
-              <div className="mt-2">
+              <div className="mt-2 pt-2 border-t border-current/10">
                 <button 
                   onClick={() => setShowV2T(!showV2T)}
-                  className="text-[10px] font-bold flex items-center gap-1 mb-1 text-primary"
+                  className="text-[10px] font-bold flex items-center gap-1 mb-1 opacity-70"
                 >
                   <FileText size={12} />
-                  {showV2T ? "Hide Transcription" : "Show Transcription"}
+                  {showV2T ? "Hide text" : "Show text"}
                 </button>
-                {showV2T && <p className="text-[11px] italic opacity-80 border-t border-gray-200 pt-1">{message.voiceToText}</p>}
+                {showV2T && <p className="text-[11px] italic opacity-90">{message.voiceToText}</p>}
               </div>
             )}
           </div>
         )}
 
+        {/* Location Message */}
         {message.type === 'location' && message.location && (
           <div className="space-y-2 min-w-[200px]">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500/20 text-green-500 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-green-500/20 text-green-500 rounded-xl flex items-center justify-center">
                 <MapPin size={20} />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold">Current Location</span>
+                <span className="text-xs font-bold">Location</span>
                 <span className="text-[10px] opacity-70">Shared via GPS</span>
               </div>
             </div>
@@ -289,36 +320,40 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
               href={`https://www.google.com/maps?q=${message.location.latitude},${message.location.longitude}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full py-2 bg-green-500 text-white text-center rounded-lg text-[10px] font-bold"
+              className="block w-full py-2 bg-green-500 text-white text-center rounded-xl text-[10px] font-bold hover:bg-green-600 transition-colors"
             >
-              Open in Maps
+              View on Maps
             </a>
           </div>
         )}
 
+        {/* Poll Message */}
         {message.type === 'poll' && message.poll && (
           <div className="space-y-3 min-w-[220px]">
             <div className="flex items-center gap-2">
-              <BarChart2 size={16} className="text-primary" />
-              <h4 className="text-xs font-black uppercase tracking-wider">{message.poll.question}</h4>
+              <BarChart2 size={16} className={isMe ? "text-white" : "text-primary"} />
+              <h4 className="text-[13px] font-bold">{message.poll.question}</h4>
             </div>
             <div className="space-y-2">
               {message.poll.options.map((opt, i) => {
                 const totalVotes = message.poll?.options.reduce((acc, curr) => acc + curr.votes.length, 0) || 1;
                 const percentage = (opt.votes.length / totalVotes) * 100;
-                const hasVoted = opt.votes && Array.isArray(opt.votes) ? opt.votes.includes(user?.uid || '') : false;
+                const hasVoted = opt.votes.includes(user?.uid || '');
                 return (
                   <button 
                     key={i}
                     onClick={() => handleVote(i)}
-                    className="w-full text-left relative p-2 rounded-lg bg-black/5 hover:bg-black/10 transition-all overflow-hidden"
+                    className={cn(
+                      "w-full text-left relative p-2 rounded-xl transition-all overflow-hidden border",
+                      isMe ? "bg-white/10 border-white/20" : "bg-black/5 border-black/10"
+                    )}
                   >
                     <div 
                       className="absolute inset-0 bg-primary/20 transition-all duration-500"
                       style={{ width: `${percentage}%` }}
                     ></div>
                     <div className="relative flex justify-between items-center text-[11px]">
-                      <span className={cn("font-bold", hasVoted && "text-primary")}>{opt.text}</span>
+                      <span className={cn("font-semibold", hasVoted && "text-primary")}>{opt.text}</span>
                       <span className="opacity-70">{opt.votes.length}</span>
                     </div>
                   </button>
@@ -328,9 +363,10 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
           </div>
         )}
 
+        {/* Contact Message */}
         {message.type === 'contact' && message.contact && (
           <div className="flex items-center gap-3 min-w-[180px]">
-            <div className="w-10 h-10 bg-blue-500/20 text-blue-500 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-blue-500/20 text-blue-500 rounded-xl flex items-center justify-center">
               <UserPlus size={20} />
             </div>
             <div className="flex flex-col">
@@ -340,14 +376,18 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
           </div>
         )}
 
+        {/* File Message */}
         {message.type === 'file' && message.fileType !== 'image' && (
           <a 
             href={message.fileUrl} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-2 p-2 bg-black/5 rounded-lg hover:bg-black/10 transition-colors"
+            className={cn(
+              "flex items-center gap-3 p-3 rounded-xl transition-colors",
+              isMe ? "bg-white/10 hover:bg-white/20" : "bg-black/5 hover:bg-black/10"
+            )}
           >
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
               <Paperclip size={20} />
             </div>
             <div className="flex flex-col">
@@ -356,79 +396,88 @@ export default function MessageBubble({ message, isMe, onReply, onForward, onCal
             </div>
           </a>
         )}
-        
-        {/* Status & Time */}
-        <div className={cn(
-          "flex items-center gap-1 mt-1 text-[10px]",
-          isMe ? "text-white/70" : "text-muted"
-        )}>
-          <span>{time}</span>
-          {isMe && (
-            message.status === 'seen' 
-              ? <CheckCheck size={12} className="text-secondary" />
-              : message.status === 'pending'
-              ? <Clock size={10} className="animate-pulse" />
-              : <Check size={12} />
-          )}
-        </div>
 
         {/* Reactions Display */}
         {message.reactions && Object.keys(message.reactions).length > 0 && (
           <div className={cn(
-            "absolute -bottom-3 flex gap-1",
-            isMe ? "right-0" : "left-0"
+            "absolute -bottom-4 flex gap-1",
+            isMe ? "right-2" : "left-2"
           )}>
-            {Object.entries(message.reactions).map(([emoji, users]) => (
-              users.length > 0 && (
+            {Object.entries(message.reactions).map(([emoji, users]) => {
+              const userList = users as string[];
+              return userList.length > 0 && (
                 <button
                   key={emoji}
                   onClick={() => toggleReaction(emoji)}
-                  className="bg-white border border-border rounded-full px-1.5 py-0.5 text-[10px] hover:scale-110 transition-transform flex items-center gap-1"
+                  className="bg-white border border-gray-100 rounded-full px-2 py-0.5 text-[10px] shadow-sm hover:scale-110 transition-transform flex items-center gap-1"
                 >
                   <span>{emoji}</span>
-                  <span className="font-bold text-muted">{users.length}</span>
+                  <span className="font-bold text-gray-500">{userList.length}</span>
                 </button>
-              )
-            ))}
+              );
+            })}
           </div>
         )}
-
-        {/* Reaction Picker Trigger */}
-        <button 
-          onClick={() => setShowReactions(!showReactions)}
-          className={cn(
-            "absolute top-0 p-1 bg-white border border-border rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
-            isMe ? "-left-8" : "-right-8"
-          )}
-        >
-          <Smile size={14} className="text-muted" />
-        </button>
-
-        {/* Reaction Picker */}
-        <AnimatePresence>
-          {showReactions && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.8, y: 10 }}
-              className={cn(
-                "absolute -top-10 z-10 bg-white border border-border rounded-full p-1 flex gap-1",
-                isMe ? "right-0" : "left-0"
-              )}
-            >
-              {EMOJIS.map(emoji => (
-                <button
-                  key={emoji}
-                  onClick={() => toggleReaction(emoji)}
-                  className="hover:scale-125 transition-transform p-1"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.div>
+
+      {/* Status & Time */}
+      <div className={cn(
+        "flex items-center gap-1 mt-1 px-1",
+        isMe ? "justify-end" : "justify-start"
+      )}>
+        <span className="text-[9px] font-medium text-gray-400 uppercase">{timeStr}</span>
+        {isMe && (
+          <div className="flex items-center">
+            {message.status === 'seen' ? (
+              <CheckCheck size={12} className="text-[#0084ff]" />
+            ) : message.status === 'delivered' ? (
+              <CheckCheck size={12} className="text-gray-300" />
+            ) : message.status === 'pending' ? (
+              <Clock size={10} className="text-gray-300 animate-pulse" />
+            ) : (
+              <Check size={12} className="text-gray-300" />
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Reaction Picker Trigger */}
+      <button 
+        onClick={() => setShowReactions(!showReactions)}
+        className={cn(
+          "absolute top-1/2 -translate-y-1/2 p-1.5 bg-white border border-gray-100 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10",
+          isMe ? "-left-10" : "-right-10"
+        )}
+      >
+        <Smile size={14} className="text-gray-400" />
+      </button>
+
+      {/* Reaction Picker */}
+      <AnimatePresence>
+        {showReactions && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 10 }}
+            className={cn(
+              "absolute -top-12 z-20 bg-white border border-gray-100 rounded-full p-1.5 flex gap-1 shadow-lg",
+              isMe ? "right-0" : "left-0"
+            )}
+          >
+            {EMOJIS.map(emoji => (
+              <button
+                key={emoji}
+                onClick={() => toggleReaction(emoji)}
+                className="hover:scale-125 transition-transform p-1 text-lg"
+              >
+                {emoji}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
-}
+};
+
+export default MessageBubble;

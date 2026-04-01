@@ -17,6 +17,11 @@ const ZEGO_APP_ID = Number(process.env.ZEGO_APP_ID) || 1698335343;
 const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET || "827755ef5ec4c06648bc783998a6d0c2";
 
 // Configure Cloudinary
+console.log("Cloudinary config:", {
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET ? '***' : 'undefined'
+});
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -46,15 +51,19 @@ async function startServer() {
 
   // API Route for Cloudinary Upload
   app.post("/api/upload", (req, res, next) => {
+    console.log("Received upload request");
     upload.single("file")(req, res, (err) => {
       if (err) {
         console.error("Multer error:", err);
         return res.status(500).json({ error: err.message });
       }
+      console.log("Multer success");
       next();
     });
   }, (req: any, res) => {
+    console.log("File:", req.file);
     if (!req.file) {
+      console.error("No file uploaded");
       return res.status(400).json({ error: "No file uploaded" });
     }
     res.json({ 
@@ -94,6 +103,11 @@ async function startServer() {
     const token = Buffer.from(JSON.stringify(tokenPayload)).toString('base64');
     
     res.json({ token });
+  });
+
+  app.post('*', (req, res) => {
+    console.log("POST request to unknown route:", req.path);
+    res.status(404).json({ error: "Not found" });
   });
 
   // Vite middleware for development

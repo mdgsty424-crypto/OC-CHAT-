@@ -46,8 +46,8 @@ export interface Message {
   chatId: string;
   senderId: string;
   text?: string;
-  type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call';
-  messageType?: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call';
+  type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call' | 'call_history';
+  messageType?: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call' | 'call_history';
   mediaUrl?: string;
   fileUrl?: string;
   audioUrl?: string;
@@ -80,6 +80,8 @@ export interface Message {
     status: 'started' | 'ended';
     duration?: number; // in seconds
   };
+  callType?: 'audio' | 'video';
+  duration?: number; // in seconds
 }
 
 export interface Match {

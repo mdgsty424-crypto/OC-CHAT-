@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 import { useAuth } from '../hooks/useAuth';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { User } from '../types';
 
@@ -17,6 +17,7 @@ export default function CallScreen() {
 
   const type = searchParams.get('type') || 'audio';
   const callId = searchParams.get('callId');
+  const chatId = searchParams.get('chatId');
   const isGroup = searchParams.get('isGroup') === 'true';
 
   useEffect(() => {
@@ -87,6 +88,19 @@ export default function CallScreen() {
               status: 'ended',
               endTime: new Date().toISOString()
             });
+            
+            // Add call history message to chat
+            if (chatId) {
+              await addDoc(collection(db, 'chats', chatId, 'messages'), {
+                chatId,
+                senderId: currentUser?.uid,
+                type: 'call_history',
+                status: 'ended',
+                timestamp: new Date().toISOString(),
+                callType: type,
+                duration: timer
+              });
+            }
           } catch (error) {
             console.error("Error ending call:", error);
           }
