@@ -328,6 +328,30 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     if (!file || !user) return;
 
     setIsUploading(true);
+    
+    // Determine type for pending message
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const messageType = isImage ? 'image' : (isVideo ? 'video' : 'file');
+
+    // 1. Add pending message to Firestore
+    const pendingMessageData = {
+      chatId,
+      senderId: user.uid,
+      text: '',
+      type: messageType,
+      fileType: messageType,
+      status: 'uploading',
+      timestamp: new Date().toISOString(),
+    };
+    
+    let messageRef: any = null;
+    try {
+      messageRef = await addDoc(collection(db, 'chats', chatId, 'messages'), pendingMessageData);
+    } catch (err) {
+      console.error("Error adding pending message:", err);
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 
@@ -352,21 +376,31 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         throw new Error("Invalid response from server");
       }
       
-      const messageData = {
-        chatId,
-        senderId: user.uid,
-        text: '',
-        fileUrl: data.url,
-        fileType: data.resource_type,
-        type: data.resource_type === 'image' ? 'image' : 'file',
-        timestamp: new Date().toISOString(),
-        status: 'sent'
-      };
-
-      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      // 2. Update the pending message
+      if (messageRef) {
+        await updateDoc(messageRef, {
+          fileUrl: data.url,
+          fileType: data.resource_type,
+          type: data.resource_type === 'image' ? 'image' : (data.resource_type === 'video' ? 'video' : 'file'),
+          status: 'sent'
+        });
+      } else {
+        // Fallback if pending message failed
+        const messageData = {
+          chatId,
+          senderId: user.uid,
+          text: '',
+          fileUrl: data.url,
+          fileType: data.resource_type,
+          type: data.resource_type === 'image' ? 'image' : (data.resource_type === 'video' ? 'video' : 'file'),
+          timestamp: new Date().toISOString(),
+          status: 'sent'
+        };
+        await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      }
       
       const unreadUpdates: Record<string, any> = {
-        lastMessage: data.resource_type === 'image' ? '📷 Photo' : '📁 File',
+        lastMessage: data.resource_type === 'image' ? '📷 Photo' : (data.resource_type === 'video' ? '🎥 Video' : '📁 File'),
         lastMessageTime: new Date().toISOString()
       };
 

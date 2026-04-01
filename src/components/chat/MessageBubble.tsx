@@ -20,7 +20,8 @@ import {
   Phone, 
   Video, 
   Loader2, 
-  Clock 
+  Clock,
+  X
 } from 'lucide-react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
@@ -244,13 +245,52 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         
         {/* Image Message */}
         {(message.type === 'image' || message.fileType === 'image') && (
-          <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-            <img 
-              src={message.fileUrl || message.mediaUrl} 
-              alt="Sent image" 
-              className="w-full h-auto object-cover max-h-80"
-              referrerPolicy="no-referrer"
-            />
+          <div className={cn(
+            "rounded-[12px] overflow-hidden border border-gray-100 shadow-sm min-w-[200px] max-w-[280px] bg-gray-100",
+            "aspect-[16/9]"
+          )}>
+            {message.status === 'uploading' ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="animate-spin text-[#0084ff]" size={32} />
+              </div>
+            ) : message.status === 'failed' ? (
+              <div className="w-full h-full flex flex-col items-center justify-center text-red-500 gap-1">
+                <X size={24} />
+                <span className="text-[10px] font-bold uppercase">Failed to upload</span>
+              </div>
+            ) : (
+              <img 
+                src={message.fileUrl || message.mediaUrl} 
+                alt="Sent image" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Video Message */}
+        {(message.type === 'video' || message.fileType === 'video') && (
+          <div className={cn(
+            "rounded-[12px] overflow-hidden border border-gray-100 shadow-sm min-w-[200px] max-w-[280px] bg-gray-100",
+            "aspect-[16/9]"
+          )}>
+            {message.status === 'uploading' ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="animate-spin text-[#0084ff]" size={32} />
+              </div>
+            ) : message.status === 'failed' ? (
+              <div className="w-full h-full flex flex-col items-center justify-center text-red-500 gap-1">
+                <X size={24} />
+                <span className="text-[10px] font-bold uppercase">Failed to upload</span>
+              </div>
+            ) : (
+              <video 
+                src={message.fileUrl || message.mediaUrl} 
+                className="w-full h-full object-cover"
+                controls
+              />
+            )}
           </div>
         )}
 
