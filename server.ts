@@ -8,6 +8,18 @@ import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 
 import crypto from "crypto";
+import { db } from "./src/lib/firebase.ts";
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  query, 
+  where, 
+  setDoc, 
+  doc,
+  serverTimestamp,
+  deleteDoc
+} from "firebase/firestore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +27,10 @@ const __dirname = path.dirname(__filename);
 // ZegoCloud Configuration
 const ZEGO_APP_ID = Number(process.env.ZEGO_APP_ID) || 1698335343;
 const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET || "827755ef5ec4c06648bc783998a6d0c2";
+
+// webtoapp.design Configuration
+const WEBTOAPP_API_KEY = process.env.WEBTOAPP_API_KEY || "tFT_Zi9r8SEvbduQ3jRhMhRN73-raDOy2r-522NuXSc";
+const WEBTOAPP_API_URL = "https://www.webtoapp.design/api/v1/push-notifications/send";
 
 // Configure Cloudinary
 console.log("Cloudinary config:", {
@@ -82,15 +98,20 @@ async function startServer() {
           const isAudio = (req as any).file.mimetype.startsWith('audio/') || 
                           (req as any).file.mimetype.startsWith('video/webm') ||
                           (req as any).file.originalname.endsWith('.webm') || 
-                          (req as any).file.originalname.endsWith('.mp3');
+                          (req as any).file.originalname.endsWith('.mp3') ||
+                          (req as any).file.originalname === 'voice.webm';
           
+          const uploadOptions: any = {
+            folder: "oc-chat",
+            resource_type: isAudio ? "video" : "auto",
+          };
+
+          if (isAudio) {
+            uploadOptions.format = "webm";
+          }
+
           const uploadStream = cloudinary.uploader.upload_stream(
-            { 
-              folder: "oc-chat", 
-              resource_type: isAudio ? "video" : "auto",
-              // Force format if we know it's audio to help Cloudinary
-              format: isAudio ? "webm" : undefined
-            },
+            uploadOptions,
             (error, result) => {
               if (error) {
                 console.error("Cloudinary upload_stream error callback:", error);
@@ -149,6 +170,89 @@ async function startServer() {
     const token = Buffer.from(JSON.stringify(tokenPayload)).toString('base64');
     
     res.json({ token });
+  });
+
+  // --- Push Notification Endpoints ---
+
+  // 1. Save App Instance Token
+  app.post("/api/notifications/save-token", async (req, res) => {
+    const { userId, token } = req.body;
+    if (!userId || !token) return res.status(400).json({ error: "userId and token are required" });
+
+    try {
+      // Store token in Firestore, using token as ID to avoid duplicates
+      const tokenRef = doc(db, "user_tokens", token);
+      await setDoc(tokenRef, {
+        userId,
+        token,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log(`Token saved for user ${userId}: ${token.substring(0, 10)}...`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error saving token:", error);
+      res.status(500).json({ error: "Failed to save token", message: error.message });
+    }
+  });
+
+  // 2. Send Push Notification
+  app.post("/api/notifications/send", async (req, res) => {
+    const { targetUserId, title, message, image, link, priority, sound, requireInteraction, actions } = req.body;
+    
+    if (!targetUserId || !title || !message) {
+      return res.status(400).json({ error: "targetUserId, title, and message are required" });
+    }
+
+    try {
+      // Fetch all tokens for the target user
+      const q = query(collection(db, "user_tokens"), where("userId", "==", targetUserId));
+      const querySnapshot = await getDocs(q);
+      const tokens = querySnapshot.docs.map(doc => doc.data().token);
+
+      if (tokens.length === 0) {
+        console.log(`No tokens found for user ${targetUserId}`);
+        return res.json({ success: true, sent: 0 });
+      }
+
+      console.log(`Sending notification to user ${targetUserId} (${tokens.length} devices)`);
+
+      // Send notification to each token
+      const results = await Promise.all(tokens.map(async (token) => {
+        const payload: any = {
+          apiKey: WEBTOAPP_API_KEY,
+          token: token,
+          title: title,
+          message: message,
+          priority: priority || "high"
+        };
+
+        if (image) payload.image = image;
+        if (link) payload.link = link;
+        if (sound) payload.sound = sound;
+        if (requireInteraction !== undefined) payload.requireInteraction = requireInteraction;
+        if (actions) payload.actions = actions;
+
+        const response = await fetch(WEBTOAPP_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error(`Failed to send notification to token ${token.substring(0, 10)}...`, errorData);
+          return { token, success: false, error: errorData };
+        }
+
+        return { token, success: true };
+      }));
+
+      res.json({ success: true, sent: results.filter(r => r.success).length, results });
+    } catch (error: any) {
+      console.error("Error sending notification:", error);
+      res.status(500).json({ error: "Failed to send notification", message: error.message });
+    }
   });
 
   // API Route for Link Preview

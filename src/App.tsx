@@ -63,9 +63,12 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
   );
 }
 
+import { useNotifications } from './hooks/useNotifications';
+
 function AppRoutes() {
   const { user, loading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
+  useNotifications(); // Initialize notification registration
 
   useEffect(() => {
     const timer = setTimeout(() => {

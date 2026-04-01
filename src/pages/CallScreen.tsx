@@ -6,11 +6,14 @@ import { doc, updateDoc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { User } from '../types';
 
+import { useNotifications } from '../hooks/useNotifications';
+
 export default function CallScreen() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { sendNotification } = useNotifications();
   const containerRef = useRef<HTMLDivElement>(null);
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [timer, setTimer] = useState(0);
@@ -90,6 +93,17 @@ export default function CallScreen() {
               status: 'ended',
               endTime: new Date().toISOString()
             });
+
+            // Send Call Dismiss Notification to other user
+            if (id && !isGroup) {
+              sendNotification({
+                targetUserId: id,
+                title: "Call Ended",
+                message: "The caller has hung up.",
+                priority: 'normal',
+                sound: 'silent' // Or a silent sound file if available
+              });
+            }
             
             // Add call history message to chat
             if (chatId) {

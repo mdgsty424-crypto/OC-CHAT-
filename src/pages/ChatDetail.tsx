@@ -10,10 +10,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import MessageBubble from '../components/chat/MessageBubble';
 import MessageInput from '../components/chat/MessageInput';
 
+import { useNotifications } from '../hooks/useNotifications';
+
 export default function ChatDetail() {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
+  const { sendNotification } = useNotifications();
   const [chat, setChat] = useState<Chat | null>(null);
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -127,6 +130,28 @@ export default function ChatDetail() {
         receiverId: otherUser.uid,
         status: 'calling',
         timestamp: new Date().toISOString()
+      });
+
+      // Send VoIP Push Notification
+      sendNotification({
+        targetUserId: otherUser.uid,
+        title: `Incoming ${type === 'video' ? 'Video' : 'Audio'} Call from ${currentUser.displayName || 'Someone'}`,
+        message: "Tap the 'Answer' button to join the call.",
+        image: currentUser.photoURL || '',
+        priority: 'high',
+        requireInteraction: true,
+        sound: 'ringtone', // Custom ringtone file name (without extension)
+        actions: [
+          { 
+            label: "✅ Answer", 
+            action: "open_url", 
+            url: `https://occhat.ocsthael.com/call/${currentUser.uid}?type=${type}&callId=${callRef.id}&chatId=${id}` 
+          },
+          { 
+            label: "❌ Decline", 
+            action: "dismiss" 
+          }
+        ]
       });
 
       navigate(`/call/${otherUser.uid}?type=${type}&callId=${callRef.id}&chatId=${id}`);

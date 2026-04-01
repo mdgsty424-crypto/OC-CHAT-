@@ -8,8 +8,11 @@ import { collection, query, where, onSnapshot, updateDoc, doc, getDoc } from 'fi
 import { db } from '../../lib/firebase';
 import { CallSession, User } from '../../types';
 
+import { useNotifications } from '../../hooks/useNotifications';
+
 export default function IncomingCall() {
   const { user: currentUser } = useAuth();
+  const { sendNotification } = useNotifications();
   const [incomingCall, setIncomingCall] = useState<{ id: string, name: string, type: 'audio' | 'video', callId: string } | null>(null);
   const navigate = useNavigate();
 
@@ -86,6 +89,16 @@ export default function IncomingCall() {
       await updateDoc(doc(db, 'calls', incomingCall.callId), {
         status: 'ended'
       });
+
+      // Send Call Dismiss Notification to caller
+      sendNotification({
+        targetUserId: incomingCall.id,
+        title: "Call Declined",
+        message: `${currentUser?.displayName || 'The user'} declined your call.`,
+        priority: 'normal',
+        sound: 'silent'
+      });
+
       setIncomingCall(null);
     }
   };

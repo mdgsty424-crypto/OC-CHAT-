@@ -472,6 +472,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     onEnded={() => setIsPlaying(false)}
                     onError={() => {
                       console.error("Audio playback error for URL:", message.audioUrl);
+                      // Fallback: try to append .webm if it's a raw Cloudinary URL missing extension
+                      if (message.audioUrl && message.audioUrl.includes('/raw/upload/') && !message.audioUrl.toLowerCase().endsWith('.webm')) {
+                        const fallbackUrl = `${message.audioUrl}.webm`;
+                        console.log("Attempting fallback with extension:", fallbackUrl);
+                        if (audioRef.current) {
+                          audioRef.current.src = fallbackUrl;
+                          audioRef.current.load();
+                          audioRef.current.play().catch(e => {
+                            console.error("Fallback play failed:", e);
+                            setAudioError(true);
+                          });
+                          return;
+                        }
+                      }
                       setAudioError(true);
                       setIsPlaying(false);
                     }}

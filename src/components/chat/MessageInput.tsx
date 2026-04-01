@@ -19,9 +19,12 @@ interface MessageInputProps {
   onCancelReply?: () => void;
 }
 
+import { useNotifications } from '../../hooks/useNotifications';
+
 export default function MessageInput({ chatId, participants, replyingTo, onCancelReply }: MessageInputProps) {
   const { user } = useAuth();
   const { isOnline } = useNetwork();
+  const { sendNotification } = useNotifications();
   const [text, setText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -459,6 +462,16 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       participants.forEach(pid => {
         if (pid !== user.uid) {
           unreadUpdates[`unreadCount.${pid}`] = increment(1);
+          
+          // Send Push Notification
+          sendNotification({
+            targetUserId: pid,
+            title: user.displayName || 'New Message',
+            message: text.trim(),
+            image: user.photoURL || '',
+            link: `${window.location.origin}/chat/${chatId}`,
+            priority: 'high'
+          });
         }
       });
 
