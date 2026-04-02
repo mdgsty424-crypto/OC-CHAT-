@@ -177,15 +177,14 @@ export default function ChatDetail() {
     if (!forwardingMessage || !currentUser) return;
 
     try {
-      const newMessage = {
-        ...forwardingMessage,
-        id: undefined, // Remove original ID
-        chatId: targetChatId,
-        senderId: currentUser.uid,
-        timestamp: new Date().toISOString(),
-        status: 'sending' as const,
-        isForwarded: true
-      };
+      const newMessage = { ...forwardingMessage };
+      delete newMessage.id; // Remove original ID so addDoc generates a new one
+      
+      newMessage.chatId = targetChatId;
+      newMessage.senderId = currentUser.uid;
+      newMessage.timestamp = new Date().toISOString();
+      newMessage.status = 'sending' as const;
+      newMessage.isForwarded = true;
 
       await addDoc(collection(db, 'chats', targetChatId, 'messages'), newMessage);
       

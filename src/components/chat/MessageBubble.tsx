@@ -59,7 +59,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
           setPreview(data);
         }
       } catch (err) {
-        console.error("Failed to fetch link preview", err);
+        // Suppress link preview fetch errors to avoid console spam
       } finally {
         setLoading(false);
       }
@@ -502,10 +502,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     onPause={() => setIsPlaying(false)}
                     onEnded={() => setIsPlaying(false)}
                     onError={() => {
-                      console.error("Audio playback error for URL:", message.audioUrl);
+                      // Suppress error logging for old raw audio files to avoid console spam
                       // Fallback: try to fetch as blob and play if it's a raw Cloudinary URL
                       if (message.audioUrl && message.audioUrl.includes('/raw/upload/') && !audioRef.current?.dataset.fallbackAttempted) {
-                        console.log("Attempting fallback fetch for raw audio...");
                         if (audioRef.current) {
                           audioRef.current.dataset.fallbackAttempted = 'true';
                         }
@@ -515,19 +514,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             return res.blob();
                           })
                           .then(blob => {
-                            const blobUrl = URL.createObjectURL(new Blob([blob], { type: 'audio/webm' }));
+                            // Use the blob's actual type instead of hardcoding webm
+                            const blobUrl = URL.createObjectURL(new Blob([blob], { type: blob.type || 'audio/mp4' }));
                             if (audioRef.current) {
                               audioRef.current.src = blobUrl;
                               audioRef.current.load();
                               audioRef.current.play().catch(e => {
-                                console.error("Blob fallback play failed:", e);
                                 setAudioError(true);
                                 setIsPlaying(false);
                               });
                             }
                           })
                           .catch(e => {
-                            console.error("Fetch fallback failed:", e);
                             setAudioError(true);
                             setIsPlaying(false);
                           });
@@ -805,8 +803,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         title: 'Shared Media',
                         url: url
                       });
-                    } catch (err) {
-                      console.error("Error sharing:", err);
+                    } catch (err: any) {
+                      if (err.name !== 'AbortError') {
+                        console.error("Error sharing:", err);
+                      }
                     }
                   } else {
                     alert("Sharing is not supported on this device.");
