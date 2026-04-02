@@ -30,7 +30,7 @@ const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET || "827755ef5ec4c06648
 
 // webtoapp.design Configuration
 const WEBTOAPP_API_KEY = process.env.WEBTOAPP_API_KEY || "tFT_Zi9r8SEvbduQ3jRhMhRN73-raDOy2r-522NuXSc";
-const WEBTOAPP_API_URL = "https://www.webtoapp.design/api/v1/push-notifications/send";
+const WEBTOAPP_API_URL = `https://webtoapp.design/api/push_notifications?key=${WEBTOAPP_API_KEY}`;
 
 // Configure Cloudinary
 console.log("Cloudinary config:", {
@@ -220,27 +220,28 @@ async function startServer() {
       // Send notification to each token
       const results = await Promise.all(tokens.map(async (token) => {
         const payload: any = {
-          apiKey: WEBTOAPP_API_KEY,
           token: token,
           title: title,
-          message: message,
-          priority: priority || "high"
+          message: message
         };
 
-        if (image) payload.image = image;
-        if (link) payload.link = link;
-        if (sound) payload.sound = sound;
-        if (requireInteraction !== undefined) payload.requireInteraction = requireInteraction;
-        if (actions) payload.actions = actions;
+        if (image) payload.image_url = image;
+        if (link) payload.url_to_open = link;
+        
+        // Add optional badge count if desired, though not strictly requested
+        // payload.notification_badge_count = 1;
 
         const response = await fetch(WEBTOAPP_API_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "accept": "application/json",
+            "content-type": "application/json" 
+          },
           body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await response.text();
           console.error(`Failed to send notification to token ${token.substring(0, 10)}...`, errorData);
           return { token, success: false, error: errorData };
         }

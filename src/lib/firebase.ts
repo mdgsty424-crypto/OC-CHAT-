@@ -4,18 +4,30 @@ import {
   getFirestore, 
   initializeFirestore, 
   persistentLocalCache, 
-  persistentMultipleTabManager 
+  persistentMultipleTabManager,
+  memoryLocalCache
 } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Initialize Firestore with persistent cache
+// Check if localStorage is available
+let isLocalStorageAvailable = false;
+try {
+  const testKey = '__test__';
+  window.localStorage.setItem(testKey, testKey);
+  window.localStorage.removeItem(testKey);
+  isLocalStorageAvailable = true;
+} catch (e) {
+  isLocalStorageAvailable = false;
+}
+
+// Initialize Firestore with persistent cache if available
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
+  localCache: isLocalStorageAvailable 
+    ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    : memoryLocalCache()
 }, (firebaseConfig as any).firestoreDatabaseId || "(default)");
 
 export default app;

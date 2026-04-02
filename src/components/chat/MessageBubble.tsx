@@ -472,27 +472,42 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     onEnded={() => setIsPlaying(false)}
                     onError={() => {
                       console.error("Audio playback error for URL:", message.audioUrl);
-                      // Fallback: try to append .webm if it's a raw Cloudinary URL missing extension
-                      if (message.audioUrl && message.audioUrl.includes('/raw/upload/') && !message.audioUrl.toLowerCase().endsWith('.webm')) {
-                        const fallbackUrl = `${message.audioUrl}.webm`;
-                        console.log("Attempting fallback with extension:", fallbackUrl);
+                      // Fallback: try to fetch as blob and play if it's a raw Cloudinary URL
+                      if (message.audioUrl && message.audioUrl.includes('/raw/upload/') && !audioRef.current?.dataset.fallbackAttempted) {
+                        console.log("Attempting fallback fetch for raw audio...");
                         if (audioRef.current) {
-                          audioRef.current.src = fallbackUrl;
-                          audioRef.current.load();
-                          audioRef.current.play().catch(e => {
-                            console.error("Fallback play failed:", e);
-                            setAudioError(true);
-                          });
-                          return;
+                          audioRef.current.dataset.fallbackAttempted = 'true';
                         }
+                        fetch(message.audioUrl)
+                          .then(res => {
+                            if (!res.ok) throw new Error('Network response was not ok');
+                            return res.blob();
+                          })
+                          .then(blob => {
+                            const blobUrl = URL.createObjectURL(new Blob([blob], { type: 'audio/webm' }));
+                            if (audioRef.current) {
+                              audioRef.current.src = blobUrl;
+                              audioRef.current.load();
+                              audioRef.current.play().catch(e => {
+                                console.error("Blob fallback play failed:", e);
+                                setAudioError(true);
+                                setIsPlaying(false);
+                              });
+                            }
+                          })
+                          .catch(e => {
+                            console.error("Fetch fallback failed:", e);
+                            setAudioError(true);
+                            setIsPlaying(false);
+                          });
+                        return;
                       }
                       setAudioError(true);
                       setIsPlaying(false);
                     }}
                     className="hidden"
                   >
-                    <source src={message.audioUrl} type="audio/webm" />
-                    <source src={message.audioUrl} type="audio/mpeg" />
+                    <source src={message.audioUrl} />
                   </audio>
                 )}
               </div>
