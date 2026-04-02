@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Message } from '../../types';
 import { cn } from '../../lib/utils';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -22,7 +23,11 @@ import {
   Loader2, 
   Clock,
   X,
-  ExternalLink
+  ExternalLink,
+  Download,
+  Share2,
+  Forward,
+  File
 } from 'lucide-react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
@@ -160,6 +165,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [showTranslation, setShowTranslation] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioError, setAudioError] = useState(false);
+  const [showMediaViewer, setShowMediaViewer] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const timestamp = new Date(message.timestamp);
@@ -357,10 +363,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         
         {/* Image Message */}
         {(message.type === 'image' || message.fileType === 'image') && (
-          <div className={cn(
-            "rounded-[12px] overflow-hidden border border-gray-100 shadow-sm min-w-[200px] max-w-[280px] bg-gray-100",
-            "aspect-[16/9]"
-          )}>
+          <div 
+            className={cn(
+              "rounded-[12px] overflow-hidden border border-gray-100 shadow-sm min-w-[200px] max-w-[280px] bg-gray-100 cursor-pointer",
+              "aspect-[16/9]"
+            )}
+            onClick={() => {
+              if (message.status !== 'uploading' && message.status !== 'failed') {
+                setShowMediaViewer(true);
+              }
+            }}
+          >
             {message.status === 'uploading' ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="animate-spin text-[#0084ff]" size={32} />
@@ -374,7 +387,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <img 
                 src={message.fileUrl || message.mediaUrl} 
                 alt="Sent image" 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover hover:opacity-90 transition-opacity"
                 referrerPolicy="no-referrer"
               />
             )}
@@ -383,10 +396,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Video Message */}
         {(message.type === 'video' || message.fileType === 'video') && (
-          <div className={cn(
-            "rounded-[12px] overflow-hidden border border-gray-100 shadow-sm min-w-[200px] max-w-[280px] bg-gray-100",
-            "aspect-[16/9]"
-          )}>
+          <div 
+            className={cn(
+              "rounded-[12px] overflow-hidden border border-gray-100 shadow-sm min-w-[200px] max-w-[280px] bg-gray-100 cursor-pointer relative group",
+              "aspect-[16/9]"
+            )}
+            onClick={(e) => {
+              // Prevent opening viewer if they click the native controls
+              // But since we want the viewer to open, maybe we should disable native controls in the bubble
+              // and only show them in the viewer.
+              if (message.status !== 'uploading' && message.status !== 'failed') {
+                e.preventDefault();
+                setShowMediaViewer(true);
+              }
+            }}
+          >
             {message.status === 'uploading' ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="animate-spin text-[#0084ff]" size={32} />
@@ -397,11 +421,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <span className="text-[10px] font-bold uppercase">Failed to upload</span>
               </div>
             ) : (message.fileUrl || message.mediaUrl) ? (
-              <video 
-                src={message.fileUrl || message.mediaUrl} 
-                className="w-full h-full object-cover"
-                controls
-              />
+              <>
+                <video 
+                  src={message.fileUrl || message.mediaUrl} 
+                  className="w-full h-full object-cover"
+                  preload="metadata"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                  <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center text-[#0084ff] shadow-lg">
+                    <Play size={24} fill="currentColor" className="ml-1" />
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                 <Video size={32} />
@@ -601,22 +632,47 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
 
         {/* File Message */}
-        {message.type === 'file' && message.fileType !== 'image' && (
+        {message.type === 'file' && message.fileType !== 'image' && message.fileType !== 'video' && (
           <a 
             href={message.fileUrl} 
+            download={message.fileName || 'document'}
             target="_blank" 
             rel="noopener noreferrer"
             className={cn(
-              "flex items-center gap-3 p-3 rounded-xl transition-colors",
+              "flex items-center gap-3 p-3 rounded-xl transition-colors min-w-[200px] max-w-[280px]",
               isMe ? "bg-white/10 hover:bg-white/20" : "bg-black/5 hover:bg-black/10"
             )}
+            onClick={(e) => {
+              // Force download if possible
+              if (message.fileUrl) {
+                e.preventDefault();
+                const link = document.createElement('a');
+                link.href = message.fileUrl;
+                // Add download attribute to force download instead of opening in browser
+                link.setAttribute('download', message.fileName || 'document');
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+            }}
           >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <Paperclip size={20} />
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
+              isMe ? "bg-white/20 text-white" : "bg-[#0084ff]/10 text-[#0084ff]"
+            )}>
+              <File size={20} />
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-bold truncate max-w-[120px]">Attachment</span>
-              <span className="text-[10px] opacity-70 uppercase">{message.fileType || 'File'}</span>
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-xs font-bold truncate">{message.fileName || 'Document'}</span>
+              <span className="text-[10px] opacity-70 uppercase">
+                {message.fileType === 'application/pdf' ? 'PDF' : 
+                 message.fileType?.includes('word') ? 'DOC' : 
+                 message.fileType || 'FILE'}
+              </span>
+            </div>
+            <div className="ml-auto pl-2">
+              <Download size={16} className="opacity-70" />
             </div>
           </a>
         )}
@@ -709,6 +765,94 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Media Viewer Modal */}
+      {showMediaViewer && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent absolute top-0 left-0 right-0 z-10">
+            <button 
+              onClick={() => setShowMediaViewer(false)}
+              className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+            >
+              <X size={24} />
+            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  const url = message.fileUrl || message.mediaUrl;
+                  if (url) {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = message.fileName || 'media';
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }
+                }}
+                className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+                title="Download"
+              >
+                <Download size={20} />
+              </button>
+              <button 
+                onClick={async () => {
+                  const url = message.fileUrl || message.mediaUrl;
+                  if (url && navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: 'Shared Media',
+                        url: url
+                      });
+                    } catch (err) {
+                      console.error("Error sharing:", err);
+                    }
+                  } else {
+                    alert("Sharing is not supported on this device.");
+                  }
+                }}
+                className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+                title="Share"
+              >
+                <Share2 size={20} />
+              </button>
+              {onForward && (
+                <button 
+                  onClick={() => {
+                    setShowMediaViewer(false);
+                    onForward(message);
+                  }}
+                  className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+                  title="Forward"
+                >
+                  <Forward size={20} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Media Content */}
+          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+            {(message.type === 'image' || message.fileType === 'image') ? (
+              <img 
+                src={message.fileUrl || message.mediaUrl} 
+                alt="Full screen media" 
+                className="max-w-full max-h-full object-contain"
+                referrerPolicy="no-referrer"
+              />
+            ) : (message.type === 'video' || message.fileType === 'video') ? (
+              <video 
+                src={message.fileUrl || message.mediaUrl} 
+                className="max-w-full max-h-full object-contain"
+                controls
+                autoPlay
+              />
+            ) : null}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

@@ -174,28 +174,6 @@ async function startServer() {
 
   // --- Push Notification Endpoints ---
 
-  // 1. Save App Instance Token
-  app.post("/api/notifications/save-token", async (req, res) => {
-    const { userId, token } = req.body;
-    if (!userId || !token) return res.status(400).json({ error: "userId and token are required" });
-
-    try {
-      // Store token in Firestore, using token as ID to avoid duplicates
-      const tokenRef = doc(db, "user_tokens", token);
-      await setDoc(tokenRef, {
-        userId,
-        token,
-        updatedAt: serverTimestamp()
-      });
-      
-      console.log(`Token saved for user ${userId}: ${token.substring(0, 10)}...`);
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error("Error saving token:", error);
-      res.status(500).json({ error: "Failed to save token", message: error.message });
-    }
-  });
-
   // 2. Send Push Notification
   app.post("/api/notifications/send", async (req, res) => {
     const { targetUserId, title, message, image, link, priority, sound, requireInteraction, actions } = req.body;

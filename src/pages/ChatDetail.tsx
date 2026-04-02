@@ -20,12 +20,23 @@ export default function ChatDetail() {
   const [chat, setChat] = useState<Chat | null>(null);
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [userChats, setUserChats] = useState<Chat[]>([]);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!id || !currentUser) return;
+
+    // Fetch user's chats for forwarding
+    const chatsQuery = query(
+      collection(db, 'chats'),
+      where('participants', 'array-contains', currentUser.uid)
+    );
+    const chatsUnsubscribe = onSnapshot(chatsQuery, (snapshot) => {
+      const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
+      setUserChats(chatList);
+    });
 
     // Load from IndexedDB first
     const loadLocalData = async () => {
@@ -103,6 +114,7 @@ export default function ChatDetail() {
     return () => {
       chatUnsubscribe();
       messagesUnsubscribe();
+      chatsUnsubscribe();
     };
   }, [id, currentUser]);
 
@@ -161,8 +173,33 @@ export default function ChatDetail() {
     }
   };
 
-  const handleForward = (message: Message) => {
-    setForwardingMessage(message);
+  const handleForwardMessage = async (targetChatId: string) => {
+    if (!forwardingMessage || !currentUser) return;
+
+    try {
+      const newMessage = {
+        ...forwardingMessage,
+        id: undefined, // Remove original ID
+        chatId: targetChatId,
+        senderId: currentUser.uid,
+        timestamp: new Date().toISOString(),
+        status: 'sending' as const,
+        isForwarded: true
+      };
+
+      await addDoc(collection(db, 'chats', targetChatId, 'messages'), newMessage);
+      
+      await updateDoc(doc(db, 'chats', targetChatId), {
+        lastMessage: forwardingMessage.text || 'Forwarded message',
+        lastMessageTime: new Date().toISOString(),
+      });
+
+      setForwardingMessage(null);
+      alert('Message forwarded!');
+    } catch (error) {
+      console.error("Error forwarding message:", error);
+      alert('Failed to forward message');
+    }
   };
 
   const isOtherTyping = chat?.typing && otherUser?.uid && chat.typing[otherUser.uid];
@@ -181,11 +218,37 @@ export default function ChatDetail() {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] p-8 w-full max-w-xs border border-gray-100"
+              className="bg-white rounded-[2rem] p-6 w-full max-w-sm border border-gray-100 max-h-[80vh] flex flex-col"
             >
-              <h3 className="text-xl font-black mb-6">Forward Message</h3>
-              <p className="text-sm text-muted mb-6">Select a chat to forward this message to.</p>
-              <button onClick={() => setForwardingMessage(null)} className="w-full py-3 bg-border text-text rounded-2xl font-bold">Cancel</button>
+              <h3 className="text-xl font-black mb-2">Forward Message</h3>
+              <p className="text-sm text-muted mb-4">Select a chat to forward this message to.</p>
+              
+              <div className="flex-1 overflow-y-auto space-y-2 mb-4 no-scrollbar">
+                {userChats.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => handleForwardMessage(c.id)}
+                    className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors text-left"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {c.type === 'direct' ? (
+                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.participants.find(p => p !== currentUser?.uid) || c.id}`} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={c.photo || `https://api.dicebear.com/7.x/initials/svg?seed=${c.name}`} alt="Group" className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <h4 className="font-bold text-sm truncate">{c.type === 'direct' ? 'Direct Message' : c.name}</h4>
+                      <p className="text-xs text-gray-500 truncate">{c.lastMessage}</p>
+                    </div>
+                  </button>
+                ))}
+                {userChats.length === 0 && (
+                  <p className="text-center text-gray-500 py-4 text-sm">No chats available.</p>
+                )}
+              </div>
+
+              <button onClick={() => setForwardingMessage(null)} className="w-full py-3 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-colors">Cancel</button>
             </motion.div>
           </motion.div>
         )}
@@ -247,7 +310,7 @@ export default function ChatDetail() {
             message={msg} 
             isMe={msg.senderId === currentUser?.uid} 
             onReply={setReplyingTo}
-            onForward={handleForward}
+            onForward={setForwardingMessage}
             onCall={handleCall}
             otherUserPhoto={chat?.type === 'direct' ? (otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || id}`) : undefined}
           />

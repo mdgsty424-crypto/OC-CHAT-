@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
 import { useAuth } from './useAuth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 // Declare webtoapp functions for TypeScript
 declare global {
   interface Window {
     getNotificationToken?: () => Promise<{ token: string }>;
     executeWhenAppReady?: (callback: () => void) => void;
+    receivePushNotificationToken?: (token: string) => void;
   }
 }
 
@@ -15,6 +18,30 @@ export function useNotifications() {
   useEffect(() => {
     if (!user) return;
 
+    const saveTokenToFirestore = async (appToken: string) => {
+      if (!appToken) return;
+      console.log('Captured app token:', appToken);
+      
+      try {
+        // Store token directly in Firestore
+        const tokenRef = doc(db, 'user_tokens', appToken);
+        await setDoc(tokenRef, {
+          userId: user.uid,
+          token: appToken,
+          updatedAt: serverTimestamp()
+        });
+        console.log('Token saved to Firestore successfully.');
+      } catch (error) {
+        console.error('Failed to save notification token to Firestore:', error);
+      }
+    };
+
+    // 1. Legacy Support (Pre-August 2021 apps)
+    window.receivePushNotificationToken = (token: string) => {
+      saveTokenToFirestore(token);
+    };
+
+    // 2. Modern Support (Post-August 2021 apps)
     const registerToken = async () => {
       if (typeof window.getNotificationToken !== 'function') {
         console.log('webtoapp getNotificationToken not available (likely not in app)');
@@ -23,23 +50,11 @@ export function useNotifications() {
 
       try {
         const response = await window.getNotificationToken();
-        const appToken = response.token;
-
-        if (appToken) {
-          console.log('Captured app token:', appToken);
-          
-          // Send to backend
-          await fetch('/api/notifications/save-token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.uid,
-              token: appToken
-            })
-          });
+        if (response && response.token) {
+          await saveTokenToFirestore(response.token);
         }
       } catch (error) {
-        console.error('Failed to capture or save notification token:', error);
+        console.error('Failed to capture notification token:', error);
       }
     };
 
