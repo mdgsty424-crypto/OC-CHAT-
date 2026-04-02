@@ -159,9 +159,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       setLocalStream(stream);
       
       // 2. Initialize MediaRecorder with the Zego stream
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-        ? 'audio/webm;codecs=opus' 
-        : 'audio/webm';
+      // Force audio/webm to ensure consistency with Cloudinary and playback
+      const mimeType = 'audio/webm';
         
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;

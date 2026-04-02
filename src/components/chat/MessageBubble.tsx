@@ -536,7 +536,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     }}
                     className="hidden"
                   >
-                    <source src={message.audioUrl} />
+                    <source src={message.audioUrl} type="audio/webm" />
+                    <source src={message.audioUrl} type="audio/mpeg" />
+                    Your browser does not support the audio element.
                   </audio>
                 )}
               </div>
