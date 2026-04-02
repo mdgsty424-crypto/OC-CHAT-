@@ -228,8 +228,9 @@ async function startServer() {
         if (image) payload.image_url = image;
         if (link) payload.url_to_open = link;
         
-        // Add optional badge count if desired, though not strictly requested
-        // payload.notification_badge_count = 1;
+        // Note: webtoapp.design API doesn't explicitly document a 'priority' field in the basic cURL,
+        // but we can pass it if their backend supports it for Android channels.
+        if (priority) payload.priority = priority;
 
         const response = await fetch(WEBTOAPP_API_URL, {
           method: "POST",

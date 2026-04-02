@@ -94,6 +94,21 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       status: 'sent'
     };
     await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+    
+    // Send Push Notification
+    participants.forEach(pid => {
+      if (pid !== user.uid) {
+        sendNotification({
+          targetUserId: pid,
+          title: user.displayName || 'New Message',
+          message: `💸 Sent you ৳${moneyAmount}`,
+          image: user.photoURL || '',
+          link: `${window.location.origin}/chat/${chatId}`,
+          priority: 'high'
+        });
+      }
+    });
+
     setShowMoneyModal(false);
     setMoneyAmount('');
   };
@@ -287,6 +302,20 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         status: 'sent'
       });
       
+      // Send Push Notification
+      participants.forEach(pid => {
+        if (pid !== user.uid) {
+          sendNotification({
+            targetUserId: pid,
+            title: user.displayName || 'New Message',
+            message: '🎤 Sent a voice message',
+            image: user.photoURL || '',
+            link: `${window.location.origin}/chat/${chatId}`,
+            priority: 'high'
+          });
+        }
+      });
+      
       setAudioBlob(null);
       setAudioDuration(0);
       setWaveforms([]);
@@ -384,6 +413,16 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       participants.forEach(pid => {
         if (pid !== user.uid) {
           unreadUpdates[`unreadCount.${pid}`] = increment(1);
+          
+          // Send Push Notification
+          sendNotification({
+            targetUserId: pid,
+            title: user.displayName || 'New Message',
+            message: data.resource_type === 'image' ? '📷 Sent a photo' : (data.resource_type === 'video' ? '🎥 Sent a video' : '📁 Sent a file'),
+            image: data.resource_type === 'image' ? data.url : (user.photoURL || ''),
+            link: `${window.location.origin}/chat/${chatId}`,
+            priority: 'high'
+          });
         }
       });
 
@@ -501,6 +540,21 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         status: 'sent'
       };
       await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      
+      // Send Push Notification
+      participants.forEach(pid => {
+        if (pid !== user.uid) {
+          sendNotification({
+            targetUserId: pid,
+            title: user.displayName || 'New Message',
+            message: '📍 Shared a location',
+            image: user.photoURL || '',
+            link: `${window.location.origin}/chat/${chatId}`,
+            priority: 'high'
+          });
+        }
+      });
+
       setShowMore(false);
     });
   };
@@ -520,6 +574,21 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       status: 'sent'
     };
     await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+    
+    // Send Push Notification
+    participants.forEach(pid => {
+      if (pid !== user.uid) {
+        sendNotification({
+          targetUserId: pid,
+          title: user.displayName || 'New Message',
+          message: `📊 Created a poll: ${pollQuestion}`,
+          image: user.photoURL || '',
+          link: `${window.location.origin}/chat/${chatId}`,
+          priority: 'high'
+        });
+      }
+    });
+
     setShowPollModal(false);
     setPollQuestion('');
     setPollOptions(['', '']);
