@@ -143,12 +143,12 @@ export default function ChatDetail() {
         sound: 'ringtone', // Custom ringtone file name (without extension)
         actions: [
           { 
-            label: "✅ Answer", 
+            title: "✅ Answer", 
             action: "open_url", 
-            url: `https://occhat.ocsthael.com/call/${currentUser.uid}?type=${type}&callId=${callRef.id}&chatId=${id}` 
+            url: `${window.location.origin}/call/${currentUser.uid}?type=${type}&callId=${callRef.id}&chatId=${id}` 
           },
           { 
-            label: "❌ Decline", 
+            title: "❌ Decline", 
             action: "dismiss" 
           }
         ]

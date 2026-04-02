@@ -60,7 +60,7 @@ export function useNotifications() {
     priority?: 'high' | 'normal';
     sound?: string;
     requireInteraction?: boolean;
-    actions?: Array<{ label: string; action: 'open_url' | 'dismiss'; url?: string }>;
+    actions?: Array<{ title: string; action: 'open_url' | 'dismiss'; url?: string }>;
   }) => {
     try {
       const response = await fetch('/api/notifications/send', {

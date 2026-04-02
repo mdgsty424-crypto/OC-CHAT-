@@ -30,7 +30,7 @@ const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET || "827755ef5ec4c06648
 
 // webtoapp.design Configuration
 const WEBTOAPP_API_KEY = process.env.WEBTOAPP_API_KEY || "tFT_Zi9r8SEvbduQ3jRhMhRN73-raDOy2r-522NuXSc";
-const WEBTOAPP_API_URL = `https://webtoapp.design/api/push_notifications?key=${WEBTOAPP_API_KEY}`;
+const WEBTOAPP_API_URL = `https://www.webtoapp.design/api/v1/push-notifications/send?key=${WEBTOAPP_API_KEY}`;
 
 // Configure Cloudinary
 console.log("Cloudinary config:", {
@@ -231,6 +231,7 @@ async function startServer() {
         // Note: webtoapp.design API doesn't explicitly document a 'priority' field in the basic cURL,
         // but we can pass it if their backend supports it for Android channels.
         if (priority) payload.priority = priority;
+        if (actions) payload.actions = actions;
 
         const response = await fetch(WEBTOAPP_API_URL, {
           method: "POST",
