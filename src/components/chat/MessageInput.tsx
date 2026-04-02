@@ -9,8 +9,8 @@ import { useNetwork } from '../../hooks/useNetwork';
 import { addToQueue, saveMessage } from '../../lib/db';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
-import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
-import { initZego } from '../../lib/callService';
+import { loginZIM } from '../../lib/callService';
+import { ZIM } from 'zego-zim-web';
 
 interface MessageInputProps {
   chatId: string;
@@ -33,19 +33,10 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [waveforms, setWaveforms] = useState<number[]>([]);
-  const [zegoEngine, setZegoEngine] = useState<ZegoExpressEngine | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startTimeRef = useRef<number>(0);
-
-  useEffect(() => {
-    const init = async () => {
-      const engine = await initZego();
-      setZegoEngine(engine);
-    };
-    init();
-  }, []);
   
   // Advanced Features State
   const [showMore, setShowMore] = useState(false);
@@ -147,22 +138,22 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
 
   // Voice Recording Logic
   const startRecording = async () => {
-    if (!zegoEngine) return;
     try {
-      // 1. Create Local Audio Stream using Zego SDK
-      const stream = await zegoEngine.createStream({
-        camera: { video: false, audio: true },
-        aec: true,
-        ans: true,
-        agc: true
+      // 1. Create Local Audio Stream using standard Web API
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
       setLocalStream(stream);
       
-      // 2. Initialize MediaRecorder with the Zego stream
-      // Force audio/webm to ensure consistency with Cloudinary and playback
-      const mimeType = 'audio/webm';
+      // 2. Initialize MediaRecorder
+      // Use audio/webm if supported, otherwise let the browser choose (e.g., audio/mp4 on Safari)
+      const options = MediaRecorder.isTypeSupported('audio/webm') ? { mimeType: 'audio/webm' } : undefined;
         
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       
       // 3. Chunked Collection
@@ -176,7 +167,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType });
+        const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: actualMimeType });
         if (blob.size === 0) {
           console.error("Recorded blob is empty");
           setAudioBlob(null);
@@ -263,41 +255,47 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     };
     const messageRef = await addDoc(collection(db, 'chats', chatId, 'messages'), pendingMessageData);
 
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'voice.webm');
+    const ext = audioBlob.type.includes('mp4') ? 'mp4' : 'webm';
+    const file = new File([audioBlob], `voice.${ext}`, { type: audioBlob.type });
 
     try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      // Login to ZIM if not already logged in
+      await loginZIM(user.uid, user.displayName || 'User');
+      const zim = ZIM.getInstance();
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Upload failed with status:", response.status, "Body:", errorText);
-        throw new Error(`Upload failed: ${response.status}`);
-      }
-      
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        const body = await response.text();
-        console.error("Failed to parse JSON response:", body);
-        throw new Error("Invalid response from server");
-      }
+      if (!zim) throw new Error("ZIM not initialized");
 
-      // Ensure URL has extension
-      let finalUrl = data.url;
-      if (finalUrl && !finalUrl.toLowerCase().endsWith('.webm') && !finalUrl.toLowerCase().endsWith('.mp3')) {
-        finalUrl += '.webm';
-      }
+      const audioMessage = {
+        type: 13, // ZIMMessageType.Audio
+        fileLocalPath: file,
+        audioDuration: audioDuration
+      };
+
+      // Send to ourselves just to get the uploaded URL
+      const result = await zim.sendMessage(
+        audioMessage as any,
+        user.uid,
+        0, // ZIMConversationType.Peer
+        { priority: 1 },
+        {
+          onMessageAttached: (message) => {
+            console.log("Message attached", message);
+          },
+          onMediaUploadingProgress: (message, currentFileSize, totalFileSize) => {
+            console.log(`Uploading: ${currentFileSize}/${totalFileSize}`);
+          }
+        }
+      );
+
+      const finalUrl = (result.message as any).fileDownloadUrl;
       
+      if (!finalUrl) throw new Error("Failed to get download URL from ZIM");
+
       // 2. Update the pending message
       await updateDoc(messageRef, {
         audioUrl: finalUrl,
         audioDuration: audioDuration,
-        fileType: 'audio/webm;codecs=opus',
+        fileType: 'audio/mpeg', // ZIM automatically converts/treats it as mpeg
         status: 'sent'
       });
       
@@ -607,7 +605,9 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             <div className="flex items-center gap-3 border-l-4 border-primary pl-3">
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-primary uppercase tracking-widest">Replying to</span>
-                <p className="text-xs text-muted truncate max-w-[200px]">{replyingTo.text || 'Media'}</p>
+                <p className="text-xs text-muted truncate max-w-[200px]">
+                  {replyingTo.text || (replyingTo.type === 'image' || replyingTo.fileType === 'image' ? 'Photo' : replyingTo.type === 'video' || replyingTo.fileType === 'video' ? 'Video' : replyingTo.type === 'voice' || replyingTo.messageType === 'voice' ? 'Voice Message' : 'Attachment')}
+                </p>
               </div>
             </div>
             <button onClick={onCancelReply} className="p-1.5 hover:bg-border/50 rounded-full transition-colors">

@@ -30,7 +30,7 @@ const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET || "827755ef5ec4c06648
 
 // webtoapp.design Configuration
 const WEBTOAPP_API_KEY = process.env.WEBTOAPP_API_KEY || "tFT_Zi9r8SEvbduQ3jRhMhRN73-raDOy2r-522NuXSc";
-const WEBTOAPP_API_URL = `https://www.webtoapp.design/api/v1/push-notifications/send?key=${WEBTOAPP_API_KEY}`;
+const WEBTOAPP_API_URL = `https://webtoapp.design/api/push_notifications?key=${WEBTOAPP_API_KEY}`;
 
 // Configure Cloudinary
 console.log("Cloudinary config:", {
@@ -103,12 +103,8 @@ async function startServer() {
           
           const uploadOptions: any = {
             folder: "oc-chat",
-            resource_type: isAudio ? "video" : "auto",
+            resource_type: "auto",
           };
-
-          if (isAudio) {
-            uploadOptions.format = "webm";
-          }
 
           const uploadStream = cloudinary.uploader.upload_stream(
             uploadOptions,

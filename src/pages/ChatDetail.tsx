@@ -178,13 +178,44 @@ export default function ChatDetail() {
 
     try {
       const newMessage = { ...forwardingMessage };
-      delete newMessage.id; // Remove original ID so addDoc generates a new one
+      delete (newMessage as any).id; // Remove original ID so addDoc generates a new one
       
       newMessage.chatId = targetChatId;
       newMessage.senderId = currentUser.uid;
       newMessage.timestamp = new Date().toISOString();
-      newMessage.status = 'sending' as const;
-      newMessage.isForwarded = true;
+      newMessage.status = 'sent' as const;
+      
+      // Add forwardedFrom info
+      if (!newMessage.forwardedFrom) {
+        let originalSenderName = 'Unknown User';
+        let originalSenderPhoto = undefined;
+        
+        if (forwardingMessage.senderId === currentUser.uid) {
+          originalSenderName = currentUser.displayName || 'Unknown User';
+          originalSenderPhoto = currentUser.photoURL;
+        } else if (otherUser && forwardingMessage.senderId === otherUser.uid) {
+          originalSenderName = otherUser.displayName || 'Unknown User';
+          originalSenderPhoto = otherUser.photoURL;
+        } else {
+          // Fetch from Firestore if it's a group chat or not cached
+          try {
+            const { getDoc, doc } = await import('firebase/firestore');
+            const userDoc = await getDoc(doc(db, 'users', forwardingMessage.senderId));
+            if (userDoc.exists()) {
+              originalSenderName = userDoc.data().displayName || 'Unknown User';
+              originalSenderPhoto = userDoc.data().photoURL;
+            }
+          } catch (e) {
+            console.error("Error fetching original sender:", e);
+          }
+        }
+
+        newMessage.forwardedFrom = {
+          uid: forwardingMessage.senderId,
+          displayName: originalSenderName,
+          photoURL: originalSenderPhoto
+        };
+      }
 
       await addDoc(collection(db, 'chats', targetChatId, 'messages'), newMessage);
       
@@ -194,7 +225,7 @@ export default function ChatDetail() {
       });
 
       setForwardingMessage(null);
-      alert('Message forwarded!');
+      // alert('Message forwarded!'); // Removed alert to be less annoying
     } catch (error) {
       console.error("Error forwarding message:", error);
       alert('Failed to forward message');
@@ -303,7 +334,9 @@ export default function ChatDetail() {
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-4 space-y-4 bg-white pb-24 no-scrollbar"
       >
-        {messages.map((msg) => (
+        {messages.map((msg) => {
+          const replyMessage = msg.replyTo ? messages.find(m => m.id === msg.replyTo) : undefined;
+          return (
           <MessageBubble 
             key={msg.id} 
             message={msg} 
@@ -312,8 +345,10 @@ export default function ChatDetail() {
             onForward={setForwardingMessage}
             onCall={handleCall}
             otherUserPhoto={chat?.type === 'direct' ? (otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || id}`) : undefined}
+            replyMessage={replyMessage}
           />
-        ))}
+          );
+        })}
         {isOtherTyping && (
           <div className="flex items-center gap-2 text-muted text-[10px] font-medium uppercase tracking-widest pl-2">
             <div className="flex gap-1">

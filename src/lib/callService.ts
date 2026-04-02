@@ -1,10 +1,40 @@
 import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
+import { ZIM } from 'zego-zim-web';
 
 // ZegoCloud Configuration from User
 const appID = 1698335343;
 const server = 'wss://webliveroom1698335343-api.coolzcloud.com/ws';
 
 let engine: ZegoExpressEngine | null = null;
+let zimInstance: any | null = null;
+
+export const initZIM = () => {
+  if (zimInstance) return zimInstance;
+  zimInstance = ZIM.create({ appID });
+  return zimInstance;
+};
+
+export const loginZIM = async (userId: string, userName: string) => {
+  const zim = initZIM();
+  if (!zim) return null;
+  
+  try {
+    // In a real app, you need a valid token. For testing, we might pass an empty string if the app doesn't require token verification, or fetch it.
+    const response = await fetch('/api/zego/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, roomId: 'zim_login' })
+    });
+    const { token } = await response.json();
+    
+    await zim.login({ userID: userId, userName }, token);
+    console.log("ZIM logged in successfully");
+    return zim;
+  } catch (error) {
+    console.error("ZIM login failed:", error);
+    return null;
+  }
+};
 
 export const initZego = async () => {
   if (engine) return engine;

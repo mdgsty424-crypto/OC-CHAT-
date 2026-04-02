@@ -41,9 +41,75 @@ interface MessageBubbleProps {
   onForward?: (message: Message) => void;
   onCall?: (type: 'audio' | 'video') => void | Promise<void>;
   otherUserPhoto?: string;
+  replyMessage?: Message;
 }
 
 const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
+
+// Custom hook for long press
+function useLongPress(callback: (e: any) => void, ms: number = 500) {
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPress = useRef(false);
+  const startPos = useRef({ x: 0, y: 0 });
+
+  const start = (e: any) => {
+    if (e.type === 'mousedown' && e.button !== 0) return;
+    isLongPress.current = false;
+    
+    if (e.touches && e.touches.length > 0) {
+      startPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else {
+      startPos.current = { x: e.clientX, y: e.clientY };
+    }
+
+    timerRef.current = setTimeout(() => {
+      isLongPress.current = true;
+      callback(e);
+    }, ms);
+  };
+
+  const move = (e: any) => {
+    if (timerRef.current) {
+      let currentX = 0;
+      let currentY = 0;
+      if (e.touches && e.touches.length > 0) {
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+      } else {
+        currentX = e.clientX;
+        currentY = e.clientY;
+      }
+      
+      const dx = Math.abs(currentX - startPos.current.x);
+      const dy = Math.abs(currentY - startPos.current.y);
+      
+      if (dx > 10 || dy > 10) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  };
+
+  const clear = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  return {
+    onMouseDown: start,
+    onTouchStart: start,
+    onMouseUp: clear,
+    onMouseLeave: clear,
+    onTouchEnd: clear,
+    onTouchMove: move,
+    onContextMenu: (e: any) => {
+      e.preventDefault();
+      callback(e);
+    }
+  };
+}
 
 const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) => {
   const [preview, setPreview] = useState<any>(null);
@@ -158,10 +224,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReply, 
   onForward, 
   onCall,
-  otherUserPhoto
+  otherUserPhoto,
+  replyMessage
 }) => {
   const { user } = useAuth();
   const [showReactions, setShowReactions] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioError, setAudioError] = useState(false);
@@ -262,6 +332,35 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
+  const longPressProps = useLongPress((e) => {
+    let clientX, clientY;
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    setMenuPosition({ x: clientX, y: clientY });
+    setShowActionMenu(true);
+  }, 500);
+
+  const handleDelete = async () => {
+    try {
+      await deleteDoc(doc(db, 'chats', message.chatId, 'messages', message.id));
+      setShowActionMenu(false);
+    } catch (error) {
+      console.error("Error deleting message:", error);
+    }
+  };
+
+  const handleCopy = () => {
+    if (message.text) {
+      navigator.clipboard.writeText(message.text);
+    }
+    setShowActionMenu(false);
+  };
+
   // 1. Call History Rendering (Messenger Style)
   if (message.type === 'call_history' || message.messageType === 'call_history') {
     return (
@@ -311,20 +410,39 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         dragElastic={0.1}
         style={{ x }}
         onDragEnd={handleDragEnd}
-        className={cn(
-          "relative rounded-[20px] overflow-visible transition-all",
-          message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
-            isMe 
-              ? "bg-[#0084ff] text-white rounded-tr-[4px]" 
-              : "bg-[#e4e6eb] text-black rounded-tl-[4px]"
-          ),
-          (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5 shadow-sm"
-        )}
+        className="relative overflow-visible"
       >
-        {/* Self-destruct Indicator */}
+        <div
+          {...longPressProps}
+          className={cn(
+            "relative rounded-[20px] transition-all",
+            message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
+              isMe 
+                ? "bg-[#0084ff] text-white rounded-tr-[4px]" 
+                : "bg-[#e4e6eb] text-black rounded-tl-[4px]"
+            ),
+            (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5 shadow-sm"
+          )}
+        >
+          {/* Self-destruct Indicator */}
         {message.isSelfDestruct && (
           <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-sm">
             <Timer size={10} />
+          </div>
+        )}
+
+        {/* Forwarded Context */}
+        {message.forwardedFrom && (
+          <div className={cn(
+            "flex items-center gap-1.5 mb-1 opacity-80",
+            isMe ? "text-white/90" : "text-black/70"
+          )}>
+            <Forward size={12} />
+            <span className="text-[10px] italic">Forwarded from</span>
+            {message.forwardedFrom.photoURL && (
+              <img src={message.forwardedFrom.photoURL} alt="" className="w-3 h-3 rounded-full object-cover" />
+            )}
+            <span className="text-[10px] font-bold">{message.forwardedFrom.displayName}</span>
           </div>
         )}
 
@@ -335,7 +453,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             isMe ? "bg-white/10 border-white/30" : "bg-black/5 border-primary/30"
           )}>
             <p className="font-bold opacity-70">Replying to message</p>
-            <p className="truncate opacity-90 italic">Original message...</p>
+            <p className="truncate opacity-90 italic">
+              {replyMessage ? (replyMessage.text || (replyMessage.type === 'image' || replyMessage.fileType === 'image' ? 'Photo' : replyMessage.type === 'video' || replyMessage.fileType === 'video' ? 'Video' : replyMessage.type === 'voice' || replyMessage.messageType === 'voice' ? 'Voice Message' : 'Attachment')) : 'Original message...'}
+            </p>
           </div>
         )}
 
@@ -698,6 +818,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             })}
           </div>
         )}
+        </div>
       </motion.div>
 
       {/* Status & Time */}
@@ -763,6 +884,94 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </button>
             ))}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Action Menu Modal */}
+      <AnimatePresence>
+        {showActionMenu && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+              onClick={() => setShowActionMenu(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-2 min-w-[200px] flex flex-col gap-1 z-10"
+              style={{
+                position: 'absolute',
+                top: Math.min(menuPosition.y, window.innerHeight - 250),
+                left: Math.min(Math.max(10, menuPosition.x - 100), window.innerWidth - 210)
+              }}
+            >
+              {/* Emoji Reactions */}
+              <div className="flex items-center justify-between p-2 mb-1 border-b border-gray-200/50">
+                {EMOJIS.map(emoji => (
+                  <button
+                    key={emoji}
+                    onClick={() => {
+                      toggleReaction(emoji);
+                      setShowActionMenu(false);
+                    }}
+                    className="text-2xl hover:scale-125 transition-transform"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+
+              {/* Actions */}
+              {onReply && (
+                <button 
+                  onClick={() => {
+                    onReply(message);
+                    setShowActionMenu(false);
+                  }}
+                  className="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl transition-colors text-sm font-medium"
+                >
+                  <Reply size={18} />
+                  Reply
+                </button>
+              )}
+
+              {message.type === 'text' && (
+                <button 
+                  onClick={handleCopy}
+                  className="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl transition-colors text-sm font-medium"
+                >
+                  <FileText size={18} />
+                  Copy
+                </button>
+              )}
+
+              {onForward && (
+                <button 
+                  onClick={() => {
+                    onForward(message);
+                    setShowActionMenu(false);
+                  }}
+                  className="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl transition-colors text-sm font-medium"
+                >
+                  <Forward size={18} />
+                  Forward
+                </button>
+              )}
+
+              <button 
+                onClick={handleDelete}
+                className="flex items-center gap-3 p-3 hover:bg-red-50 text-red-500 rounded-xl transition-colors text-sm font-medium"
+              >
+                <X size={18} />
+                Delete
+              </button>
+            </motion.div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 

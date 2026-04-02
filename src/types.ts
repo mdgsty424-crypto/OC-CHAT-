@@ -82,6 +82,11 @@ export interface Message {
   };
   callType?: 'audio' | 'video';
   duration?: number; // in seconds
+  forwardedFrom?: {
+    uid: string;
+    displayName: string;
+    photoURL?: string;
+  };
 }
 
 export interface Match {
