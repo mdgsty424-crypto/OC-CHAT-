@@ -179,7 +179,47 @@ async function startServer() {
     }
 
     try {
-      // Fetch all tokens for the target user
+      // If OneSignal REST API Key is available, use OneSignal
+      if (process.env.ONESIGNAL_REST_API_KEY) {
+        const payload: any = {
+          app_id: "77b000e4-b044-4010-ac1e-9e73704baefa",
+          include_aliases: {
+            external_id: [targetUserId]
+          },
+          target_channel: "push",
+          headings: { en: title },
+          contents: { en: message },
+        };
+
+        if (image) payload.big_picture = image;
+        if (link) payload.url = link;
+        if (actions) {
+          payload.buttons = actions.map((a: any) => ({
+            id: a.action,
+            text: a.title,
+            url: a.url
+          }));
+        }
+
+        const response = await fetch("https://onesignal.com/api/v1/notifications", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Basic ${process.env.ONESIGNAL_REST_API_KEY}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          console.error(`OneSignal API Error: ${JSON.stringify(data)}`);
+          return res.status(response.status).json({ error: "Failed to send notification via OneSignal", details: data });
+        }
+
+        return res.json({ success: true, data });
+      }
+
+      // Fetch all tokens for the target user (Fallback to webtoapp.design)
       const q = query(collection(db, "user_tokens"), where("userId", "==", targetUserId));
       const querySnapshot = await getDocs(q);
       const tokens = querySnapshot.docs.map(doc => doc.data().token);
@@ -201,10 +241,6 @@ async function startServer() {
 
         if (image) payload.image_url = image;
         if (link) payload.url_to_open = link;
-        
-        // Note: webtoapp.design API doesn't explicitly document a 'priority' field in the basic cURL,
-        // but we can pass it if their backend supports it for Android channels.
-        if (priority) payload.priority = priority;
         if (actions) payload.actions = actions;
 
         const response = await fetch(WEBTOAPP_API_URL, {

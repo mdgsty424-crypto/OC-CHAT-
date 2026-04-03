@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OC Chat | Connect, Match, Call</title>
+    <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async=""></script>
+    <script>
+      window.OneSignal = window.OneSignal || [];
+      OneSignal.push(function() {
+        OneSignal.init({
+          appId: "77b000e4-b044-4010-ac1e-9e73704baefa",
+        });
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

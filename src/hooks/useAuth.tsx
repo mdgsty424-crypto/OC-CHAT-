@@ -55,6 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         });
 
+        // Register user with OneSignal
+        if (window.OneSignal) {
+          window.OneSignal.push(function() {
+            window.OneSignal.login(firebaseUser.uid);
+          });
+        }
+
         setLoading(false);
         return () => userUnsubscribe();
       } else {
@@ -127,6 +134,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         lastSeen: new Date().toISOString() 
       }, { merge: true });
     }
+    
+    if (window.OneSignal) {
+      window.OneSignal.push(function() {
+        window.OneSignal.logout();
+      });
+    }
+    
     await signOut(auth);
   };
 

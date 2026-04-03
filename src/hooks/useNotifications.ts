@@ -9,6 +9,7 @@ declare global {
     getNotificationToken?: () => Promise<{ token: string }>;
     executeWhenAppReady?: (callback: () => void) => void;
     receivePushNotificationToken?: (token: string) => void;
+    OneSignal?: any;
   }
 }
 
