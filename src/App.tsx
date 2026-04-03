@@ -71,12 +71,18 @@ function AppRoutes() {
   useNotifications(); // Initialize notification registration
 
   useEffect(() => {
+    // If auth is resolved and user is logged in, hide splash immediately
+    if (!loading && user) {
+      setShowSplash(false);
+      return;
+    }
+
     const timer = setTimeout(() => {
       setShowSplash(false);
     }, 2000); // 2 seconds splash as requested
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [loading, user]);
 
   if (showSplash || loading) {
     return <SplashScreen />;

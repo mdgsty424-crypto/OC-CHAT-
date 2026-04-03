@@ -29,48 +29,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userRef);
-        
-        if (!userDoc.exists()) {
-          const newUser: User = {
-            uid: firebaseUser.uid,
-            displayName: firebaseUser.displayName || 'Anonymous',
-            photoURL: firebaseUser.photoURL || '',
-            online: true,
-            lastSeen: new Date().toISOString(),
-            role: 'user'
-          };
-          await setDoc(userRef, newUser);
-        } else {
-          await setDoc(userRef, { online: true, lastSeen: new Date().toISOString() }, { merge: true });
-        }
-
-        // Listen for real-time updates to the current user's document
-        const userUnsubscribe = onSnapshot(userRef, (snapshot) => {
-          if (snapshot.exists()) {
-            setUser(snapshot.data() as User);
-          }
-        });
-
-        // Register user with OneSignal
-        if (window.OneSignal) {
-          window.OneSignal.push(function() {
-            window.OneSignal.login(firebaseUser.uid);
-          });
-        }
-
+    // Fallback timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn("Auth state check timed out after 3 seconds. Forcing login screen.");
         setLoading(false);
-        return () => userUnsubscribe();
-      } else {
+      }
+    }, 3000);
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        if (firebaseUser) {
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          const userDoc = await getDoc(userRef);
+          
+          if (!userDoc.exists()) {
+            const newUser: User = {
+              uid: firebaseUser.uid,
+              displayName: firebaseUser.displayName || 'Anonymous',
+              photoURL: firebaseUser.photoURL || '',
+              online: true,
+              lastSeen: new Date().toISOString(),
+              role: 'user'
+            };
+            await setDoc(userRef, newUser);
+            setUser(newUser);
+          } else {
+            await setDoc(userRef, { online: true, lastSeen: new Date().toISOString() }, { merge: true });
+            setUser(userDoc.data() as User);
+          }
+
+          // Listen for real-time updates to the current user's document
+          const userUnsubscribe = onSnapshot(userRef, (snapshot) => {
+            if (snapshot.exists()) {
+              setUser(snapshot.data() as User);
+            }
+          });
+
+          // Register user with OneSignal
+          if (window.OneSignal) {
+            window.OneSignal.push(function() {
+              if (typeof window.OneSignal.login === 'function') {
+                window.OneSignal.login(firebaseUser.uid);
+              } else if (typeof window.OneSignal.setExternalUserId === 'function') {
+                window.OneSignal.setExternalUserId(firebaseUser.uid);
+              }
+            });
+          }
+
+          setLoading(false);
+          clearTimeout(timeoutId);
+          return () => userUnsubscribe();
+        } else {
+          setUser(null);
+          setLoading(false);
+          clearTimeout(timeoutId);
+        }
+      } catch (error) {
+        console.error("Error in auth state change:", error);
         setUser(null);
         setLoading(false);
+        clearTimeout(timeoutId);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, []);
 
   // Handle presence (online/offline)
@@ -137,7 +163,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (window.OneSignal) {
       window.OneSignal.push(function() {
-        window.OneSignal.logout();
+        if (typeof window.OneSignal.logout === 'function') {
+          window.OneSignal.logout();
+        } else if (typeof window.OneSignal.removeExternalUserId === 'function') {
+          window.OneSignal.removeExternalUserId();
+        }
       });
     }
     

@@ -47,7 +47,7 @@ interface MessageBubbleProps {
 const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
 // Custom hook for long press
-function useLongPress(callback: (e: any) => void, ms: number = 500) {
+function useLongPress(callback: (pos: { x: number, y: number }) => void, ms: number = 500) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
@@ -56,15 +56,20 @@ function useLongPress(callback: (e: any) => void, ms: number = 500) {
     if (e.type === 'mousedown' && e.button !== 0) return;
     isLongPress.current = false;
     
+    let clientX = 0;
+    let clientY = 0;
     if (e.touches && e.touches.length > 0) {
-      startPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
     } else {
-      startPos.current = { x: e.clientX, y: e.clientY };
+      clientX = e.clientX;
+      clientY = e.clientY;
     }
+    startPos.current = { x: clientX, y: clientY };
 
     timerRef.current = setTimeout(() => {
       isLongPress.current = true;
-      callback(e);
+      callback({ x: clientX, y: clientY });
     }, ms);
   };
 
@@ -106,7 +111,16 @@ function useLongPress(callback: (e: any) => void, ms: number = 500) {
     onTouchMove: move,
     onContextMenu: (e: any) => {
       e.preventDefault();
-      callback(e);
+      let clientX = 0;
+      let clientY = 0;
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      callback({ x: clientX, y: clientY });
     }
   };
 }
@@ -341,16 +355,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
-  const longPressProps = useLongPress((e) => {
-    let clientX, clientY;
-    if (e.touches && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-    setMenuPosition({ x: clientX, y: clientY });
+  const longPressProps = useLongPress((pos) => {
+    setMenuPosition({ x: pos.x, y: pos.y });
     setShowActionMenu(true);
   }, 500);
 
