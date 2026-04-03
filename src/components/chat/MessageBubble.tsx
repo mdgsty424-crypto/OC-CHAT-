@@ -27,7 +27,8 @@ import {
   Download,
   Share2,
   Forward,
-  File
+  File,
+  Trash2
 } from 'lucide-react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
@@ -44,7 +45,7 @@ interface MessageBubbleProps {
   replyMessage?: Message;
 }
 
-const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
+const EMOJIS = ['❤️', '😂', '😮', '😢', '👍', '👎', '🔥'];
 
 // Custom hook for long press
 function useLongPress(callback: (pos: { x: number, y: number }) => void, ms: number = 500) {
@@ -69,6 +70,9 @@ function useLongPress(callback: (pos: { x: number, y: number }) => void, ms: num
 
     timerRef.current = setTimeout(() => {
       isLongPress.current = true;
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
       callback({ x: clientX, y: clientY });
     }, ms);
   };
@@ -185,8 +189,8 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
   return (
     <div 
       className={cn(
-        "mt-2 rounded-xl overflow-hidden border shadow-sm transition-all hover:bg-opacity-90 cursor-pointer max-w-[300px] group",
-        isMe ? "bg-white/10 border-white/20 text-white" : "bg-white border-gray-100 text-black"
+        "mt-2 rounded-2xl overflow-hidden border shadow-sm transition-all hover:bg-opacity-95 cursor-pointer max-w-[300px] group",
+        isMe ? "bg-white/15 border-white/20 text-white" : "bg-[#f0f2f5] border-gray-200 text-black"
       )} 
       onClick={() => {
         if (isYouTube || isFacebook) {
@@ -197,32 +201,32 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
       }}
     >
       {preview.image && !imageError ? (
-        <div className="relative aspect-video bg-gray-100 overflow-hidden">
+        <div className="relative aspect-video bg-gray-200 overflow-hidden">
           <img 
             src={preview.image} 
             alt={preview.title} 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
             referrerPolicy="no-referrer"
             onError={() => setImageError(true)}
           />
           {(isYouTube || isFacebook) && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center text-[#0084ff] shadow-lg">
-                <Play size={24} fill="currentColor" className="ml-1" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+              <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center text-[#0084ff] shadow-xl transform transition-transform group-hover:scale-110">
+                <Play size={20} fill="currentColor" className="ml-1" />
               </div>
             </div>
           )}
         </div>
       ) : (
-        <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden flex flex-col items-center justify-center text-gray-400">
-          <ExternalLink size={32} className="mb-2 opacity-50" />
-          <span className="text-xs font-medium uppercase tracking-wider opacity-70">
+        <div className="relative aspect-video bg-gray-200 dark:bg-gray-800 overflow-hidden flex flex-col items-center justify-center text-gray-400">
+          <ExternalLink size={28} className="mb-2 opacity-40" />
+          <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">
             {preview.siteName || new URL(url).hostname}
           </span>
         </div>
       )}
-      <div className="p-3 space-y-1">
-        <h4 className="text-xs font-bold line-clamp-2 leading-tight">
+      <div className="p-3 space-y-1 bg-inherit">
+        <h4 className="text-[11px] font-bold line-clamp-2 leading-snug">
           {preview.title}
         </h4>
         {preview.description && (
@@ -230,9 +234,8 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
             {preview.description}
           </p>
         )}
-        <div className="flex items-center gap-1 opacity-50 pt-1">
-          <ExternalLink size={10} />
-          <span className="text-[9px] font-medium uppercase tracking-wider">
+        <div className="flex items-center gap-1 opacity-50 pt-1 border-t border-current/10 mt-1">
+          <span className="text-[9px] font-bold uppercase tracking-tighter">
             {preview.siteName || new URL(url).hostname}
           </span>
         </div>
@@ -419,26 +422,35 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </motion.div>
       )}
 
-      <motion.div
-        drag={!isMe ? "x" : false}
-        dragConstraints={{ left: 0, right: swipeThreshold }}
-        dragElastic={0.1}
-        style={{ x }}
-        onDragEnd={handleDragEnd}
-        className="relative overflow-visible"
-      >
-        <div
-          {...longPressProps}
-          className={cn(
-            "relative rounded-[20px] transition-all",
-            message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
-              isMe 
-                ? "bg-[#0084ff] text-white rounded-tr-[4px]" 
-                : "bg-[#e4e6eb] text-black rounded-tl-[4px]"
-            ),
-            (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5 shadow-sm"
-          )}
+      <div className={cn("flex items-center gap-2", isMe ? "flex-row-reverse" : "flex-row")}>
+        {!isMe && onForward && (
+          <button 
+            onClick={() => onForward(message)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full"
+          >
+            <Forward size={16} />
+          </button>
+        )}
+        <motion.div
+          drag={!isMe ? "x" : false}
+          dragConstraints={{ left: 0, right: swipeThreshold }}
+          dragElastic={0.1}
+          style={{ x }}
+          onDragEnd={handleDragEnd}
+          className="relative overflow-visible"
         >
+          <div
+            {...longPressProps}
+            className={cn(
+              "relative rounded-[20px] transition-all",
+              message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
+                isMe 
+                  ? "bg-[#0084ff] text-white rounded-tr-[4px]" 
+                  : "bg-[#e4e6eb] text-black rounded-tl-[4px]"
+              ),
+              (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5 shadow-sm"
+            )}
+          >
           {/* Self-destruct Indicator */}
         {message.isSelfDestruct && (
           <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-sm">
@@ -464,11 +476,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Reply Context */}
         {message.replyTo && (
           <div className={cn(
-            "mb-2 p-2 rounded-xl text-[10px] border-l-4",
-            isMe ? "bg-white/10 border-white/30" : "bg-black/5 border-primary/30"
+            "mb-2 p-2.5 rounded-xl text-[10px] border-l-2 relative overflow-hidden",
+            isMe ? "bg-white/10 border-white/40" : "bg-black/5 border-primary/40"
           )}>
-            <p className="font-bold opacity-70">Replying to message</p>
-            <p className="truncate opacity-90 italic">
+            <div className="absolute inset-0 bg-current opacity-[0.03]" />
+            <p className="font-black opacity-60 uppercase tracking-tighter mb-0.5">
+              {replyMessage?.senderId === user?.uid ? 'You' : (replyMessage?.senderId === message.senderId ? 'Themselves' : 'Message')}
+            </p>
+            <p className="truncate opacity-90 font-medium">
               {replyMessage ? (replyMessage.text || (replyMessage.type === 'image' || replyMessage.fileType === 'image' ? 'Photo' : replyMessage.type === 'video' || replyMessage.fileType === 'video' ? 'Video' : replyMessage.type === 'voice' || replyMessage.messageType === 'voice' ? 'Voice Message' : 'Attachment')) : 'Original message...'}
             </p>
           </div>
@@ -835,6 +850,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
         </div>
       </motion.div>
+      {isMe && onForward && (
+        <button 
+          onClick={() => onForward(message)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full"
+        >
+          <Forward size={16} />
+        </button>
+      )}
+      </div>
 
       {/* Status & Time */}
       <div className={cn(
@@ -910,22 +934,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/40 backdrop-blur-md"
               onClick={() => setShowActionMenu(false)}
             />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-2 min-w-[200px] flex flex-col gap-1 z-10"
+            
+            <div 
+              className="relative z-10 flex flex-col gap-2 pointer-events-none"
               style={{
                 position: 'absolute',
-                top: Math.min(menuPosition.y, window.innerHeight - 250),
+                top: Math.min(menuPosition.y, window.innerHeight - 350),
                 left: Math.min(Math.max(10, menuPosition.x - 100), window.innerWidth - 210)
               }}
             >
-              {/* Emoji Reactions */}
-              <div className="flex items-center justify-between p-2 mb-1 border-b border-gray-200/50">
+              {/* Emoji Reactions Pill */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                className="bg-white rounded-full shadow-2xl border border-gray-100 p-1.5 flex gap-1 pointer-events-auto"
+              >
                 {EMOJIS.map(emoji => (
                   <button
                     key={emoji}
@@ -933,58 +960,77 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       toggleReaction(emoji);
                       setShowActionMenu(false);
                     }}
-                    className="text-2xl hover:scale-125 transition-transform"
+                    className="text-2xl hover:scale-125 active:scale-95 transition-transform p-1 rounded-full hover:bg-gray-50"
                   >
                     {emoji}
                   </button>
                 ))}
-              </div>
-
-              {/* Actions */}
-              {onReply && (
-                <button 
-                  onClick={() => {
-                    onReply(message);
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleReaction('💯');
                     setShowActionMenu(false);
                   }}
-                  className="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl transition-colors text-sm font-medium"
+                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
                 >
-                  <Reply size={18} />
-                  Reply
+                  <span className="text-gray-500 font-bold">+</span>
                 </button>
-              )}
+              </motion.div>
 
-              {message.type === 'text' && (
-                <button 
-                  onClick={handleCopy}
-                  className="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl transition-colors text-sm font-medium"
-                >
-                  <FileText size={18} />
-                  Copy
-                </button>
-              )}
-
-              {onForward && (
-                <button 
-                  onClick={() => {
-                    onForward(message);
-                    setShowActionMenu(false);
-                  }}
-                  className="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl transition-colors text-sm font-medium"
-                >
-                  <Forward size={18} />
-                  Forward
-                </button>
-              )}
-
-              <button 
-                onClick={handleDelete}
-                className="flex items-center gap-3 p-3 hover:bg-red-50 text-red-500 rounded-xl transition-colors text-sm font-medium"
+              {/* Context Menu List */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-1.5 min-w-[200px] flex flex-col gap-0.5 pointer-events-auto overflow-hidden"
               >
-                <X size={18} />
-                Delete
-              </button>
-            </motion.div>
+                {onReply && (
+                  <button 
+                    onClick={() => {
+                      onReply(message);
+                      setShowActionMenu(false);
+                    }}
+                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors text-sm font-medium text-gray-700"
+                  >
+                    <span>Reply</span>
+                    <Reply size={18} className="text-gray-400" />
+                  </button>
+                )}
+
+                {message.type === 'text' && (
+                  <button 
+                    onClick={handleCopy}
+                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors text-sm font-medium text-gray-700"
+                  >
+                    <span>Copy</span>
+                    <FileText size={18} className="text-gray-400" />
+                  </button>
+                )}
+
+                {onForward && (
+                  <button 
+                    onClick={() => {
+                      onForward(message);
+                      setShowActionMenu(false);
+                    }}
+                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors text-sm font-medium text-gray-700"
+                  >
+                    <span>Forward</span>
+                    <Forward size={18} className="text-gray-400" />
+                  </button>
+                )}
+
+                <div className="h-[1px] bg-gray-100 my-1 mx-2" />
+
+                <button 
+                  onClick={handleDelete}
+                  className="flex items-center justify-between p-3 hover:bg-red-50 rounded-xl transition-colors text-sm font-medium text-red-600"
+                >
+                  <span>Delete</span>
+                  <Trash2 size={18} className="text-red-400" />
+                </button>
+              </motion.div>
+            </div>
           </div>,
           document.body
         )}

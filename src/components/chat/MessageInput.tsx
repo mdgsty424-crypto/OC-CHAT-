@@ -600,18 +600,18 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="flex items-center justify-between bg-gray-50 p-3 border-b border-gray-100 mb-2"
+            className="flex items-center justify-between bg-gray-50/80 backdrop-blur-sm p-2 border-b border-gray-100 mb-1 rounded-t-xl"
           >
-            <div className="flex items-center gap-3 border-l-4 border-primary pl-3">
+            <div className="flex items-center gap-3 border-l-2 border-[#0084ff] pl-3">
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-primary uppercase tracking-widest">Replying to</span>
-                <p className="text-xs text-muted truncate max-w-[200px]">
+                <span className="text-[10px] font-bold text-[#0084ff]">Replying to {replyingTo.senderId === user?.uid ? 'yourself' : 'Message'}</span>
+                <p className="text-xs text-gray-500 truncate max-w-[250px]">
                   {replyingTo.text || (replyingTo.type === 'image' || replyingTo.fileType === 'image' ? 'Photo' : replyingTo.type === 'video' || replyingTo.fileType === 'video' ? 'Video' : replyingTo.type === 'voice' || replyingTo.messageType === 'voice' ? 'Voice Message' : 'Attachment')}
                 </p>
               </div>
             </div>
-            <button onClick={onCancelReply} className="p-1.5 hover:bg-border/50 rounded-full transition-colors">
-              <X size={16} className="text-muted" />
+            <button onClick={onCancelReply} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+              <X size={14} className="text-gray-400" />
             </button>
           </motion.div>
         )}
