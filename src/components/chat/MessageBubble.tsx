@@ -115,11 +115,12 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
   const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showPlayer, setShowPlayer] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     const fetchPreview = async () => {
       try {
-        const res = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`);
+        const res = await fetch(`/api/fetch-preview?url=${encodeURIComponent(url)}`);
         if (res.ok) {
           const data = await res.json();
           setPreview(data);
@@ -181,13 +182,14 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
         }
       }}
     >
-      {preview.image && (
+      {preview.image && !imageError ? (
         <div className="relative aspect-video bg-gray-100 overflow-hidden">
           <img 
             src={preview.image} 
             alt={preview.title} 
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
+            onError={() => setImageError(true)}
           />
           {(isYouTube || isFacebook) && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
@@ -196,6 +198,13 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
               </div>
             </div>
           )}
+        </div>
+      ) : (
+        <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden flex flex-col items-center justify-center text-gray-400">
+          <ExternalLink size={32} className="mb-2 opacity-50" />
+          <span className="text-xs font-medium uppercase tracking-wider opacity-70">
+            {preview.siteName || new URL(url).hostname}
+          </span>
         </div>
       )}
       <div className="p-3 space-y-1">

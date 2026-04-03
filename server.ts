@@ -269,7 +269,7 @@ async function startServer() {
   });
 
   // API Route for Link Preview
-  app.get("/api/link-preview", async (req, res) => {
+  app.get("/api/fetch-preview", async (req, res) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') {
       return res.status(400).json({ error: "URL is required" });
@@ -277,24 +277,27 @@ async function startServer() {
 
     try {
       console.log("Fetching link preview for:", url);
-      const response = await fetch(url, {
+      const axios = require('axios');
+      const cheerio = require('cheerio');
+      
+      const response = await axios.get(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
-        }
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        timeout: 5000
       });
-      const html = await response.text();
+      
+      const html = response.data;
+      const $ = cheerio.load(html);
 
       const getMeta = (name: string) => {
-        const regex = new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']+)["']`, 'i');
-        const match = html.match(regex);
-        if (match) return match[1];
-        
-        const altRegex = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${name}["']`, 'i');
-        const altMatch = html.match(altRegex);
-        return altMatch ? altMatch[1] : null;
+        return $(`meta[property="${name}"]`).attr('content') || 
+               $(`meta[name="${name}"]`).attr('content') || 
+               $(`meta[property="twitter:${name.replace('og:', '')}"]`).attr('content') ||
+               $(`meta[name="twitter:${name.replace('og:', '')}"]`).attr('content');
       };
 
-      const title = getMeta('og:title') || getMeta('title') || html.match(/<title>([^<]+)<\/title>/i)?.[1];
+      const title = getMeta('og:title') || getMeta('title') || $('title').text();
       const description = getMeta('og:description') || getMeta('description');
       const image = getMeta('og:image');
       const siteName = getMeta('og:site_name');
