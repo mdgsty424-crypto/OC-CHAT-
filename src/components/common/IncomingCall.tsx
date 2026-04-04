@@ -112,7 +112,7 @@ export default function IncomingCall() {
           exit={{ y: -100, opacity: 0 }}
           className="fixed top-0 left-0 right-0 max-w-md mx-auto px-4 z-[100]"
         >
-          <div className="bg-white rounded-2xl p-4 flex items-center justify-between border border-gray-100">
+          <div className="bg-surface rounded-2xl p-4 flex items-center justify-between border border-border shadow-xl">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <img
@@ -120,7 +120,7 @@ export default function IncomingCall() {
                   alt={incomingCall.name}
                   className="w-12 h-12 rounded-2xl object-cover"
                 />
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-secondary text-white rounded-full border-2 border-white flex items-center justify-center">
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-secondary text-white rounded-full border-2 border-surface flex items-center justify-center">
                   {incomingCall.type === 'video' ? <Video size={10} /> : <Phone size={10} />}
                 </div>
               </div>

@@ -16,7 +16,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="hidden md:flex flex-col w-72 h-full bg-white border-r border-border p-6 z-50">
+    <aside className="hidden md:flex flex-col w-72 h-full bg-background border-r border-border p-6 z-50">
       {/* Logo Section */}
       <div className="flex items-center gap-3 mb-10 px-2">
         <div className="w-10 h-10 flex items-center justify-center">
@@ -31,14 +31,14 @@ export default function Sidebar() {
       </div>
 
       {/* Profile Section */}
-      <div className="flex items-center gap-4 mb-10 p-2 rounded-2xl bg-gray-50 border border-gray-100">
+      <div className="flex items-center gap-4 mb-10 p-2 rounded-2xl bg-surface border border-border">
         <div className="relative">
           <img
             src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`}
             alt="Profile"
             className="w-12 h-12 rounded-2xl object-cover border-2 border-primary/20"
           />
-          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-background rounded-full"></div>
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-black text-text truncate">{user?.displayName}</h2>
@@ -68,7 +68,7 @@ export default function Sidebar() {
                 "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group",
                 isActive 
                   ? "bg-primary text-white" 
-                  : "text-muted hover:bg-background hover:text-primary"
+                  : "text-muted hover:bg-surface hover:text-primary"
               )
             }
           >
@@ -81,7 +81,7 @@ export default function Sidebar() {
       {/* Logout */}
       <button
         onClick={logout}
-        className="mt-auto flex items-center gap-4 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all font-bold text-sm"
+        className="mt-auto flex items-center gap-4 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-500/10 transition-all font-bold text-sm"
       >
         <LogOut size={20} />
         <span>Logout</span>

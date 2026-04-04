@@ -77,12 +77,12 @@ export default function Discovery() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-white border-b border-border px-4 py-4">
+      <header className="sticky top-0 z-20 bg-background border-b border-border px-4 py-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-black tracking-tighter text-primary flex items-center gap-2">
             OC MATCH <Sparkles className="text-secondary fill-secondary" size={20} />
           </h1>
-          <div className="flex items-center gap-2 bg-background p-1 rounded-full border border-border">
+          <div className="flex items-center gap-2 bg-surface p-1 rounded-full border border-border">
             <button 
               onClick={() => setActiveTab('swipe')}
               className={cn(
@@ -124,7 +124,7 @@ export default function Discovery() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ x: 500, opacity: 0, rotate: 20 }}
-                  className="w-full aspect-[3/4] bg-white rounded-[2rem] border border-border overflow-hidden relative"
+                  className="w-full aspect-[3/4] bg-surface rounded-[2rem] border border-border overflow-hidden relative"
                 >
                   <img 
                     src={swipeUsers[currentIndex].photoURL || `https://picsum.photos/seed/${swipeUsers[currentIndex].uid}/600/800`}
@@ -146,7 +146,7 @@ export default function Discovery() {
                     </p>
                     <div className="flex gap-2">
                       {['Travel', 'Music', 'Coffee'].map(tag => (
-                        <span key={tag} className="px-3 py-1 bg-white/20 rounded-full text-[10px] font-bold">
+                        <span key={tag} className="px-3 py-1 bg-background/20 rounded-full text-[10px] font-bold">
                           {tag}
                         </span>
                       ))}
@@ -174,7 +174,7 @@ export default function Discovery() {
               <div className="flex gap-6 mt-8">
                 <button 
                   onClick={() => handleSwipe('left')}
-                  className="w-16 h-16 bg-white rounded-full border border-border flex items-center justify-center text-red-500 hover:scale-110 active:scale-95 transition-all"
+                  className="w-16 h-16 bg-surface rounded-full border border-border flex items-center justify-center text-red-500 hover:scale-110 active:scale-95 transition-all"
                 >
                   <X size={32} strokeWidth={3} />
                 </button>
@@ -197,7 +197,7 @@ export default function Discovery() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-white rounded-3xl p-3 border border-border transition-all group"
+                className="bg-surface rounded-3xl p-3 border border-border transition-all group"
               >
                 <div className="relative aspect-square rounded-2xl overflow-hidden mb-3">
                   <img 
@@ -262,7 +262,7 @@ export default function Discovery() {
                   </button>
                   <button 
                     onClick={() => setMatchedUser(null)}
-                    className="flex-1 py-4 bg-border text-text rounded-2xl font-black hover:bg-border/80 transition-all"
+                    className="flex-1 py-4 bg-surface text-text rounded-2xl font-black hover:bg-border/80 transition-all border border-border"
                   >
                     NEXT
                   </button>

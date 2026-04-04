@@ -11,6 +11,14 @@
   --color-border: #F0F2F5;
 }
 
+.dark {
+  --color-background: #18191A;
+  --color-surface: #242526;
+  --color-text: #E4E6EB;
+  --color-muted: #B0B3B8;
+  --color-border: #3E4042;
+}
+
 :root {
   --primary: #0084FF;
   --secondary: #00D2FF;
@@ -56,6 +64,16 @@ body {
 
 .rounded-4xl {
   border-radius: 2.5rem;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: shake 0.2s ease-in-out 0s 2;
 }
 
 /* Custom scrollbar */

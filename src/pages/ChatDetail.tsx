@@ -235,7 +235,7 @@ export default function ChatDetail() {
   const isOtherTyping = chat?.typing && otherUser?.uid && chat.typing[otherUser.uid];
 
   return (
-    <div className="flex flex-col h-screen bg-white w-full relative">
+    <div className="flex flex-col h-screen bg-background w-full relative">
       {/* Forward Modal */}
       <AnimatePresence>
         {forwardingMessage && (
@@ -248,7 +248,7 @@ export default function ChatDetail() {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] p-6 w-full max-w-sm border border-gray-100 max-h-[80vh] flex flex-col"
+              className="bg-surface rounded-[2rem] p-6 w-full max-w-sm border border-border max-h-[80vh] flex flex-col"
             >
               <h3 className="text-xl font-black mb-2">Forward Message</h3>
               <p className="text-sm text-muted mb-4">Select a chat to forward this message to.</p>
@@ -258,9 +258,9 @@ export default function ChatDetail() {
                   <button
                     key={c.id}
                     onClick={() => handleForwardMessage(c.id)}
-                    className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-3 hover:bg-surface rounded-xl transition-colors text-left"
                   >
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center overflow-hidden flex-shrink-0">
                       {c.type === 'direct' ? (
                         <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.participants.find(p => p !== currentUser?.uid) || c.id}`} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
@@ -269,23 +269,23 @@ export default function ChatDetail() {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <h4 className="font-bold text-sm truncate">{c.type === 'direct' ? 'Direct Message' : c.name}</h4>
-                      <p className="text-xs text-gray-500 truncate">{c.lastMessage}</p>
+                      <p className="text-xs text-muted truncate">{c.lastMessage}</p>
                     </div>
                   </button>
                 ))}
                 {userChats.length === 0 && (
-                  <p className="text-center text-gray-500 py-4 text-sm">No chats available.</p>
+                  <p className="text-center text-muted py-4 text-sm">No chats available.</p>
                 )}
               </div>
 
-              <button onClick={() => setForwardingMessage(null)} className="w-full py-3 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-colors">Cancel</button>
+              <button onClick={() => setForwardingMessage(null)} className="w-full py-3 bg-surface text-text rounded-2xl font-bold hover:opacity-80 transition-colors">Cancel</button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Header */}
-      <header className="sticky top-0 left-0 right-0 bg-white border-b border-gray-100 py-3 px-4 flex items-center justify-between z-50">
+      <header className="sticky top-0 left-0 right-0 bg-background border-b border-border py-3 px-4 flex items-center justify-between z-50">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-border rounded-full transition-colors">
             <ChevronLeft size={24} className="text-text" />
@@ -299,7 +299,7 @@ export default function ChatDetail() {
                 referrerPolicy="no-referrer"
               />
               {chat?.type === 'direct' && otherUser?.online && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-surface rounded-full"></div>
               )}
             </div>
             <div className="flex flex-col">
@@ -332,7 +332,7 @@ export default function ChatDetail() {
       {/* Messages Area */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 bg-white pb-24 no-scrollbar"
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-background pb-24 no-scrollbar"
       >
         {messages.map((msg) => {
           const replyMessage = msg.replyTo ? messages.find(m => m.id === msg.replyTo) : undefined;

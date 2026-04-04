@@ -184,13 +184,13 @@ export default function Calls() {
   return (
     <main className="flex-1 overflow-y-auto pb-24 bg-background no-scrollbar">
       {/* Header Tabs */}
-      <div className="sticky top-0 z-30 bg-white border-b border-border/50 px-6 py-4">
-        <div className="flex bg-border/30 p-1 rounded-2xl mb-4">
+      <div className="sticky top-0 z-30 bg-background border-b border-border/50 px-6 py-4">
+        <div className="flex bg-surface/50 p-1 rounded-2xl mb-4">
           <button
             onClick={() => setActiveTab('recent')}
             className={cn(
               "flex-1 py-2.5 text-xs font-black rounded-xl transition-all uppercase tracking-widest",
-              activeTab === 'recent' ? "bg-white text-primary" : "text-muted hover:text-text"
+              activeTab === 'recent' ? "bg-background text-primary shadow-sm" : "text-muted hover:text-text"
             )}
           >
             Recent
@@ -199,7 +199,7 @@ export default function Calls() {
             onClick={() => setActiveTab('meetings')}
             className={cn(
               "flex-1 py-2.5 text-xs font-black rounded-xl transition-all uppercase tracking-widest",
-              activeTab === 'meetings' ? "bg-white text-primary" : "text-muted hover:text-text"
+              activeTab === 'meetings' ? "bg-background text-primary shadow-sm" : "text-muted hover:text-text"
             )}
           >
             Meetings
@@ -234,7 +234,7 @@ export default function Calls() {
                 placeholder="Search call history..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-border rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className="w-full bg-surface border border-border rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
             </div>
           </div>
@@ -245,7 +245,7 @@ export default function Calls() {
             </div>
           ) : filteredCalls.length > 0 ? (
             filteredCalls.map((call) => (
-              <div key={call.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/50 transition-all group border-b border-border/30">
+              <div key={call.id} className="flex items-center gap-4 px-6 py-4 hover:bg-surface transition-all group border-b border-border/30">
                 <div className="relative flex-shrink-0">
                   <img
                     src={call.otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${call.otherUser?.uid}`}
@@ -253,7 +253,7 @@ export default function Calls() {
                     className="w-14 h-14 rounded-2xl object-cover"
                   />
                   <div className={cn(
-                    "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center",
+                    "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-background flex items-center justify-center",
                     call.type === 'video' ? "bg-secondary text-white" : "bg-primary text-white"
                   )}>
                     {call.type === 'video' ? <Video size={12} /> : <Phone size={12} />}
@@ -295,7 +295,7 @@ export default function Calls() {
         </div>
       ) : (
         <div className="p-6 space-y-6">
-          <div className="bg-white rounded-[2rem] p-8 border border-border text-center">
+          <div className="bg-surface rounded-[2rem] p-8 border border-border text-center">
             <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
               <Video size={40} />
             </div>
@@ -321,7 +321,7 @@ export default function Calls() {
 
           <div className="space-y-4">
             <h4 className="text-xs font-black text-muted uppercase tracking-widest px-2">Scheduled Meetings</h4>
-            <div className="bg-white rounded-3xl p-6 border border-border flex items-center justify-between">
+            <div className="bg-surface rounded-3xl p-6 border border-border flex items-center justify-between">
               <div>
                 <h5 className="font-bold">Weekly Team Sync</h5>
                 <p className="text-xs text-muted">Today, 4:00 PM</p>
@@ -346,7 +346,7 @@ export default function Calls() {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2.5rem] p-8 w-full max-sm text-center"
+              className="bg-surface rounded-[2.5rem] p-8 w-full max-sm text-center"
             >
               <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check size={40} />
@@ -362,7 +362,7 @@ export default function Calls() {
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowMeetingModal(false)}
-                  className="flex-1 py-4 bg-border text-text rounded-2xl font-black"
+                  className="flex-1 py-4 bg-surface text-text rounded-2xl font-black border border-border"
                 >
                   CLOSE
                 </button>

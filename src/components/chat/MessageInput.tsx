@@ -593,25 +593,25 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   };
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 w-full p-3 bg-white border-t border-gray-100 z-50">
+    <div className="absolute bottom-0 left-0 right-0 w-full p-3 bg-background border-t border-border z-50">
       <AnimatePresence>
         {replyingTo && (
           <motion.div 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="flex items-center justify-between bg-gray-50/80 backdrop-blur-sm p-2 border-b border-gray-100 mb-1 rounded-t-xl"
+            className="flex items-center justify-between bg-surface/80 backdrop-blur-sm p-2 border-b border-border mb-1 rounded-t-xl"
           >
-            <div className="flex items-center gap-3 border-l-2 border-[#0084ff] pl-3">
+            <div className="flex items-center gap-3 border-l-2 border-primary pl-3">
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-[#0084ff]">Replying to {replyingTo.senderId === user?.uid ? 'yourself' : 'Message'}</span>
-                <p className="text-xs text-gray-500 truncate max-w-[250px]">
+                <span className="text-[10px] font-bold text-primary">Replying to {replyingTo.senderId === user?.uid ? 'yourself' : 'Message'}</span>
+                <p className="text-xs text-muted truncate max-w-[250px]">
                   {replyingTo.text || (replyingTo.type === 'image' || replyingTo.fileType === 'image' ? 'Photo' : replyingTo.type === 'video' || replyingTo.fileType === 'video' ? 'Video' : replyingTo.type === 'voice' || replyingTo.messageType === 'voice' ? 'Voice Message' : 'Attachment')}
                 </p>
               </div>
             </div>
-            <button onClick={onCancelReply} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
-              <X size={14} className="text-gray-400" />
+            <button onClick={onCancelReply} className="p-1 hover:bg-background rounded-full transition-colors">
+              <X size={14} className="text-muted" />
             </button>
           </motion.div>
         )}
@@ -624,7 +624,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
-            className="grid grid-cols-4 gap-4 p-4 bg-white border-b border-gray-100"
+            className="grid grid-cols-4 gap-4 p-4 bg-surface border-b border-border"
           >
             <button onClick={handleSendLocation} className="flex flex-col items-center gap-2 group">
               <div className="w-12 h-12 bg-green-500/10 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -698,31 +698,31 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
 
         <div className="flex-1 relative mb-1">
           {isRecording ? (
-            <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 rounded-full py-2.5 px-4 w-full">
-              <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-xs font-mono text-blue-600">{formatTime(recordingTime)}</span>
+            <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-full py-2.5 px-4 w-full">
+              <div className="w-2.5 h-2.5 bg-primary rounded-full animate-pulse"></div>
+              <span className="text-xs font-mono text-primary">{formatTime(recordingTime)}</span>
               <div className="flex-1 flex items-end gap-[2px] h-6">
                 {waveforms.map((h, i) => (
                   <div 
                     key={i} 
-                    className="w-[2px] bg-blue-500 rounded-full" 
+                    className="w-[2px] bg-primary rounded-full" 
                     style={{ height: `${Math.max(10, (h / 255) * 100)}%` }}
                   ></div>
                 ))}
               </div>
-              <button onClick={cancelRecording} className="text-blue-500 hover:text-red-500">
+              <button onClick={cancelRecording} className="text-primary hover:text-red-500">
                 <X size={16} />
               </button>
             </div>
           ) : audioBlob ? (
-            <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl py-2 px-4">
+            <div className="flex items-center gap-3 bg-surface border border-border rounded-2xl py-2 px-4">
               <button className="p-2 bg-primary text-white rounded-full">
                 <Play size={16} fill="white" />
               </button>
               <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
                 <div className="w-1/2 h-full bg-primary"></div>
               </div>
-              <button onClick={() => setAudioBlob(null)} className="p-1.5 text-muted hover:bg-border/50 rounded-full">
+              <button onClick={() => setAudioBlob(null)} className="p-1.5 text-muted hover:bg-border rounded-full">
                 <X size={16} />
               </button>
             </div>
@@ -750,7 +750,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
                   }
                 }}
                 placeholder={text.startsWith('@ai') ? "Ask AI anything..." : "Type a message..."}
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none max-h-32 text-sm leading-relaxed"
+                className="w-full bg-surface border border-border rounded-2xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none max-h-32 text-sm leading-relaxed"
               />
             </div>
           )}
@@ -796,7 +796,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] p-8 w-full max-w-xs border border-gray-100"
+              className="bg-surface rounded-[2rem] p-8 w-full max-w-xs border border-border"
             >
               <h3 className="text-xl font-black mb-6 flex items-center gap-3">
                 <BarChart2 className="text-primary" />
@@ -847,7 +847,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-[2rem] p-8 w-full max-w-sm border border-gray-100"
+              className="bg-surface rounded-[2rem] p-8 w-full max-w-sm border border-border"
             >
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -872,7 +872,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
                 <div className="flex gap-2">
                   <button 
                     onClick={() => setShowMoneyModal(false)}
-                    className="flex-1 py-4 bg-background text-muted rounded-2xl font-bold"
+                    className="flex-1 py-4 bg-surface text-muted rounded-2xl font-bold"
                   >
                     Cancel
                   </button>

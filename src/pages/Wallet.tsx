@@ -58,7 +58,7 @@ export default function Wallet() {
       </header>
 
       <main className="flex-1 p-6 -mt-4">
-        <div className="bg-white rounded-[2rem] border border-border p-6 min-h-full">
+        <div className="bg-surface rounded-[2rem] border border-border p-6 min-h-full">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-black flex items-center gap-2">
               <History size={20} className="text-primary" />

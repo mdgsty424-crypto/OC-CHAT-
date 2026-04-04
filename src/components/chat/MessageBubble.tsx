@@ -48,86 +48,7 @@ interface MessageBubbleProps {
 const EMOJIS = ['❤️', '😂', '😮', '😢', '👍', '👎', '🔥'];
 
 // Custom hook for long press
-function useLongPress(callback: (pos: { x: number, y: number }) => void, ms: number = 500) {
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const isLongPress = useRef(false);
-  const startPos = useRef({ x: 0, y: 0 });
-
-  const start = (e: any) => {
-    if (e.type === 'mousedown' && e.button !== 0) return;
-    isLongPress.current = false;
-    
-    let clientX = 0;
-    let clientY = 0;
-    if (e.touches && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-    startPos.current = { x: clientX, y: clientY };
-
-    timerRef.current = setTimeout(() => {
-      isLongPress.current = true;
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-      callback({ x: clientX, y: clientY });
-    }, ms);
-  };
-
-  const move = (e: any) => {
-    if (timerRef.current) {
-      let currentX = 0;
-      let currentY = 0;
-      if (e.touches && e.touches.length > 0) {
-        currentX = e.touches[0].clientX;
-        currentY = e.touches[0].clientY;
-      } else {
-        currentX = e.clientX;
-        currentY = e.clientY;
-      }
-      
-      const dx = Math.abs(currentX - startPos.current.x);
-      const dy = Math.abs(currentY - startPos.current.y);
-      
-      if (dx > 10 || dy > 10) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-  };
-
-  const clear = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
-  return {
-    onMouseDown: start,
-    onTouchStart: start,
-    onMouseUp: clear,
-    onMouseLeave: clear,
-    onTouchEnd: clear,
-    onTouchMove: move,
-    onContextMenu: (e: any) => {
-      e.preventDefault();
-      let clientX = 0;
-      let clientY = 0;
-      if (e.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
-      callback({ x: clientX, y: clientY });
-    }
-  };
-}
+// (Removed as we use inline handlers now)
 
 const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) => {
   const [preview, setPreview] = useState<any>(null);
@@ -166,7 +87,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
 
   if (showPlayer && isYouTube && videoId) {
     return (
-      <div className="mt-2 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-black aspect-video relative">
+      <div className="mt-2 rounded-xl overflow-hidden border border-border shadow-sm bg-black aspect-video relative">
         <iframe
           src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
           className="w-full h-full"
@@ -190,7 +111,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
     <div 
       className={cn(
         "mt-2 rounded-2xl overflow-hidden border shadow-sm transition-all hover:bg-opacity-95 cursor-pointer max-w-[300px] group",
-        isMe ? "bg-white/15 border-white/20 text-white" : "bg-[#f0f2f5] border-gray-200 text-black"
+        isMe ? "bg-white/10 border-white/20 text-white" : "bg-surface border-border text-text"
       )} 
       onClick={() => {
         if (isYouTube || isFacebook) {
@@ -201,7 +122,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
       }}
     >
       {preview.image && !imageError ? (
-        <div className="relative aspect-video bg-gray-200 overflow-hidden">
+        <div className="relative aspect-video bg-surface overflow-hidden">
           <img 
             src={preview.image} 
             alt={preview.title} 
@@ -211,14 +132,14 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
           />
           {(isYouTube || isFacebook) && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
-              <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center text-[#0084ff] shadow-xl transform transition-transform group-hover:scale-110">
+              <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center text-primary shadow-xl transform transition-transform group-hover:scale-110">
                 <Play size={20} fill="currentColor" className="ml-1" />
               </div>
             </div>
           )}
         </div>
       ) : (
-        <div className="relative aspect-video bg-gray-200 dark:bg-gray-800 overflow-hidden flex flex-col items-center justify-center text-gray-400">
+        <div className="relative aspect-video bg-surface overflow-hidden flex flex-col items-center justify-center text-muted">
           <ExternalLink size={28} className="mb-2 opacity-40" />
           <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">
             {preview.siteName || new URL(url).hostname}
@@ -358,10 +279,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
-  const longPressProps = useLongPress((pos) => {
-    setMenuPosition({ x: pos.x, y: pos.y });
+  const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
+    // Don't trigger on right click
+    if ('button' in e && e.button !== 0) return;
+    
+    longPressTimer.current = setTimeout(() => {
+      let clientX = 0;
+      let clientY = 0;
+      
+      if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      
+      setMenuPosition({ x: clientX, y: clientY });
+      setShowActionMenu(true);
+      
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 500);
+  };
+
+  const handlePressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuPosition({ x: e.clientX, y: e.clientY });
     setShowActionMenu(true);
-  }, 500);
+  };
 
   const handleDelete = async () => {
     try {
@@ -384,20 +338,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return (
       <div className="flex flex-col items-center w-full my-6">
         {/* Centered Timestamp */}
-        <span className="text-[10px] font-bold text-gray-400 mb-3 tracking-wider uppercase">
+        <span className="text-[10px] font-bold text-muted mb-3 tracking-wider uppercase">
           {getFullTimestamp(timestamp)}
         </span>
         
         {/* Pill Bubble */}
-        <div className="bg-[#f0f2f5] px-6 py-2 rounded-full border border-gray-100 flex items-center gap-3 shadow-sm hover:bg-gray-200 transition-colors cursor-pointer active:scale-95">
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
+        <div className="bg-surface px-6 py-2 rounded-full border border-border flex items-center gap-3 shadow-sm hover:opacity-80 transition-colors cursor-pointer active:scale-95">
+          <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center text-text">
             {message.callType === 'video' ? <Video size={18} /> : <Phone size={18} />}
           </div>
           <div className="flex flex-col">
-            <span className="text-xs font-semibold text-gray-800">
+            <span className="text-xs font-semibold text-text">
               {message.callType === 'video' ? 'Video chat' : 'Audio call'}
             </span>
-            <span className="text-[10px] text-gray-500 font-medium">
+            <span className="text-[10px] text-muted font-medium">
               {formatDuration(message.duration)}
             </span>
           </div>
@@ -422,13 +376,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </motion.div>
       )}
 
-      <div className={cn("flex items-center gap-2", isMe ? "flex-row-reverse" : "flex-row")}>
-        {!isMe && onForward && (
+      <div className={cn("flex items-center gap-1", isMe ? "flex-row-reverse" : "flex-row")}>
+        {onForward && (
           <button 
-            onClick={() => onForward(message)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full"
+            onClick={(e) => {
+              e.stopPropagation();
+              onForward(message);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-muted hover:text-text hover:bg-surface rounded-full flex-shrink-0"
           >
-            <Forward size={16} />
+            <Forward size={14} />
           </button>
         )}
         <motion.div
@@ -440,13 +399,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           className="relative overflow-visible"
         >
           <div
-            {...longPressProps}
+            onMouseDown={handlePressStart}
+            onMouseUp={handlePressEnd}
+            onMouseLeave={handlePressEnd}
+            onTouchStart={handlePressStart}
+            onTouchEnd={handlePressEnd}
+            onContextMenu={handleContextMenu}
             className={cn(
-              "relative rounded-[20px] transition-all",
+              "relative rounded-[20px] transition-all cursor-pointer select-none active:scale-[0.98]",
               message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
                 isMe 
-                  ? "bg-[#0084ff] text-white rounded-tr-[4px]" 
-                  : "bg-[#e4e6eb] text-black rounded-tl-[4px]"
+                  ? "bg-primary text-white rounded-tr-[4px]" 
+                  : "bg-surface text-text rounded-tl-[4px]"
               ),
               (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5 shadow-sm"
             )}
@@ -515,7 +479,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {(message.type === 'image' || message.fileType === 'image') && (
           <div 
             className={cn(
-              "rounded-[12px] overflow-hidden border border-gray-100 shadow-sm min-w-[200px] max-w-[280px] bg-gray-100 cursor-pointer",
+              "rounded-[12px] overflow-hidden border border-border shadow-sm min-w-[200px] max-w-[280px] bg-surface cursor-pointer",
               "aspect-[16/9]"
             )}
             onClick={() => {
@@ -548,7 +512,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {(message.type === 'video' || message.fileType === 'video') && (
           <div 
             className={cn(
-              "rounded-[12px] overflow-hidden border border-gray-100 shadow-sm min-w-[200px] max-w-[280px] bg-gray-100 cursor-pointer relative group",
+              "rounded-[12px] overflow-hidden border border-border shadow-sm min-w-[200px] max-w-[280px] bg-surface cursor-pointer relative group",
               "aspect-[16/9]"
             )}
             onClick={(e) => {
@@ -595,7 +559,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {(message.type === 'voice' || message.messageType === 'voice') && (
           <div className={cn(
             "w-[240px] p-3 rounded-[24px] shadow-sm",
-            isMe ? "bg-[#0084ff] text-white" : "bg-[#e4e6eb] text-black"
+            isMe ? "bg-primary text-white" : "bg-surface text-text"
           )}>
             {message.status === 'uploading' ? (
               <div className="flex items-center justify-center h-10">
@@ -620,7 +584,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   }}
                   className={cn(
                     "w-10 h-10 flex items-center justify-center rounded-full transition-transform active:scale-90 flex-shrink-0",
-                    isMe ? "bg-white text-[#0084ff]" : "bg-[#0084ff] text-white"
+                    isMe ? "bg-background text-primary" : "bg-primary text-white"
                   )}
                 >
                   {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
@@ -701,7 +665,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <div className="space-y-3 min-w-[240px] max-w-[300px]">
             {message.location ? (
               <>
-                <div className="rounded-[12px] overflow-hidden border border-gray-100 shadow-sm bg-gray-100">
+                <div className="rounded-[12px] overflow-hidden border border-border shadow-sm bg-surface">
                   <iframe
                     width="100%"
                     height="200"
@@ -716,7 +680,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   rel="noopener noreferrer"
                   className={cn(
                     "flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95",
-                    isMe ? "bg-white text-[#0084ff]" : "bg-[#0084ff] text-white"
+                    isMe ? "bg-background text-primary" : "bg-primary text-white"
                   )}
                 >
                   <MapPin size={14} />
@@ -809,7 +773,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           >
             <div className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
-              isMe ? "bg-white/20 text-white" : "bg-[#0084ff]/10 text-[#0084ff]"
+              isMe ? "bg-white/10 text-white" : "bg-primary/10 text-primary"
             )}>
               <File size={20} />
             </div>
@@ -839,10 +803,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <button
                   key={emoji}
                   onClick={() => toggleReaction(emoji)}
-                  className="bg-white border border-gray-100 rounded-full px-2 py-0.5 text-[10px] shadow-sm hover:scale-110 transition-transform flex items-center gap-1"
+                  className="bg-surface border border-border rounded-full px-2 py-0.5 text-[10px] shadow-sm hover:scale-110 transition-transform flex items-center gap-1"
                 >
                   <span>{emoji}</span>
-                  <span className="font-bold text-gray-500">{userList.length}</span>
+                  <span className="font-bold text-muted">{userList.length}</span>
                 </button>
               );
             })}
@@ -852,8 +816,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       </motion.div>
       {isMe && onForward && (
         <button 
-          onClick={() => onForward(message)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full"
+          onClick={(e) => {
+            e.stopPropagation();
+            onForward(message);
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-muted hover:text-text hover:bg-surface rounded-full"
         >
           <Forward size={16} />
         </button>
@@ -865,7 +834,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         "flex items-center gap-1 mt-1 px-1",
         isMe ? "justify-end" : "justify-start"
       )}>
-        <span className="text-[9px] font-medium text-gray-400 uppercase">{timeStr}</span>
+        <span className="text-[9px] font-medium text-muted uppercase">{timeStr}</span>
         {isMe && (
           <div className="flex items-center ml-1">
             {message.status === 'seen' ? (
@@ -873,18 +842,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <img 
                   src={otherUserPhoto} 
                   alt="Seen" 
-                  className="w-3 h-3 rounded-full object-cover border border-white shadow-sm"
+                  className="w-3 h-3 rounded-full object-cover border border-surface shadow-sm"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <CheckCheck size={12} className="text-[#0084ff]" />
+                <CheckCheck size={12} className="text-primary" />
               )
             ) : message.status === 'delivered' ? (
-              <CheckCheck size={12} className="text-gray-300" />
+              <CheckCheck size={12} className="text-muted/40" />
             ) : message.status === 'pending' ? (
-              <Clock size={10} className="text-gray-300 animate-pulse" />
+              <Clock size={10} className="text-muted/40 animate-pulse" />
             ) : (
-              <Check size={12} className="text-gray-300" />
+              <Check size={12} className="text-muted/40" />
             )}
           </div>
         )}
@@ -894,11 +863,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       <button 
         onClick={() => setShowReactions(!showReactions)}
         className={cn(
-          "absolute top-1/2 -translate-y-1/2 p-1.5 bg-white border border-gray-100 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10",
+          "absolute top-1/2 -translate-y-1/2 p-1.5 bg-surface border border-border rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10",
           isMe ? "-left-10" : "-right-10"
         )}
       >
-        <Smile size={14} className="text-gray-400" />
+        <Smile size={14} className="text-muted" />
       </button>
 
       {/* Reaction Picker */}
@@ -909,7 +878,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
             className={cn(
-              "absolute -top-12 z-20 bg-white border border-gray-100 rounded-full p-1.5 flex gap-1 shadow-lg",
+              "absolute -top-12 z-20 bg-surface border border-border rounded-full p-1.5 flex gap-1 shadow-lg",
               isMe ? "right-0" : "left-0"
             )}
           >
@@ -929,41 +898,45 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       {/* Action Menu Modal */}
       <AnimatePresence>
         {showActionMenu && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/40 backdrop-blur-md"
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setShowActionMenu(false)}
             />
             
             <div 
-              className="relative z-10 flex flex-col gap-2 pointer-events-none"
+              className="relative z-10 flex flex-col gap-3 pointer-events-none w-full max-w-[240px]"
               style={{
-                position: 'absolute',
-                top: Math.min(menuPosition.y, window.innerHeight - 350),
-                left: Math.min(Math.max(10, menuPosition.x - 100), window.innerWidth - 210)
+                position: 'fixed',
+                top: Math.min(menuPosition.y - 100, window.innerHeight - 400),
+                left: Math.min(Math.max(20, menuPosition.x - 120), window.innerWidth - 260)
               }}
             >
               {/* Emoji Reactions Pill */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                initial={{ opacity: 0, scale: 0.5, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                className="bg-white rounded-full shadow-2xl border border-gray-100 p-1.5 flex gap-1 pointer-events-auto"
+                exit={{ opacity: 0, scale: 0.5, y: 20 }}
+                transition={{ type: "spring", damping: 20, stiffness: 300 }}
+                className="bg-surface rounded-full shadow-2xl border border-border p-1.5 flex justify-between items-center pointer-events-auto"
               >
-                {EMOJIS.map(emoji => (
-                  <button
+                {EMOJIS.map((emoji, index) => (
+                  <motion.button
                     key={emoji}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
                     onClick={() => {
                       toggleReaction(emoji);
                       setShowActionMenu(false);
                     }}
-                    className="text-2xl hover:scale-125 active:scale-95 transition-transform p-1 rounded-full hover:bg-gray-50"
+                    className="text-2xl hover:scale-150 active:scale-95 transition-transform p-1 rounded-full hover:bg-background"
                   >
                     {emoji}
-                  </button>
+                  </motion.button>
                 ))}
                 <button
                   onClick={(e) => {
@@ -971,9 +944,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     toggleReaction('💯');
                     setShowActionMenu(false);
                   }}
-                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                  className="w-8 h-8 rounded-full bg-background flex items-center justify-center hover:opacity-80 transition-colors ml-1"
                 >
-                  <span className="text-gray-500 font-bold">+</span>
+                  <span className="text-muted font-bold">+</span>
                 </button>
               </motion.div>
 
@@ -982,7 +955,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 initial={{ opacity: 0, scale: 0.9, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-1.5 min-w-[200px] flex flex-col gap-0.5 pointer-events-auto overflow-hidden"
+                className="bg-surface rounded-2xl shadow-2xl border border-border p-1.5 min-w-[200px] flex flex-col gap-0.5 pointer-events-auto overflow-hidden"
               >
                 {onReply && (
                   <button 
@@ -990,20 +963,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       onReply(message);
                       setShowActionMenu(false);
                     }}
-                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors text-sm font-medium text-gray-700"
+                    className="flex items-center justify-between p-3 hover:bg-background rounded-xl transition-colors text-sm font-medium text-text"
                   >
                     <span>Reply</span>
-                    <Reply size={18} className="text-gray-400" />
+                    <Reply size={18} className="text-muted" />
                   </button>
                 )}
 
                 {message.type === 'text' && (
                   <button 
                     onClick={handleCopy}
-                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors text-sm font-medium text-gray-700"
+                    className="flex items-center justify-between p-3 hover:bg-background rounded-xl transition-colors text-sm font-medium text-text"
                   >
                     <span>Copy</span>
-                    <FileText size={18} className="text-gray-400" />
+                    <FileText size={18} className="text-muted" />
                   </button>
                 )}
 
@@ -1013,18 +986,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       onForward(message);
                       setShowActionMenu(false);
                     }}
-                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors text-sm font-medium text-gray-700"
+                    className="flex items-center justify-between p-3 hover:bg-background rounded-xl transition-colors text-sm font-medium text-text"
                   >
                     <span>Forward</span>
-                    <Forward size={18} className="text-gray-400" />
+                    <Forward size={18} className="text-muted" />
                   </button>
                 )}
 
-                <div className="h-[1px] bg-gray-100 my-1 mx-2" />
+                <div className="h-[1px] bg-border my-1 mx-2" />
 
                 <button 
                   onClick={handleDelete}
-                  className="flex items-center justify-between p-3 hover:bg-red-50 rounded-xl transition-colors text-sm font-medium text-red-600"
+                  className="flex items-center justify-between p-3 hover:bg-red-500/10 rounded-xl transition-colors text-sm font-medium text-red-600"
                 >
                   <span>Delete</span>
                   <Trash2 size={18} className="text-red-400" />

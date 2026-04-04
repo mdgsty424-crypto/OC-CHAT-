@@ -124,7 +124,7 @@ export default function Community() {
   return (
     <main className="flex-1 overflow-y-auto pb-24 bg-background no-scrollbar">
       {/* Search & Tabs */}
-      <div className="sticky top-0 z-30 bg-white border-b border-border/50 px-6 py-4 space-y-4">
+      <div className="sticky top-0 z-30 bg-background border-b border-border/50 px-6 py-4 space-y-4">
         <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
           <input
@@ -141,7 +141,7 @@ export default function Community() {
             onClick={() => setActiveTab('group')}
             className={cn(
               "flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest",
-              activeTab === 'group' ? "bg-white text-primary" : "text-muted hover:text-text"
+              activeTab === 'group' ? "bg-surface text-primary" : "text-muted hover:text-text"
             )}
           >
             <Users size={16} />
@@ -151,7 +151,7 @@ export default function Community() {
             onClick={() => setActiveTab('channel')}
             className={cn(
               "flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest",
-              activeTab === 'channel' ? "bg-white text-primary" : "text-muted hover:text-text"
+              activeTab === 'channel' ? "bg-surface text-primary" : "text-muted hover:text-text"
             )}
           >
             <Radio size={16} />
@@ -178,7 +178,7 @@ export default function Community() {
               key={group.id}
               whileHover={{ y: -5 }}
               onClick={() => navigate(`/voice/${group.id}`)}
-              className="flex-shrink-0 w-40 bg-white rounded-3xl p-4 border border-white/20 cursor-pointer group"
+              className="flex-shrink-0 w-40 bg-surface rounded-3xl p-4 border border-white/20 cursor-pointer group"
             >
               <div className="relative mb-3">
                 <img src={group.photo} className="w-full h-24 rounded-2xl object-cover" alt="" />
@@ -194,7 +194,7 @@ export default function Community() {
               <div className="flex items-center gap-1.5">
                 <div className="flex -space-x-2">
                   {[...Array(3)].map((_, i) => (
-                    <div key={i} className="w-5 h-5 rounded-full border-2 border-white bg-border overflow-hidden">
+                    <div key={i} className="w-5 h-5 rounded-full border-2 border-surface bg-border overflow-hidden">
                       <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} className="w-full h-full object-cover" alt="" />
                     </div>
                   ))}
@@ -210,9 +210,9 @@ export default function Community() {
               const myGroup = items.find(g => g.members?.includes(user?.uid || ''));
               if (myGroup) handleStartVoiceClub(myGroup.id);
             }}
-            className="flex-shrink-0 w-40 bg-white border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-white/30 transition-all group"
+            className="flex-shrink-0 w-40 bg-surface border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-surface/30 transition-all group"
           >
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-muted group-hover:text-primary transition-colors">
+            <div className="w-10 h-10 bg-background rounded-full flex items-center justify-center text-muted group-hover:text-primary transition-colors">
               <Plus size={24} />
             </div>
             <span className="text-[10px] font-black text-muted uppercase tracking-widest">Start Club</span>
@@ -236,10 +236,10 @@ export default function Community() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   onClick={() => handleJoin(item)}
-                  className="flex items-center gap-4 px-4 py-4 hover:bg-white/60 rounded-3xl transition-all group cursor-pointer border border-transparent hover:border-border/50"
+                  className="flex items-center gap-4 px-4 py-4 hover:bg-surface rounded-3xl transition-all group cursor-pointer border border-transparent hover:border-border/50"
                 >
                   <div className="relative flex-shrink-0">
-                    <div className="p-[2px] bg-white rounded-full group-hover:scale-105 transition-transform">
+                    <div className="p-[2px] bg-background rounded-full group-hover:scale-105 transition-transform">
                       <img
                         src={item.photo}
                         alt={item.name}
@@ -247,7 +247,7 @@ export default function Community() {
                         referrerPolicy="no-referrer"
                       />
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary text-white rounded-full border-2 border-white flex items-center justify-center">
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary text-white rounded-full border-2 border-surface flex items-center justify-center">
                       {item.type === 'group' ? <Hash size={12} /> : <Radio size={12} />}
                     </div>
                   </div>
@@ -305,7 +305,7 @@ export default function Community() {
         {/* Create New */}
         <div className="px-6 py-8">
           {isCreating ? (
-            <div className="bg-white p-6 rounded-3xl border border-border space-y-4">
+            <div className="bg-surface p-6 rounded-3xl border border-border space-y-4">
               <h3 className="font-bold text-lg">Create New {activeTab === 'group' ? 'Group' : 'Channel'}</h3>
               <input
                 type="text"

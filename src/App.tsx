@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { NetworkProvider, useNetwork } from './hooks/useNetwork';
+import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 import Home from './pages/Home';
@@ -64,11 +65,42 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
 }
 
 import { useNotifications } from './hooks/useNotifications';
+import PinLock from './components/common/PinLock';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  const { theme } = useSettings();
   const [showSplash, setShowSplash] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
   useNotifications(); // Initialize notification registration
+
+  useEffect(() => {
+    // Check for app lock
+    if (user?.securitySettings?.appLockEnabled && user?.securitySettings?.pin) {
+      setIsLocked(true);
+    } else {
+      setIsLocked(false);
+    }
+  }, [user?.uid, user?.securitySettings?.appLockEnabled, user?.securitySettings?.pin]);
+
+  useEffect(() => {
+    // Anti-screenshot logic (Privacy Mode)
+    if (user?.securitySettings?.privacyModeEnabled) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && e.key === '4')) {
+          alert("Screenshot protection is enabled!");
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      document.body.style.userSelect = 'none';
+      
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        document.body.style.userSelect = 'auto';
+      };
+    }
+  }, [user?.securitySettings?.privacyModeEnabled]);
 
   useEffect(() => {
     // If auth is resolved and user is logged in, hide splash immediately
@@ -92,10 +124,14 @@ function AppRoutes() {
     return <Login />;
   }
 
+  if (isLocked) {
+    return <PinLock onUnlock={() => setIsLocked(false)} />;
+  }
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-white border-l border-border/50">
+      <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-surface border-l border-border/50">
         <NetworkStatus />
         <IncomingCall />
         <Routes>
@@ -120,11 +156,13 @@ export default function App() {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <AuthProvider>
-        <NetworkProvider>
-          <Router>
-            <AppRoutes />
-          </Router>
-        </NetworkProvider>
+        <SettingsProvider>
+          <NetworkProvider>
+            <Router>
+              <AppRoutes />
+            </Router>
+          </NetworkProvider>
+        </SettingsProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

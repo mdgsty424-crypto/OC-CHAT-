@@ -66,9 +66,9 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
   const isTyping = chat.typing && Object.values(chat.typing).some(t => t);
 
   return (
-    <div className="relative overflow-hidden bg-white mb-1">
+    <div className="relative overflow-hidden bg-background mb-1">
       {/* Swipe Actions (Background) */}
-      <div className="absolute inset-0 flex justify-end items-center px-6 gap-4 bg-gray-50">
+      <div className="absolute inset-0 flex justify-end items-center px-6 gap-4 bg-surface">
         <motion.div style={{ opacity, scale }} className="flex items-center gap-4">
           <button className="p-3 bg-primary text-white rounded-2xl">
             <Archive size={20} />
@@ -83,17 +83,17 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
         drag="x"
         dragConstraints={{ left: -150, right: 0 }}
         style={{ x }}
-        className="relative z-10 bg-white"
+        className="relative z-10 bg-background"
       >
         <Link
           to={`/chat/${chat.id}`}
-          className="flex items-center gap-4 px-6 py-3 hover:bg-gray-50 transition-all active:scale-[0.98] group"
+          className="flex items-center gap-4 px-6 py-3 hover:bg-surface transition-all active:scale-[0.98] group"
         >
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="p-[2px] bg-white rounded-full transition-all group-hover:scale-105">
+            <div className="p-[2px] bg-background rounded-full transition-all group-hover:scale-105">
               {chat.type === 'group' && !chatPhoto ? (
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-surface flex items-center justify-center">
                   <Users size={20} className="text-muted" />
                 </div>
               ) : (
@@ -109,7 +109,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
               )}
             </div>
             {(otherUser?.online || chat.type !== 'direct') && (
-              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
+              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background rounded-full"></div>
             )}
           </div>
 
@@ -118,7 +118,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
             <div className="flex justify-between items-center mb-0.5">
               <h3 className="text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center">
                 {loading ? (
-                  <div className="h-5 w-24 bg-gray-200 animate-pulse rounded" />
+                  <div className="h-5 w-24 bg-surface animate-pulse rounded" />
                 ) : (
                   <>
                     {chatName}

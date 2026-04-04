@@ -10,7 +10,7 @@ export default function TopBar({ title }: TopBarProps) {
   const { user } = useAuth();
 
   return (
-    <header className="md:hidden sticky top-0 left-0 right-0 bg-white border-b border-border py-6 px-6 flex items-center justify-between z-50">
+    <header className="md:hidden sticky top-0 left-0 right-0 bg-background border-b border-border py-6 px-6 flex items-center justify-between z-50">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 flex items-center justify-center">
           <img 
@@ -23,7 +23,7 @@ export default function TopBar({ title }: TopBarProps) {
         <h1 className="text-xl font-black text-text tracking-tighter">{title}</h1>
       </div>
       <div className="flex items-center gap-4">
-        <button className="p-2 bg-background rounded-full hover:bg-border transition-colors">
+        <button className="p-2 bg-surface rounded-full hover:bg-border transition-colors">
           <Search size={20} className="text-muted" />
         </button>
         <button className="p-2 bg-primary text-white rounded-full hover:opacity-90 transition-all active:scale-95">

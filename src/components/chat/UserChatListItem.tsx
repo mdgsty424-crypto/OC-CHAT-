@@ -57,17 +57,17 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
   };
 
   return (
-    <div className="relative overflow-hidden bg-white mb-1">
+    <div className="relative overflow-hidden bg-background mb-1">
       <motion.div
-        className="relative z-10 bg-white"
+        className="relative z-10 bg-background"
       >
         <button
           onClick={handleStartChat}
-          className="w-full flex items-center gap-4 px-6 py-2 hover:bg-gray-50 transition-all active:scale-[0.98] group text-left"
+          className="w-full flex items-center gap-4 px-6 py-2 hover:bg-surface transition-all active:scale-[0.98] group text-left"
         >
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="p-[2px] bg-white rounded-full transition-all group-hover:scale-105">
+            <div className="p-[2px] bg-background rounded-full transition-all group-hover:scale-105">
               <img
                 src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`}
                 alt={user.displayName}
@@ -76,7 +76,7 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
               />
             </div>
             {user.online && (
-              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
+              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background rounded-full"></div>
             )}
           </div>
 

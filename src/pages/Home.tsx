@@ -112,7 +112,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex-1 overflow-y-auto pb-40 bg-white no-scrollbar flex flex-col gap-y-4">
+    <main className="flex-1 overflow-y-auto pb-40 bg-background no-scrollbar flex flex-col gap-y-4">
       {/* Search Bar */}
       <div className="px-6 mt-2 mb-4">
         <div className="relative group">
@@ -122,7 +122,7 @@ export default function Home() {
             placeholder="Search chats, groups, channels..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-100 rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+            className="w-full bg-surface border border-border rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
           />
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function Home() {
                     alt={u.displayName}
                   />
                 </div>
-                <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-green-500 border-2 border-surface rounded-full"></div>
               </div>
               <span className="text-[10px] font-bold text-muted truncate w-14 text-center">{(u.displayName || 'Anonymous').split(' ')[0]}</span>
             </div>
@@ -167,8 +167,8 @@ export default function Home() {
       </div>
 
       {/* Chat List Section */}
-      <div className="bg-white flex-1">
-        <div className="px-6 py-2 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-30">
+      <div className="bg-background flex-1">
+        <div className="px-6 py-2 border-b border-border flex justify-between items-center bg-background sticky top-0 z-30">
           <div className="flex items-center gap-6">
             <button 
               onClick={() => setView('all')}
@@ -194,13 +194,13 @@ export default function Home() {
           
           <button 
             onClick={() => setShowHiddenInput(true)}
-            className="p-2 hover:bg-gray-50 rounded-xl text-muted hover:text-primary transition-colors"
+            className="p-2 hover:bg-surface rounded-xl text-muted hover:text-primary transition-colors"
           >
             <Lock size={18} />
           </button>
         </div>
         
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-border">
           {filteredChats.map((chat) => (
             <ChatListItem key={`chat-${chat.id}`} chat={chat} />
           ))}
@@ -209,7 +209,7 @@ export default function Home() {
           ))}
           {filteredChats.length === 0 && (view !== 'all' || usersWithoutChats.length === 0) && (
             <div className="flex flex-col items-center justify-center py-24 px-10 text-center opacity-40">
-              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 border border-gray-100">
+              <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mb-6 border border-border">
                 <Search size={40} className="text-muted" />
               </div>
               <h3 className="text-xl font-black mb-2">No {view} chats</h3>
@@ -231,7 +231,7 @@ export default function Home() {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] p-8 w-full max-w-xs border border-gray-100 text-center"
+              className="bg-surface rounded-[2rem] p-8 w-full max-w-xs border border-border text-center"
             >
               <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
                 <Lock size={32} />
@@ -243,12 +243,12 @@ export default function Home() {
                 value={hiddenPassword}
                 onChange={(e) => setHiddenPassword(e.target.value)}
                 placeholder="Password"
-                className="w-full bg-background border border-border rounded-2xl py-3 px-4 mb-4 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full bg-surface border border-border rounded-2xl py-3 px-4 mb-4 focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowHiddenInput(false)}
-                  className="flex-1 py-3 bg-border text-text rounded-2xl font-bold"
+                  className="flex-1 py-3 bg-surface text-text rounded-2xl font-bold border border-border"
                 >
                   Cancel
                 </button>

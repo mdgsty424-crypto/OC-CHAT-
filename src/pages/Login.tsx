@@ -84,7 +84,7 @@ export default function Login() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.3 + i * 0.1 }}
-              className="bg-white p-4 rounded-3xl flex flex-col items-center gap-2 border border-border/50"
+              className="bg-surface p-4 rounded-3xl flex flex-col items-center gap-2 border border-border/50"
             >
               <item.icon className={item.color} size={24} />
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted">{item.label}</span>
@@ -100,11 +100,11 @@ export default function Login() {
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 100 }}
-            className="absolute inset-0 z-50 bg-white p-8 flex flex-col"
+            className="absolute inset-0 z-50 bg-background p-8 flex flex-col"
           >
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-black text-text">{isSignUp ? 'Create Account' : 'Welcome Back'}</h2>
-              <button onClick={() => setShowEmailForm(false)} className="p-2 bg-background rounded-full">
+              <button onClick={() => setShowEmailForm(false)} className="p-2 bg-surface rounded-full">
                 <X size={20} />
               </button>
             </div>
@@ -121,7 +121,7 @@ export default function Login() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="John Doe"
-                      className="w-full bg-background border border-border rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-surface border border-border rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
                 </div>
@@ -137,7 +137,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full bg-background border border-border rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    className="w-full bg-surface border border-border rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   />
                 </div>
               </div>
@@ -152,7 +152,7 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-background border border-border rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    className="w-full bg-surface border border-border rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   />
                 </div>
               </div>
@@ -199,7 +199,7 @@ export default function Login() {
 
         <button 
           onClick={() => setShowEmailForm(true)}
-          className="w-full py-4 bg-white text-text border border-border rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-border/20 transition-all"
+          className="w-full py-4 bg-surface text-text border border-border rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-border/20 transition-all"
         >
           <Mail size={18} className="text-muted" />
           <span>Login with Email</span>

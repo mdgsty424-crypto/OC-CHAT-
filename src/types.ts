@@ -10,11 +10,6 @@ export interface User {
   location?: string;
   age?: number;
   gender?: 'male' | 'female' | 'other';
-  preferences?: {
-    interestedIn: 'male' | 'female' | 'all';
-    minAge: number;
-    maxAge: number;
-  };
   role?: 'admin' | 'user';
   verified?: boolean;
   isPremium?: boolean;
@@ -23,6 +18,15 @@ export interface User {
     appLockEnabled: boolean;
     twoStepVerificationEnabled: boolean;
     privacyModeEnabled: boolean; // Screenshot protection
+    pin?: string; // 4-digit PIN
+  };
+  preferences?: {
+    interestedIn: 'male' | 'female' | 'all';
+    minAge: number;
+    maxAge: number;
+    theme?: 'light' | 'dark';
+    language?: 'en' | 'bn';
+    notificationsEnabled?: boolean;
   };
 }
 
