@@ -39,6 +39,13 @@ export default function IncomingCall() {
             type: callData.type,
             callId: callData.id
           });
+
+          // Update status to 'ringing' in Firestore to notify the caller
+          if (callData.status === 'calling') {
+            await updateDoc(doc(db, 'calls', callData.id), {
+              status: 'ringing'
+            });
+          }
         }
       } else {
         setIncomingCall(null);
@@ -127,7 +134,7 @@ export default function IncomingCall() {
               <div className="flex flex-col">
                 <h4 className="text-sm font-black text-text tracking-tight">{incomingCall.name}</h4>
                 <span className="text-[10px] font-bold text-primary uppercase tracking-widest animate-pulse">
-                  Incoming {incomingCall.type} call...
+                  Incoming {incomingCall.type === 'video' ? 'Video' : 'Audio'} Call
                 </span>
               </div>
             </div>
