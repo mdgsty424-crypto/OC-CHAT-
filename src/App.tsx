@@ -11,6 +11,7 @@ import Discovery from './pages/Discovery';
 import Wallet from './pages/Wallet';
 import Calls from './pages/Calls';
 import Profile from './pages/Profile';
+import SearchScreen from './pages/SearchScreen';
 import ChatDetail from './pages/ChatDetail';
 import CallScreen from './pages/CallScreen';
 import Sidebar from './components/layout/Sidebar';
@@ -141,6 +142,7 @@ function AppRoutes() {
           <Route path="/wallet" element={<><Wallet /><BottomNav /></>} />
           <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
           <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
+          <Route path="/search" element={<SearchScreen />} />
           <Route path="/chat/:id" element={<ChatDetail />} />
           <Route path="/call/:id" element={<CallScreen />} />
           <Route path="/meeting/:id" element={<MeetingRoom />} />

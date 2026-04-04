@@ -9,9 +9,11 @@ import UserChatListItem from '../components/chat/UserChatListItem';
 import { Search, Plus, Archive, EyeOff, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [chats, setChats] = useState<Chat[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -115,14 +117,13 @@ export default function Home() {
     <main className="flex-1 overflow-y-auto pb-40 bg-background no-scrollbar flex flex-col gap-y-4">
       {/* Search Bar */}
       <div className="px-6 mt-2 mb-4">
-        <div className="relative group">
+        <div className="relative group" onClick={() => navigate('/search')}>
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
           <input
             type="text"
+            readOnly
             placeholder="Search chats, groups, channels..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-surface border border-border rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+            className="w-full bg-surface border border-border rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium cursor-pointer"
           />
         </div>
       </div>
