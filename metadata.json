@@ -6,6 +6,7 @@
     "microphone",
     "geolocation",
     "SYSTEM_ALERT_WINDOW",
-    "FOREGROUND_SERVICE"
+    "FOREGROUND_SERVICE",
+    "USE_FULL_SCREEN_INTENT"
   ]
 }

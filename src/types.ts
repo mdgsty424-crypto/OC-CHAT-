@@ -1,6 +1,7 @@
 export interface User {
   uid: string;
   displayName: string;
+  email?: string;
   username?: string;
   photoURL?: string;
   bio?: string;
@@ -14,6 +15,7 @@ export interface User {
   role?: 'admin' | 'user';
   verified?: boolean;
   isPremium?: boolean;
+  suspended?: boolean;
   walletBalance?: number;
   securitySettings?: {
     appLockEnabled: boolean;

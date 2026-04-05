@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { MessageCircle, Phone, Users, Heart, Settings, Search, LogOut } from 'lucide-react';
+import { MessageCircle, Phone, Users, Heart, Settings, Search, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
 
@@ -14,6 +14,10 @@ export default function Sidebar() {
     { icon: Users, label: 'Groups', path: '/community' },
     { icon: Settings, label: 'Settings', path: '/profile' },
   ];
+
+  if (user?.role === 'admin') {
+    navItems.push({ icon: Shield, label: 'Admin', path: '/admin' });
+  }
 
   return (
     <aside className="hidden md:flex flex-col w-72 h-full bg-background border-r border-border p-6 z-50">

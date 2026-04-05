@@ -47,16 +47,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const newUser: User = {
               uid: firebaseUser.uid,
               displayName: firebaseUser.displayName || 'Anonymous',
+              email: firebaseUser.email || undefined,
               photoURL: firebaseUser.photoURL || '',
               online: true,
               lastSeen: new Date().toISOString(),
-              role: 'user'
+              role: firebaseUser.email === 'info@ocsthael.com' ? 'admin' : 'user'
             };
             await setDoc(userRef, newUser);
             setUser(newUser);
           } else {
-            await setDoc(userRef, { online: true, lastSeen: new Date().toISOString() }, { merge: true });
-            setUser(userDoc.data() as User);
+            const updateData: any = { online: true, lastSeen: new Date().toISOString() };
+            if (firebaseUser.email === 'info@ocsthael.com' && userDoc.data()?.role !== 'admin') {
+              updateData.role = 'admin';
+            }
+            if (firebaseUser.email && !userDoc.data()?.email) {
+              updateData.email = firebaseUser.email;
+            }
+            await setDoc(userRef, updateData, { merge: true });
+            setUser({ ...userDoc.data(), ...updateData } as User);
           }
 
           // Listen for real-time updates to the current user's document
@@ -145,10 +153,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const newUser: User = {
       uid: firebaseUser.uid,
       displayName: name,
+      email: firebaseUser.email || undefined,
       photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
       online: true,
       lastSeen: new Date().toISOString(),
-      role: 'user'
+      role: firebaseUser.email === 'info@ocsthael.com' ? 'admin' : 'user'
     };
     await setDoc(userRef, newUser);
   };

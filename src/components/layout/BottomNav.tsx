@@ -1,9 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { MessageCircle, Phone, Sparkles, Users, User } from 'lucide-react';
+import { MessageCircle, Phone, Sparkles, Users, User, Shield } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
 
 export default function BottomNav() {
+  const { user } = useAuth();
   const items = [
     { icon: MessageCircle, label: 'Chats', path: '/' },
     { icon: Phone, label: 'Calls', path: '/calls' },
@@ -11,6 +13,10 @@ export default function BottomNav() {
     { icon: Users, label: 'Community', path: '/community' },
     { icon: User, label: 'Profile', path: '/profile' },
   ];
+
+  if (user?.role === 'admin') {
+    items.push({ icon: Shield, label: 'Admin', path: '/admin' });
+  }
 
   return (
     <nav className="md:hidden absolute bottom-0 left-0 right-0 w-full bg-background border-t border-border flex justify-around items-center py-2 px-4 z-50">

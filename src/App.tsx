@@ -19,10 +19,12 @@ import BottomNav from './components/layout/BottomNav';
 import TopBar from './components/layout/TopBar';
 import IncomingCall from './components/common/IncomingCall';
 import ZegoCallInvitation from './components/common/ZegoCallInvitation';
+import ZegoIncomingCallUI from './components/common/ZegoIncomingCallUI';
 import SplashScreen from './pages/SplashScreen';
 import Login from './pages/Login';
 import MeetingRoom from './pages/MeetingRoom';
 import VoiceRoom from './pages/VoiceRoom';
+import AdminDashboard from './pages/AdminDashboard';
 
 function NetworkStatus() {
   const { isOnline, isReconnecting } = useNetwork();
@@ -75,6 +77,51 @@ function AppRoutes() {
   const [showSplash, setShowSplash] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
   useNotifications(); // Initialize notification registration
+
+  useEffect(() => {
+    // 1. User Gesture Logic for Audio Context
+    const handleFirstInteraction = () => {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      console.log("Audio Context initialized via user gesture");
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+
+    window.addEventListener('click', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
+
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, []);
+
+  useEffect(() => {
+    // 2. Browser Permission Prompts on Login
+    if (user && !loading) {
+      const requestPermissions = async () => {
+        try {
+          // Notification Permission
+          if (Notification.permission === 'default') {
+            await Notification.requestPermission();
+          }
+
+          // Camera & Microphone Permission
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          stream.getTracks().forEach(track => track.stop()); // Stop immediately after permission granted
+          
+          console.log("Permissions granted successfully");
+        } catch (error) {
+          console.warn("Permissions denied or failed:", error);
+        }
+      };
+
+      requestPermissions();
+    }
+  }, [user, loading]);
 
   useEffect(() => {
     // Check for app lock
@@ -136,6 +183,7 @@ function AppRoutes() {
       <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-surface border-l border-border/50">
         <NetworkStatus />
         <ZegoCallInvitation />
+        <ZegoIncomingCallUI />
         <IncomingCall />
         <Routes>
           <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
@@ -149,6 +197,7 @@ function AppRoutes() {
           <Route path="/call/:id" element={<CallScreen />} />
           <Route path="/meeting/:id" element={<MeetingRoom />} />
           <Route path="/voice/:id" element={<VoiceRoom />} />
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

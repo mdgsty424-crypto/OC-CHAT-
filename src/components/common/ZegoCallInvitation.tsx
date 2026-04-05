@@ -3,13 +3,15 @@ import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 import { ZIM } from 'zego-zim-web';
 import { useAuth } from '../../hooks/useAuth';
 import { useZegoStore } from '../../hooks/useZegoStore';
+import { useAppAssets } from '../../hooks/useAppAssets';
 
 const appID = 1698335343;
 const serverSecret = "827755ef5ec4c06648bc783998a6d0c2";
 
 export default function ZegoCallInvitation() {
   const { user } = useAuth();
-  const { setZp } = useZegoStore();
+  const { setZp, setIncomingCall } = useZegoStore();
+  const assets = useAppAssets();
 
   useEffect(() => {
     if (!user) {
@@ -38,15 +40,40 @@ export default function ZegoCallInvitation() {
 
         // Configure Call Invitation
         zp.setCallInvitationConfig({
+          enableCustomCallInvitationDialog: true, // Enable custom UI
+          enableNotifyWhenAppRunningInBackgroundOrQuit: true,
+          // @ts-ignore - These might be newer or platform specific
+          enableNotifyWhenAppIsRunning: true,
+          enableForegroundService: true,
+          showInRecentTasks: true,
+          isContextRequired: true,
           ringtoneConfig: {
-            incomingCallUrl: '/assets/sounds/ringtone.mp3',
-            outgoingCallUrl: '/assets/sounds/ringtone.mp3',
+            incomingCallUrl: assets.ringtone,
+            outgoingCallUrl: assets.ringtone,
+          },
+          onConfirmDialogWhenReceiving: (callType, caller, refuse, accept, data) => {
+            console.log("Custom Incoming Call Dialog Triggered:", { callType, caller, data });
+            setIncomingCall({
+              callID: data, // Zego usually passes callID in data or it's available elsewhere
+              caller,
+              callType,
+              callees: [], // Not always provided in this callback
+              refuse: () => {
+                refuse();
+                setIncomingCall(null);
+              },
+              accept: () => {
+                accept();
+                setIncomingCall(null);
+              }
+            });
           },
           onIncomingCallReceived: (callID, caller, callType, callees) => {
             console.log("Incoming call received:", { callID, caller, callType, callees });
           },
           onIncomingCallCanceled: (callID, caller) => {
             console.log("Incoming call canceled:", { callID, caller });
+            setIncomingCall(null);
           },
           onOutgoingCallAccepted: (callID, callee) => {
             console.log("Outgoing call accepted by:", callee);
@@ -59,12 +86,14 @@ export default function ZegoCallInvitation() {
           },
           onIncomingCallTimeout: (callID, caller) => {
             console.log("Incoming call timeout:", { callID, caller });
+            setIncomingCall(null);
           },
           onOutgoingCallTimeout: (callID, callees) => {
             console.log("Outgoing call timeout for:", callees);
           },
           onCallInvitationEnded: (reason, data) => {
             console.log("Call invitation ended:", { reason, data });
+            setIncomingCall(null);
           }
         });
 
@@ -81,7 +110,7 @@ export default function ZegoCallInvitation() {
       // In a real app, you might want to destroy it on logout
       // But for HMR and component lifecycle, we should be careful
     };
-  }, [user?.uid, setZp]);
+  }, [user?.uid, setZp, setIncomingCall]);
 
   return null;
 }

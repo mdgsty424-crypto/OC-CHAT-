@@ -179,17 +179,33 @@ async function startServer() {
     }
 
     try {
+      // Handle Global Broadcast
+      let targetUserIds: string[] = [];
+      if (targetUserId === 'all') {
+        const usersSnap = await getDocs(collection(db, "users"));
+        targetUserIds = usersSnap.docs.map(doc => doc.id);
+      } else {
+        targetUserIds = [targetUserId];
+      }
+
+      console.log(`Sending notification to ${targetUserIds.length} users: ${title}`);
+
       // If OneSignal REST API Key is available, use OneSignal
       if (process.env.ONESIGNAL_REST_API_KEY) {
         const payload: any = {
           app_id: "77b000e4-b044-4010-ac1e-9e73704baefa",
-          include_aliases: {
-            external_id: [targetUserId]
-          },
           target_channel: "push",
           headings: { en: title },
           contents: { en: message },
         };
+
+        if (targetUserId === 'all') {
+          payload.included_segments = ["All"];
+        } else {
+          payload.include_aliases = {
+            external_id: targetUserIds
+          };
+        }
 
         if (image) payload.big_picture = image;
         if (link) payload.url = link;
@@ -219,49 +235,39 @@ async function startServer() {
         return res.json({ success: true, data });
       }
 
-      // Fetch all tokens for the target user (Fallback to webtoapp.design)
-      const q = query(collection(db, "user_tokens"), where("userId", "==", targetUserId));
-      const querySnapshot = await getDocs(q);
-      const tokens = querySnapshot.docs.map(doc => doc.data().token);
+      // Fallback to webtoapp.design for each user
+      let totalSent = 0;
+      for (const uid of targetUserIds) {
+        const q = query(collection(db, "user_tokens"), where("userId", "==", uid));
+        const querySnapshot = await getDocs(q);
+        const tokens = querySnapshot.docs.map(doc => doc.data().token);
 
-      if (tokens.length === 0) {
-        console.log(`No tokens found for user ${targetUserId}`);
-        return res.json({ success: true, sent: 0 });
+        if (tokens.length === 0) continue;
+
+        await Promise.all(tokens.map(async (token) => {
+          const payload: any = {
+            token: token,
+            title: title,
+            message: message
+          };
+
+          if (image) payload.image_url = image;
+          if (link) payload.url_to_open = link;
+          if (actions) payload.actions = actions;
+
+          await fetch(WEBTOAPP_API_URL, {
+            method: "POST",
+            headers: { 
+              "accept": "application/json",
+              "content-type": "application/json" 
+            },
+            body: JSON.stringify(payload)
+          });
+          totalSent++;
+        }));
       }
 
-      console.log(`Sending notification to user ${targetUserId} (${tokens.length} devices)`);
-
-      // Send notification to each token
-      const results = await Promise.all(tokens.map(async (token) => {
-        const payload: any = {
-          token: token,
-          title: title,
-          message: message
-        };
-
-        if (image) payload.image_url = image;
-        if (link) payload.url_to_open = link;
-        if (actions) payload.actions = actions;
-
-        const response = await fetch(WEBTOAPP_API_URL, {
-          method: "POST",
-          headers: { 
-            "accept": "application/json",
-            "content-type": "application/json" 
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          const errorData = await response.text();
-          console.error(`Failed to send notification to token ${token.substring(0, 10)}...`, errorData);
-          return { token, success: false, error: errorData };
-        }
-
-        return { token, success: true };
-      }));
-
-      res.json({ success: true, sent: results.filter(r => r.success).length, results });
+      res.json({ success: true, sent: totalSent });
     } catch (error: any) {
       console.error("Error sending notification:", error);
       res.status(500).json({ error: "Failed to send notification", message: error.message });
