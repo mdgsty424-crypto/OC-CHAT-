@@ -22,7 +22,6 @@ import TopBar from './components/layout/TopBar';
 import IncomingCall from './components/common/IncomingCall';
 import OutgoingCall from './components/common/OutgoingCall';
 import ZegoCallInvitation from './components/common/ZegoCallInvitation';
-import SplashScreen from './pages/SplashScreen';
 import Login from './pages/Login';
 import MeetingRoom from './pages/MeetingRoom';
 import VoiceRoom from './pages/VoiceRoom';
@@ -76,7 +75,6 @@ import PinLock from './components/common/PinLock';
 function AppRoutes() {
   const { user, loading } = useAuth();
   const { theme } = useSettings();
-  const [showSplash, setShowSplash] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
   const { setIsAudioUnlocked, setAudioContext } = useZegoStore();
   const assets = useAppAssets();
@@ -184,22 +182,12 @@ function AppRoutes() {
     }
   }, [user?.securitySettings?.privacyModeEnabled]);
 
-  useEffect(() => {
-    // If auth is resolved and user is logged in, hide splash immediately
-    if (!loading && user) {
-      setShowSplash(false);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 2000); // 2 seconds splash as requested
-
-    return () => clearTimeout(timer);
-  }, [loading, user]);
-
-  if (showSplash || loading) {
-    return <SplashScreen />;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!user) {

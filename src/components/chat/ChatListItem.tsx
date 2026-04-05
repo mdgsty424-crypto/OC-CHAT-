@@ -121,14 +121,25 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                   <div className="h-5 w-24 bg-surface animate-pulse rounded" />
                 ) : (
                   <>
-                    {chatName}
+                    <span className="truncate">{chatName}</span>
+                    {chat.type === 'direct' && otherUser && (
+                      <Phone 
+                        size={14} 
+                        className={cn(
+                          "ml-2 flex-shrink-0",
+                          (otherUser.status === 'in-call' || otherUser.status === 'calling') ? "text-green-500" :
+                          otherUser.status === 'busy' ? "text-red-500" :
+                          "text-gray-400"
+                        )} 
+                      />
+                    )}
                     {chat.type === 'group' && (
-                      <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
+                      <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-md ml-2 flex-shrink-0 flex items-center gap-1">
                         <Users size={10} /> GROUP
                       </span>
                     )}
                     {chat.type === 'channel' && (
-                      <span className="text-[9px] font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
+                      <span className="text-[9px] font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md ml-2 flex-shrink-0 flex items-center gap-1">
                         <Megaphone size={10} /> BROADCAST
                       </span>
                     )}
