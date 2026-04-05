@@ -1,165 +1,193 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Phone, PhoneOff, Video, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { cn } from '../../lib/utils';
+import { Phone, PhoneOff, Video, MessageSquare, Clock } from 'lucide-react';
+import { useZegoStore } from '../../hooks/useZegoStore';
 import { useAuth } from '../../hooks/useAuth';
 import { useSettings } from '../../hooks/useSettings';
-import { collection, query, where, onSnapshot, updateDoc, doc, getDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
-import { CallSession, User } from '../../types';
-
-import { useNotifications } from '../../hooks/useNotifications';
+import { useAppAssets } from '../../hooks/useAppAssets';
+import { cn } from '../../lib/utils';
 
 export default function IncomingCall() {
+  const { incomingCall } = useZegoStore();
   const { user: currentUser } = useAuth();
   const { isMuted } = useSettings();
-  const { sendNotification } = useNotifications();
-  const [incomingCall, setIncomingCall] = useState<{ id: string, name: string, type: 'audio' | 'video', callId: string } | null>(null);
-  const navigate = useNavigate();
+  const assets = useAppAssets();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const [slideX, setSlideX] = useState(0);
+  const sliderRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const q = query(
-      collection(db, 'calls'),
-      where('receiverId', '==', currentUser.uid),
-      where('status', '==', 'calling')
-    );
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (!snapshot.empty) {
-        const callData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as CallSession;
-        
-        // Fetch caller info
-        const callerDoc = await getDoc(doc(db, 'users', callData.callerId));
-        if (callerDoc.exists()) {
-          const callerData = callerDoc.data() as User;
-          setIncomingCall({
-            id: callerData.uid,
-            name: callerData.displayName,
-            type: callData.type,
-            callId: callData.id
-          });
-
-          // Update status to 'ringing' in Firestore to notify the caller
-          if (callData.status === 'calling') {
-            await updateDoc(doc(db, 'calls', callData.id), {
-              status: 'ringing'
-            });
-          }
-        }
-      } else {
-        setIncomingCall(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (incomingCall) {
-      // Native vibration if available
-      if ('vibrate' in navigator) {
-        navigator.vibrate([500, 200, 500, 200, 500]);
-      }
-      
-      // Play ringtone (simulated)
-      const audio = new Audio('/assets/sounds/ringtone.mp3');
-      audio.loop = true;
-      if (!isMuted) {
-        audio.play().catch(e => console.log("Audio play blocked by browser"));
-      }
-      
-      return () => {
-        audio.pause();
-        if ('vibrate' in navigator) navigator.vibrate(0);
-      };
-    }
-  }, [incomingCall, isMuted]);
-
-  const handleAccept = async () => {
-    if (incomingCall) {
-      await updateDoc(doc(db, 'calls', incomingCall.callId), {
-        status: 'connected',
-        startTime: new Date().toISOString()
-      });
-      
-      // PiP Mode simulation
-      if (document.pictureInPictureEnabled) {
-        console.log("Entering PiP mode...");
-      }
-
-      navigate(`/call/${incomingCall.id}?type=${incomingCall.type}&callId=${incomingCall.callId}`);
-      setIncomingCall(null);
+  const startAudio = () => {
+    if (audioRef.current && !isMuted) {
+      audioRef.current.volume = 1.0;
+      audioRef.current.loop = true;
+      audioRef.current.play()
+        .then(() => {
+          console.log("iOS Ringtone playing");
+          setAudioBlocked(false);
+        })
+        .catch(err => {
+          console.error("Force play failed:", err);
+          setAudioBlocked(true);
+        });
     }
   };
 
-  const handleReject = async () => {
+  useEffect(() => {
     if (incomingCall) {
-      await updateDoc(doc(db, 'calls', incomingCall.callId), {
-        status: 'ended'
-      });
+      // 1. Initialize Audio
+      const audio = new Audio(assets.ringtone || 'https://res.cloudinary.com/demo/video/upload/v1626343568/sample_audio.mp3');
+      audio.loop = true;
+      audio.volume = 1.0;
+      audioRef.current = audio;
 
-      // Send Call Dismiss Notification to caller
-      sendNotification({
-        targetUserId: incomingCall.id,
-        title: "Call Declined",
-        message: `${currentUser?.displayName || 'The user'} declined your call.`,
-        priority: 'normal',
-        sound: 'silent'
-      });
+      // 2. iOS Vibration Pattern (Long pulses)
+      if ('vibrate' in navigator) {
+        navigator.vibrate([1000, 500, 1000, 500, 1000, 500, 1000, 500]);
+      }
 
-      setIncomingCall(null);
+      // 3. Play
+      if (!isMuted) {
+        audio.play()
+          .then(() => setAudioBlocked(false))
+          .catch(() => setAudioBlocked(true));
+      }
+
+      return () => {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+        if ('vibrate' in navigator) navigator.vibrate(0);
+      };
+    }
+  }, [incomingCall, isMuted, assets.ringtone]);
+
+  if (!incomingCall) return null;
+
+  const isVideo = incomingCall.callType === 1;
+
+  const handleDrag = (event: any, info: any) => {
+    const maxX = sliderRef.current ? sliderRef.current.offsetWidth - 64 : 200;
+    if (info.point.x > maxX * 0.8) {
+      incomingCall.accept();
     }
   };
 
   return (
     <AnimatePresence>
-      {incomingCall && (
-        <motion.div
-          initial={{ y: -100, opacity: 0 }}
-          animate={{ y: 20, opacity: 1 }}
-          exit={{ y: -100, opacity: 0 }}
-          className="fixed top-0 left-0 right-0 max-w-md mx-auto px-4 z-[100]"
-        >
-          <div className="bg-surface rounded-2xl p-4 flex items-center justify-between border border-border shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <img
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${incomingCall.id}`}
-                  alt={incomingCall.name}
-                  className="w-12 h-12 rounded-2xl object-cover"
-                />
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-secondary text-white rounded-full border-2 border-surface flex items-center justify-center">
-                  {incomingCall.type === 'video' ? <Video size={10} /> : <Phone size={10} />}
-                </div>
-              </div>
-              <div className="flex flex-col">
-                <h4 className="text-sm font-black text-text tracking-tight">{incomingCall.name}</h4>
-                <span className="text-[10px] font-bold text-primary uppercase tracking-widest animate-pulse">
-                  Incoming {incomingCall.type === 'video' ? 'Video' : 'Audio'} Call
-                </span>
-              </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[2000] bg-black flex flex-col items-center justify-between py-24 overflow-hidden"
+      >
+        {/* Subtle Dark Gradient Background */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-gray-900 via-black to-gray-900 opacity-80" />
+        
+        {/* Caller Info (Top) */}
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <motion.div
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="mb-6"
+          >
+            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white/10 shadow-2xl">
+              <img
+                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${incomingCall.caller.userID}`}
+                alt={incomingCall.caller.userName}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </motion.div>
+          
+          <h1 className="text-4xl font-medium text-white mb-2 tracking-tight">
+            {incomingCall.caller.userName || 'Unknown Caller'}
+          </h1>
+          <p className="text-white/60 text-lg font-light tracking-wide animate-pulse">
+            {isVideo ? 'OC-CHAT Video...' : 'OC-CHAT Audio...'}
+          </p>
+        </div>
+
+        {/* Middle Icons (Remind/Message) */}
+        <div className="relative z-10 flex justify-center gap-24 w-full px-12 mb-12">
+          <div className="flex flex-col items-center gap-2 group cursor-pointer">
+            <div className="w-12 h-12 flex items-center justify-center text-white/80 group-active:scale-90 transition-transform">
+              <Clock size={24} />
+            </div>
+            <span className="text-[10px] text-white/60 font-medium uppercase tracking-widest">Remind Me</span>
+          </div>
+          <div className="flex flex-col items-center gap-2 group cursor-pointer">
+            <div className="w-12 h-12 flex items-center justify-center text-white/80 group-active:scale-90 transition-transform">
+              <MessageSquare size={24} />
+            </div>
+            <span className="text-[10px] text-white/60 font-medium uppercase tracking-widest">Message</span>
+          </div>
+        </div>
+
+        {/* Actions (Bottom) */}
+        <div className="relative z-10 w-full px-12 flex flex-col items-center gap-12">
+          <div className="flex justify-between w-full max-w-sm">
+            {/* Decline */}
+            <div className="flex flex-col items-center gap-3">
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={incomingCall.refuse}
+                className="w-20 h-20 bg-red-500 text-white rounded-full flex items-center justify-center shadow-xl"
+              >
+                <PhoneOff size={32} fill="currentColor" />
+              </motion.button>
+              <span className="text-xs text-white font-medium">Decline</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={handleReject}
-                className="p-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all active:scale-90"
+            {/* Accept (Circular for non-locked, but we'll use slider as requested) */}
+            <div className="flex flex-col items-center gap-3">
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={incomingCall.accept}
+                className="w-20 h-20 bg-green-500 text-white rounded-full flex items-center justify-center shadow-xl"
               >
-                <PhoneOff size={20} />
-              </button>
-              <button 
-                onClick={handleAccept}
-                className="p-3 bg-green-500 text-white rounded-2xl hover:bg-green-600 transition-all active:scale-90"
-              >
-                <Phone size={20} />
-              </button>
+                <Phone size={32} fill="currentColor" />
+              </motion.button>
+              <span className="text-xs text-white font-medium">Accept</span>
             </div>
           </div>
-        </motion.div>
-      )}
+
+          {/* iOS Slide to Answer */}
+          <div className="w-full max-w-xs h-16 bg-white/10 backdrop-blur-md rounded-full relative p-1 flex items-center overflow-hidden">
+            <motion.div
+              drag="x"
+              dragConstraints={{ left: 0, right: 240 }}
+              onDrag={handleDrag}
+              className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg cursor-grab active:cursor-grabbing z-20"
+            >
+              <Phone className="text-green-500" size={24} fill="currentColor" />
+            </motion.div>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-white/40 text-sm font-medium tracking-widest uppercase animate-shimmer bg-gradient-to-r from-transparent via-white to-transparent bg-[length:200%_100%] bg-clip-text">
+                Slide to answer
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Audio Blocked Overlay */}
+        {audioBlocked && (
+          <div 
+            onClick={startAudio}
+            className="absolute inset-0 z-[2100] bg-black/40 backdrop-blur-sm flex items-center justify-center cursor-pointer"
+          >
+            <motion.div 
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="bg-white/20 p-6 rounded-3xl text-center"
+            >
+              <Phone size={48} className="text-white mx-auto mb-4" />
+              <p className="text-white font-bold uppercase tracking-widest text-xs">Tap to Enable Ringtone</p>
+            </motion.div>
+          </div>
+        )}
+      </motion.div>
     </AnimatePresence>
   );
 }

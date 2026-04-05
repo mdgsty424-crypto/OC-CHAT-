@@ -10,7 +10,7 @@ const serverSecret = "827755ef5ec4c06648bc783998a6d0c2";
 
 export default function ZegoCallInvitation() {
   const { user } = useAuth();
-  const { setZp, setIncomingCall } = useZegoStore();
+  const { setZp, setIncomingCall, setOutgoingCall } = useZegoStore();
   const assets = useAppAssets();
 
   useEffect(() => {
@@ -41,6 +41,8 @@ export default function ZegoCallInvitation() {
         // Configure Call Invitation
         zp.setCallInvitationConfig({
           enableCustomCallInvitationDialog: true, // Enable custom UI
+          // @ts-ignore
+          enableCustomOutgoingCallDialog: true, // Enable custom UI for outgoing
           enableNotifyWhenAppRunningInBackgroundOrQuit: true,
           // @ts-ignore - These might be newer or platform specific
           enableNotifyWhenAppIsRunning: true,
@@ -54,10 +56,10 @@ export default function ZegoCallInvitation() {
           onConfirmDialogWhenReceiving: (callType, caller, refuse, accept, data) => {
             console.log("Custom Incoming Call Dialog Triggered:", { callType, caller, data });
             setIncomingCall({
-              callID: data, // Zego usually passes callID in data or it's available elsewhere
+              callID: data, 
               caller,
               callType,
-              callees: [], // Not always provided in this callback
+              callees: [], 
               refuse: () => {
                 refuse();
                 setIncomingCall(null);
@@ -65,6 +67,18 @@ export default function ZegoCallInvitation() {
               accept: () => {
                 accept();
                 setIncomingCall(null);
+              }
+            });
+          },
+          onConfirmDialogWhenSending: (callID, callees, callType, cancel) => {
+            console.log("Custom Outgoing Call Dialog Triggered:", { callID, callees, callType });
+            setOutgoingCall({
+              callID,
+              callees,
+              callType,
+              cancel: () => {
+                cancel();
+                setOutgoingCall(null);
               }
             });
           },
@@ -77,12 +91,15 @@ export default function ZegoCallInvitation() {
           },
           onOutgoingCallAccepted: (callID, callee) => {
             console.log("Outgoing call accepted by:", callee);
+            setOutgoingCall(null);
           },
           onOutgoingCallRejected: (callID, callee) => {
             console.log("Outgoing call rejected by:", callee);
+            setOutgoingCall(null);
           },
           onOutgoingCallDeclined: (callID, callee) => {
             console.log("Outgoing call declined by:", callee);
+            setOutgoingCall(null);
           },
           onIncomingCallTimeout: (callID, caller) => {
             console.log("Incoming call timeout:", { callID, caller });
@@ -90,10 +107,12 @@ export default function ZegoCallInvitation() {
           },
           onOutgoingCallTimeout: (callID, callees) => {
             console.log("Outgoing call timeout for:", callees);
+            setOutgoingCall(null);
           },
           onCallInvitationEnded: (reason, data) => {
             console.log("Call invitation ended:", { reason, data });
             setIncomingCall(null);
+            setOutgoingCall(null);
           }
         });
 

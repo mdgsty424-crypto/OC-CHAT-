@@ -16,6 +16,13 @@ interface ZegoState {
     accept: () => void;
   } | null;
   setIncomingCall: (call: ZegoState['incomingCall']) => void;
+  outgoingCall: {
+    callID: string;
+    callees: { userID: string; userName?: string }[];
+    callType: number;
+    cancel: () => void;
+  } | null;
+  setOutgoingCall: (call: ZegoState['outgoingCall']) => void;
 }
 
 export const useZegoStore = create<ZegoState>((set) => ({
@@ -27,4 +34,6 @@ export const useZegoStore = create<ZegoState>((set) => ({
   setIsAudioUnlocked: (isAudioUnlocked) => set({ isAudioUnlocked }),
   incomingCall: null,
   setIncomingCall: (incomingCall) => set({ incomingCall }),
+  outgoingCall: null,
+  setOutgoingCall: (outgoingCall) => set({ outgoingCall }),
 }));

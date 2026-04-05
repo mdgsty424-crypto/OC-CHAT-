@@ -20,8 +20,8 @@ import Sidebar from './components/layout/Sidebar';
 import BottomNav from './components/layout/BottomNav';
 import TopBar from './components/layout/TopBar';
 import IncomingCall from './components/common/IncomingCall';
+import OutgoingCall from './components/common/OutgoingCall';
 import ZegoCallInvitation from './components/common/ZegoCallInvitation';
-import ZegoIncomingCallUI from './components/common/ZegoIncomingCallUI';
 import SplashScreen from './pages/SplashScreen';
 import Login from './pages/Login';
 import MeetingRoom from './pages/MeetingRoom';
@@ -216,8 +216,8 @@ function AppRoutes() {
       <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-surface border-l border-border/50">
         <NetworkStatus />
         <ZegoCallInvitation />
-        <ZegoIncomingCallUI />
         <IncomingCall />
+        <OutgoingCall />
         <Routes>
           <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
           <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />
