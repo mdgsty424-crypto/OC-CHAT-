@@ -29,12 +29,14 @@ export default function ChatDetail() {
   
   // Audio pre-loading
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const prevTypingRef = useRef<{ [key: string]: boolean }>({});
 
   useEffect(() => {
-    // Pre-load sounds using dynamic assets
+    // Pre-load sounds using local assets for zero delay
     const soundsToLoad = [
-      { key: 'received', url: assets.received },
-      { key: 'sticker', url: assets.received }, // Fallback to received if no sticker sound
+      { key: 'received', url: '/assets/sounds/received.mp3' },
+      { key: 'typing', url: '/assets/sounds/typing.mp3' },
+      { key: 'sticker', url: '/assets/sounds/received.mp3' }, // Fallback to received if no sticker sound
     ];
 
     soundsToLoad.forEach(({ key, url }) => {
@@ -43,7 +45,7 @@ export default function ChatDetail() {
       audioRefs.current[key] = audio;
       console.log(`Pre-loaded chat sound: ${key} from ${url}`);
     });
-  }, [assets]);
+  }, []);
 
   const playSound = (soundName: string) => {
     if (isMuted) return;
@@ -110,6 +112,21 @@ export default function ChatDetail() {
       if (snapshot.exists()) {
         const chatData = { id: snapshot.id, ...snapshot.data() } as Chat;
         setChat(chatData);
+
+        // Typing Sound Logic: Play when OTHER user starts typing
+        if (chatData.type === 'direct' && currentUser) {
+          const otherId = chatData.participants.find(uid => uid !== currentUser.uid);
+          if (otherId) {
+            const isTyping = chatData.typing?.[otherId] || false;
+            const wasTyping = prevTypingRef.current[otherId] || false;
+            
+            if (isTyping && !wasTyping) {
+              console.log(`Other user (${otherId}) started typing. Playing sound.`);
+              playSound('typing');
+            }
+            prevTypingRef.current[otherId] = isTyping;
+          }
+        }
 
         if (chatData.type === 'direct') {
           const otherId = chatData.participants.find(uid => uid !== currentUser.uid);

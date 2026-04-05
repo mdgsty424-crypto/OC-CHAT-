@@ -37,11 +37,11 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
 
   useEffect(() => {
-    // Pre-load sounds using dynamic assets
+    // Pre-load sounds using local assets for zero delay
     const soundsToLoad = [
-      { key: 'sent', url: assets.sent },
-      { key: 'typing', url: assets.typing },
-      { key: 'sticker', url: assets.sent }, // Fallback to sent if no sticker sound
+      { key: 'sent', url: '/assets/sounds/sent.mp3' },
+      { key: 'typing', url: '/assets/sounds/typing.mp3' },
+      { key: 'sticker', url: '/assets/sounds/sent.mp3' }, // Fallback to sent if no sticker sound
     ];
 
     soundsToLoad.forEach(({ key, url }) => {
@@ -50,7 +50,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       audioRefs.current[key] = audio;
       console.log(`Pre-loaded input sound: ${key} from ${url}`);
     });
-  }, [assets]);
+  }, []);
 
   const playSound = (soundName: string) => {
     if (isMuted) return;
@@ -157,7 +157,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     setText(e.target.value);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     updateTypingStatus(true);
-    playSound('typing');
+    // playSound('typing'); // REMOVED: Sender should not hear typing sound
     typingTimeoutRef.current = setTimeout(() => updateTypingStatus(false), 3000);
   };
 
