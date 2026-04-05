@@ -5,8 +5,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
 
+import axios from "axios";
+import * as cheerio from "cheerio";
 import crypto from "crypto";
 import { db } from "./src/lib/firebase.ts";
 import { 
@@ -283,8 +284,6 @@ async function startServer() {
 
     try {
       console.log("Fetching link preview for:", url);
-      const axios = require('axios');
-      const cheerio = require('cheerio');
       
       const response = await axios.get(url, {
         headers: {

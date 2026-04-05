@@ -12,15 +12,17 @@ import firebaseConfig from "../../firebase-applet-config.json";
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Check if localStorage is available
+// Check if window and localStorage are available
 let isLocalStorageAvailable = false;
-try {
-  const testKey = '__test__';
-  window.localStorage.setItem(testKey, testKey);
-  window.localStorage.removeItem(testKey);
-  isLocalStorageAvailable = true;
-} catch (e) {
-  isLocalStorageAvailable = false;
+if (typeof window !== 'undefined') {
+  try {
+    const testKey = '__test__';
+    window.localStorage.setItem(testKey, testKey);
+    window.localStorage.removeItem(testKey);
+    isLocalStorageAvailable = true;
+  } catch (e) {
+    isLocalStorageAvailable = false;
+  }
 }
 
 // Initialize Firestore with persistent cache if available
