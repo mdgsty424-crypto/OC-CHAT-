@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Phone, PhoneOff, Video } from 'lucide-react';
 import { useZegoStore } from '../../hooks/useZegoStore';
@@ -8,26 +8,55 @@ import { useAppAssets } from '../../hooks/useAppAssets';
 import { cn } from '../../lib/utils';
 
 export default function ZegoIncomingCallUI() {
-  const { incomingCall } = useZegoStore();
+  const { incomingCall, isAudioUnlocked } = useZegoStore();
   const { user: currentUser } = useAuth();
   const { isMuted } = useSettings();
   const assets = useAppAssets();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioBlocked, setAudioBlocked] = React.useState(false);
+
+  const startAudio = () => {
+    if (audioRef.current && !isMuted) {
+      audioRef.current.volume = 1.0;
+      audioRef.current.loop = true;
+      audioRef.current.play()
+        .then(() => {
+          console.log("Incoming call ringtone playing successfully");
+          setAudioBlocked(false);
+        })
+        .catch(err => {
+          console.error("Force play failed:", err);
+          setAudioBlocked(true);
+        });
+    }
+  };
 
   useEffect(() => {
     if (incomingCall) {
-      // Initialize and play ringtone
+      console.log("Incoming call UI triggered. Initializing audio...");
+      
+      // 1. Initialize Audio Object
       const audio = new Audio(assets.ringtone);
       audio.loop = true;
+      audio.volume = 1.0;
       audioRef.current = audio;
 
-      if (!isMuted) {
-        audio.play().catch(e => console.log("Audio play blocked by browser. User gesture required.", e));
+      // 2. Strong Vibration Pattern [1000ms on, 500ms off]
+      if ('vibrate' in navigator) {
+        navigator.vibrate([1000, 500, 1000, 500, 1000, 500, 1000, 500]);
       }
 
-      // Vibration
-      if ('vibrate' in navigator) {
-        navigator.vibrate([500, 200, 500, 200, 500]);
+      // 3. Attempt to play immediately
+      if (!isMuted) {
+        audio.play()
+          .then(() => {
+            console.log("Ringtone started automatically");
+            setAudioBlocked(false);
+          })
+          .catch(e => {
+            console.warn("Autoplay blocked ringtone. Waiting for user interaction.", e);
+            setAudioBlocked(true);
+          });
       }
 
       return () => {
@@ -40,7 +69,7 @@ export default function ZegoIncomingCallUI() {
         }
       };
     }
-  }, [incomingCall, isMuted]);
+  }, [incomingCall, isMuted, assets.ringtone]);
 
   if (!incomingCall) return null;
 
@@ -52,8 +81,29 @@ export default function ZegoIncomingCallUI() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[1000] flex flex-col items-center justify-between py-20 bg-black overflow-hidden"
+        onClick={audioBlocked ? startAudio : undefined}
+        className="fixed inset-0 z-[1000] flex flex-col items-center justify-between py-20 bg-black overflow-hidden cursor-pointer"
       >
+        {/* Audio Blocked Overlay */}
+        {audioBlocked && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 z-[1100] bg-black/80 flex flex-col items-center justify-center p-6 text-center"
+          >
+            <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
+              <Phone size={40} className="text-primary" />
+            </div>
+            <h3 className="text-xl font-black text-white mb-2 uppercase tracking-tighter">Incoming Call</h3>
+            <p className="text-sm text-muted-foreground font-bold mb-8">Tap anywhere to enable audio & ringtone</p>
+            <button 
+              onClick={(e) => { e.stopPropagation(); startAudio(); }}
+              className="px-8 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/40 animate-bounce"
+            >
+              Enable Sound
+            </button>
+          </motion.div>
+        )}
         {/* Blurred Background (Receiver's Profile Pic) */}
         <div className="absolute inset-0 z-0">
           <img

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { NetworkProvider, useNetwork } from './hooks/useNetwork';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { useAppAssets } from './hooks/useAppAssets';
+import { useZegoStore } from './hooks/useZegoStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 import Home from './pages/Home';
@@ -77,6 +78,7 @@ function AppRoutes() {
   const { theme } = useSettings();
   const [showSplash, setShowSplash] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
+  const { setIsAudioUnlocked, setAudioContext } = useZegoStore();
   const assets = useAppAssets();
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   useNotifications(); // Initialize notification registration
@@ -89,6 +91,9 @@ function AppRoutes() {
         audioCtx.resume();
       }
       
+      setAudioContext(audioCtx);
+      setIsAudioUnlocked(true);
+
       // Unlock vibration (some browsers require a gesture)
       if (navigator.vibrate) {
         navigator.vibrate(0);
