@@ -22,10 +22,13 @@ interface MessageInputProps {
 
 import { useNotifications } from '../../hooks/useNotifications';
 
+import { useAppAssets } from '../../hooks/useAppAssets';
+
 export default function MessageInput({ chatId, participants, replyingTo, onCancelReply }: MessageInputProps) {
   const { user } = useAuth();
   const { isOnline } = useNetwork();
   const { isMuted } = useSettings();
+  const assets = useAppAssets();
   const { sendNotification } = useNotifications();
   const [text, setText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -34,21 +37,36 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
 
   useEffect(() => {
-    // Pre-load sounds
-    const sounds = ['sent', 'typing', 'sticker'];
-    sounds.forEach(sound => {
-      const audio = new Audio(`/assets/sounds/${sound}.mp3`);
+    // Pre-load sounds using dynamic assets
+    const soundsToLoad = [
+      { key: 'sent', url: assets.sent },
+      { key: 'typing', url: assets.typing },
+      { key: 'sticker', url: assets.sent }, // Fallback to sent if no sticker sound
+    ];
+
+    soundsToLoad.forEach(({ key, url }) => {
+      const audio = new Audio(url);
       audio.load();
-      audioRefs.current[sound] = audio;
+      audioRefs.current[key] = audio;
+      console.log(`Pre-loaded input sound: ${key} from ${url}`);
     });
-  }, []);
+  }, [assets]);
 
   const playSound = (soundName: string) => {
     if (isMuted) return;
+    
+    // Vibration for sent messages
+    if (soundName === 'sent' && navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+
     const audio = audioRefs.current[soundName];
     if (audio) {
+      console.log(`Playing sound: ${soundName}`);
       audio.currentTime = 0;
-      audio.play().catch(e => console.log("Audio play blocked", e));
+      audio.play().catch(e => console.error(`Sound error (${soundName}):`, e));
+    } else {
+      console.warn(`Sound not found or not loaded: ${soundName}`);
     }
   };
   const [isRecording, setIsRecording] = useState(false);

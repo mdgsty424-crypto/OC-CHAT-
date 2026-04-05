@@ -15,10 +15,13 @@ import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 
 import { useNotifications } from '../hooks/useNotifications';
 
+import { useAppAssets } from '../hooks/useAppAssets';
+
 export default function ChatDetail() {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuth();
   const { isMuted } = useSettings();
+  const assets = useAppAssets();
   const navigate = useNavigate();
   const { sendNotification } = useNotifications();
   const { zp } = useZegoStore();
@@ -28,21 +31,35 @@ export default function ChatDetail() {
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
 
   useEffect(() => {
-    // Pre-load sounds
-    const sounds = ['received', 'sticker'];
-    sounds.forEach(sound => {
-      const audio = new Audio(`/assets/sounds/${sound}.mp3`);
+    // Pre-load sounds using dynamic assets
+    const soundsToLoad = [
+      { key: 'received', url: assets.received },
+      { key: 'sticker', url: assets.received }, // Fallback to received if no sticker sound
+    ];
+
+    soundsToLoad.forEach(({ key, url }) => {
+      const audio = new Audio(url);
       audio.load();
-      audioRefs.current[sound] = audio;
+      audioRefs.current[key] = audio;
+      console.log(`Pre-loaded chat sound: ${key} from ${url}`);
     });
-  }, []);
+  }, [assets]);
 
   const playSound = (soundName: string) => {
     if (isMuted) return;
+    
+    // Vibration logic
+    if (navigator.vibrate) {
+      navigator.vibrate([100, 50, 100]);
+    }
+
     const audio = audioRefs.current[soundName];
     if (audio) {
+      console.log(`Playing sound: ${soundName}`);
       audio.currentTime = 0;
-      audio.play().catch(e => console.log("Audio play blocked", e));
+      audio.play().catch(e => console.error(`Sound error (${soundName}):`, e));
+    } else {
+      console.warn(`Sound not found or not loaded: ${soundName}`);
     }
   };
   const [otherUser, setOtherUser] = useState<User | null>(null);

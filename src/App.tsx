@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { NetworkProvider, useNetwork } from './hooks/useNetwork';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
+import { useAppAssets } from './hooks/useAppAssets';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 import Home from './pages/Home';
@@ -76,16 +77,29 @@ function AppRoutes() {
   const { theme } = useSettings();
   const [showSplash, setShowSplash] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
+  const assets = useAppAssets();
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   useNotifications(); // Initialize notification registration
 
   useEffect(() => {
-    // 1. User Gesture Logic for Audio Context
+    // 1. User Gesture Logic for Audio Context & Vibration
     const handleFirstInteraction = () => {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       if (audioCtx.state === 'suspended') {
         audioCtx.resume();
       }
-      console.log("Audio Context initialized via user gesture");
+      
+      // Unlock vibration (some browsers require a gesture)
+      if (navigator.vibrate) {
+        navigator.vibrate(0);
+      }
+
+      console.log("Audio Context & Vibration unlocked via user gesture");
+      
+      // Pre-play a silent sound if needed to fully unlock
+      const silentAudio = new Audio();
+      silentAudio.play().catch(() => {});
+
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
     };
@@ -98,6 +112,20 @@ function AppRoutes() {
       window.removeEventListener('touchstart', handleFirstInteraction);
     };
   }, []);
+
+  useEffect(() => {
+    // Pre-load all system sounds
+    const soundKeys = Object.keys(assets) as Array<keyof typeof assets>;
+    soundKeys.forEach(key => {
+      const url = assets[key];
+      if (url) {
+        const audio = new Audio(url);
+        audio.load();
+        audioRefs.current[key] = audio;
+        console.log(`Pre-loaded sound: ${String(key)} from ${url}`);
+      }
+    });
+  }, [assets]);
 
   useEffect(() => {
     // 2. Browser Permission Prompts on Login
