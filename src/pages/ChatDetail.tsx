@@ -10,6 +10,8 @@ import { ChevronLeft, Phone, Video, MoreVertical, Smile, Paperclip, Camera, Mic,
 import { motion, AnimatePresence } from 'motion/react';
 import MessageBubble from '../components/chat/MessageBubble';
 import MessageInput from '../components/chat/MessageInput';
+import { useZegoStore } from '../hooks/useZegoStore';
+import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -19,6 +21,7 @@ export default function ChatDetail() {
   const { isMuted } = useSettings();
   const navigate = useNavigate();
   const { sendNotification } = useNotifications();
+  const { zp } = useZegoStore();
   const [chat, setChat] = useState<Chat | null>(null);
   
   // Audio pre-loading
@@ -169,6 +172,30 @@ export default function ChatDetail() {
     }
     if (!otherUser.uid) {
       console.error("Cannot start call: otherUser.uid is missing", { otherUser });
+      return;
+    }
+
+    if (zp) {
+      const callType = type === 'video' 
+        ? ZegoUIKitPrebuilt.InvitationTypeVideoCall 
+        : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
+      
+      try {
+        console.log(`Sending ${type} call invitation to:`, otherUser.uid);
+        const result = await zp.sendCallInvitation({
+          callees: [{ userID: otherUser.uid, userName: otherUser.displayName || otherUser.uid }],
+          callType: callType,
+          timeout: 60,
+        });
+        console.log("Call invitation result:", result);
+        if (result.errorInvitees && result.errorInvitees.length > 0) {
+          console.error("Failed to invite some users:", result.errorInvitees);
+          alert("User is offline or not available");
+        }
+      } catch (error) {
+        console.error("Error sending call invitation:", error);
+        alert("Failed to start call via Zego");
+      }
       return;
     }
 

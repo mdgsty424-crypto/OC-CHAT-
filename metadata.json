@@ -4,6 +4,8 @@
   "requestFramePermissions": [
     "camera",
     "microphone",
-    "geolocation"
+    "geolocation",
+    "SYSTEM_ALERT_WINDOW",
+    "FOREGROUND_SERVICE"
   ]
 }
