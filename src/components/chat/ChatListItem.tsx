@@ -57,7 +57,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
       setLoading(false);
     };
     fetchOtherUser();
-  }, [otherId, otherUser]);
+  }, [otherId]);
 
   const unreadCount = currentUser ? chat.unreadCount?.[currentUser.uid] || 0 : 0;
   const chatName = chat.type === 'group' || chat.type === 'channel' ? chat.name : (loading ? '' : (otherUser?.displayName || 'Unknown User'));

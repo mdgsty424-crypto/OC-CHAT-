@@ -132,9 +132,12 @@ function AppRoutes() {
     });
   }, [assets]);
 
+  const permissionsRequested = useRef(false);
+
   useEffect(() => {
     // 2. Browser Permission Prompts on Login
-    if (user && !loading) {
+    if (user && !loading && !permissionsRequested.current) {
+      permissionsRequested.current = true;
       const requestPermissions = async () => {
         try {
           // Notification Permission
