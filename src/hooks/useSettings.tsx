@@ -9,8 +9,10 @@ type Theme = 'light' | 'dark';
 interface SettingsContextType {
   theme: Theme;
   language: Language;
+  isMuted: boolean;
   toggleTheme: () => void;
   setLanguage: (lang: Language) => void;
+  toggleMute: () => void;
   t: (path: string) => string;
 }
 
@@ -30,6 +32,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     return (saved as Language) || 'en';
   });
 
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    const saved = localStorage.getItem('isMuted');
+    return saved === 'true';
+  });
+
   // Sync with user preferences when user loads
   useEffect(() => {
     if (user?.preferences) {
@@ -41,8 +48,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setLanguageState(user.preferences.language as Language);
         localStorage.setItem('language', user.preferences.language);
       }
+      if (user.preferences.isMuted !== undefined && user.preferences.isMuted !== isMuted) {
+        setIsMuted(user.preferences.isMuted);
+        localStorage.setItem('isMuted', String(user.preferences.isMuted));
+      }
     }
-  }, [user?.uid, user?.preferences?.theme, user?.preferences?.language]);
+  }, [user?.uid, user?.preferences?.theme, user?.preferences?.language, user?.preferences?.isMuted]);
 
   // Apply theme to document
   useEffect(() => {
@@ -58,6 +69,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem('language', language);
   }, [language]);
+
+  // Apply mute to localStorage
+  useEffect(() => {
+    localStorage.setItem('isMuted', String(isMuted));
+  }, [isMuted]);
 
   const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -88,6 +104,21 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const toggleMute = async () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    
+    if (user) {
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          'preferences.isMuted': newMuted
+        });
+      } catch (error) {
+        console.error("Error updating mute preference:", error);
+      }
+    }
+  };
+
   // Simple translation helper
   const t = (path: string) => {
     const keys = path.split('.');
@@ -105,7 +136,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <SettingsContext.Provider value={{ theme, language, toggleTheme, setLanguage, t }}>
+    <SettingsContext.Provider value={{ theme, language, isMuted, toggleTheme, setLanguage, toggleMute, t }}>
       {children}
     </SettingsContext.Provider>
   );

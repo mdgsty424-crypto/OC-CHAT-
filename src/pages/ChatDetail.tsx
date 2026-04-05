@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Message, Chat, User } from '../types';
 import { getMessages, saveMessage, initDB } from '../lib/db';
+import { useSettings } from '../hooks/useSettings';
 import { ChevronLeft, Phone, Video, MoreVertical, Smile, Paperclip, Camera, Mic, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MessageBubble from '../components/chat/MessageBubble';
@@ -15,9 +16,32 @@ import { useNotifications } from '../hooks/useNotifications';
 export default function ChatDetail() {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuth();
+  const { isMuted } = useSettings();
   const navigate = useNavigate();
   const { sendNotification } = useNotifications();
   const [chat, setChat] = useState<Chat | null>(null);
+  
+  // Audio pre-loading
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+
+  useEffect(() => {
+    // Pre-load sounds
+    const sounds = ['received', 'sticker'];
+    sounds.forEach(sound => {
+      const audio = new Audio(`/assets/sounds/${sound}.mp3`);
+      audio.load();
+      audioRefs.current[sound] = audio;
+    });
+  }, []);
+
+  const playSound = (soundName: string) => {
+    if (isMuted) return;
+    const audio = audioRefs.current[soundName];
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play().catch(e => console.log("Audio play blocked", e));
+    }
+  };
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [userChats, setUserChats] = useState<Chat[]>([]);
@@ -90,6 +114,19 @@ export default function ChatDetail() {
 
     const messagesUnsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      
+      // Check for new messages from others
+      if (msgs.length > messages.length) {
+        const lastMsg = msgs[msgs.length - 1];
+        if (lastMsg.senderId !== currentUser?.uid) {
+          if (lastMsg.type === 'sticker') {
+            playSound('sticker');
+          } else {
+            playSound('received');
+          }
+        }
+      }
+
       setMessages(msgs);
       
       // Save to IndexedDB

@@ -28,6 +28,7 @@ export interface User {
     theme?: 'light' | 'dark';
     language?: 'en' | 'bn';
     notificationsEnabled?: boolean;
+    isMuted?: boolean;
   };
 }
 
@@ -51,8 +52,8 @@ export interface Message {
   chatId: string;
   senderId: string;
   text?: string;
-  type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call' | 'call_history';
-  messageType?: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call' | 'call_history';
+  type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call' | 'call_history' | 'sticker';
+  messageType?: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'contact' | 'poll' | 'call' | 'call_history' | 'sticker';
   mediaUrl?: string;
   fileUrl?: string;
   audioUrl?: string;

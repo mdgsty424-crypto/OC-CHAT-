@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { 
+  Volume2,
+  VolumeX,
   Settings, 
   Shield, 
   Bell, 
@@ -34,7 +36,7 @@ type SubView = 'main' | 'account' | 'security' | 'notifications' | 'language' | 
 
 export default function Profile() {
   const { user, logout } = useAuth();
-  const { theme, language, toggleTheme, setLanguage, t } = useSettings();
+  const { theme, language, isMuted, toggleTheme, setLanguage, toggleMute, t } = useSettings();
   const [subView, setSubView] = useState<SubView>('main');
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user?.displayName || '');
@@ -236,6 +238,15 @@ export default function Profile() {
       toggle: true,
       active: theme === 'dark',
       onToggle: toggleTheme
+    },
+    { 
+      icon: isMuted ? VolumeX : Volume2, 
+      label: 'Mute Sounds', 
+      color: 'text-pink-500', 
+      bg: 'bg-pink-500/10', 
+      toggle: true,
+      active: isMuted,
+      onToggle: toggleMute
     },
     { 
       icon: Globe, 

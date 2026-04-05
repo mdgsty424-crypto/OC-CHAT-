@@ -4,6 +4,7 @@ import { Phone, PhoneOff, Video, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
+import { useSettings } from '../../hooks/useSettings';
 import { collection, query, where, onSnapshot, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { CallSession, User } from '../../types';
@@ -12,6 +13,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 
 export default function IncomingCall() {
   const { user: currentUser } = useAuth();
+  const { isMuted } = useSettings();
   const { sendNotification } = useNotifications();
   const [incomingCall, setIncomingCall] = useState<{ id: string, name: string, type: 'audio' | 'video', callId: string } | null>(null);
   const navigate = useNavigate();
@@ -63,16 +65,18 @@ export default function IncomingCall() {
       }
       
       // Play ringtone (simulated)
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+      const audio = new Audio('/assets/sounds/ringtone.mp3');
       audio.loop = true;
-      audio.play().catch(e => console.log("Audio play blocked by browser"));
+      if (!isMuted) {
+        audio.play().catch(e => console.log("Audio play blocked by browser"));
+      }
       
       return () => {
         audio.pause();
         if ('vibrate' in navigator) navigator.vibrate(0);
       };
     }
-  }, [incomingCall]);
+  }, [incomingCall, isMuted]);
 
   const handleAccept = async () => {
     if (incomingCall) {

@@ -8,6 +8,7 @@ import { User, CallSession } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wand2, Sparkles, Sun, Ghost, Palette, X, Check, Sliders, Phone, PhoneOff, Video } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useSettings } from '../hooks/useSettings';
 
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -32,8 +33,41 @@ export default function CallScreen() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { isMuted } = useSettings();
   const { sendNotification } = useNotifications();
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Audio pre-loading
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+
+  useEffect(() => {
+    // Pre-load sounds
+    const sounds = ['ringtone'];
+    sounds.forEach(sound => {
+      const audio = new Audio(`/assets/sounds/${sound}.mp3`);
+      audio.load();
+      audio.loop = true;
+      audioRefs.current[sound] = audio;
+    });
+  }, []);
+
+  const playSound = (soundName: string) => {
+    if (isMuted) return;
+    const audio = audioRefs.current[soundName];
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play().catch(e => console.log("Audio play blocked", e));
+    }
+  };
+
+  const stopSound = (soundName: string) => {
+    const audio = audioRefs.current[soundName];
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  };
+
   const zpRef = useRef<any>(null);
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [timer, setTimer] = useState(0);
@@ -81,6 +115,15 @@ export default function CallScreen() {
     const secs = (seconds % 60).toString().padStart(2, '0');
     return `${mins}:${secs}`;
   };
+
+  useEffect(() => {
+    if (callStatus === 'calling' || callStatus === 'ringing') {
+      playSound('ringtone');
+    } else {
+      stopSound('ringtone');
+    }
+    return () => stopSound('ringtone');
+  }, [callStatus, isMuted]);
 
   useEffect(() => {
     if (callId) {

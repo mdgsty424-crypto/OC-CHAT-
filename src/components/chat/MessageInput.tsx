@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
 import { loginZIM } from '../../lib/callService';
 import { ZIM } from 'zego-zim-web';
+import { useSettings } from '../../hooks/useSettings';
 
 interface MessageInputProps {
   chatId: string;
@@ -24,9 +25,32 @@ import { useNotifications } from '../../hooks/useNotifications';
 export default function MessageInput({ chatId, participants, replyingTo, onCancelReply }: MessageInputProps) {
   const { user } = useAuth();
   const { isOnline } = useNetwork();
+  const { isMuted } = useSettings();
   const { sendNotification } = useNotifications();
   const [text, setText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Audio pre-loading
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+
+  useEffect(() => {
+    // Pre-load sounds
+    const sounds = ['sent', 'typing', 'sticker'];
+    sounds.forEach(sound => {
+      const audio = new Audio(`/assets/sounds/${sound}.mp3`);
+      audio.load();
+      audioRefs.current[sound] = audio;
+    });
+  }, []);
+
+  const playSound = (soundName: string) => {
+    if (isMuted) return;
+    const audio = audioRefs.current[soundName];
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play().catch(e => console.log("Audio play blocked", e));
+    }
+  };
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -115,6 +139,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     setText(e.target.value);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     updateTypingStatus(true);
+    playSound('typing');
     typingTimeoutRef.current = setTimeout(() => updateTypingStatus(false), 3000);
   };
 
@@ -488,6 +513,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
 
     try {
       await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      playSound('sent');
       
       const unreadUpdates: Record<string, any> = {
         lastMessage: text.trim(),
