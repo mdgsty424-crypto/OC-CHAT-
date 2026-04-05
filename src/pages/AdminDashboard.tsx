@@ -55,10 +55,10 @@ export default function AdminDashboard() {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [assets, setAssets] = useState({
-    ringtone: '/assets/sounds/ringtone.mp3',
-    sent: '/assets/sounds/sent.mp3',
-    received: '/assets/sounds/received.mp3',
-    typing: '/assets/sounds/typing.mp3'
+    ringtone: 'https://res.cloudinary.com/demo/video/upload/v1626343568/sample_audio.mp3',
+    sent: 'https://actions.google.com/sounds/v1/multimedia/message_sent.ogg',
+    received: 'https://actions.google.com/sounds/v1/multimedia/notification_high_intensity.ogg',
+    typing: 'https://actions.google.com/sounds/v1/foley/keyboard_typing_fast.ogg'
   });
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
 

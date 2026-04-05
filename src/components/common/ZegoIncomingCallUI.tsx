@@ -13,7 +13,7 @@ export default function ZegoIncomingCallUI() {
   const { isMuted } = useSettings();
   const assets = useAppAssets();
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [audioBlocked, setAudioBlocked] = React.useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
   const startAudio = () => {
     if (audioRef.current && !isMuted) {
@@ -27,16 +27,24 @@ export default function ZegoIncomingCallUI() {
         .catch(err => {
           console.error("Force play failed:", err);
           setAudioBlocked(true);
+          
+          // If it failed due to source issues, try fallback
+          if (err.message?.includes('no supported sources') || err.name === 'NotSupportedError') {
+            console.log("Attempting fallback to a reliable public ringtone...");
+            audioRef.current!.src = 'https://res.cloudinary.com/demo/video/upload/v1626343568/sample_audio.mp3';
+            audioRef.current!.play().catch(e => console.error("Ultimate fallback failed:", e));
+          }
         });
     }
   };
 
   useEffect(() => {
     if (incomingCall) {
-      console.log("Incoming call UI triggered. Initializing audio...");
+      console.log("Incoming call UI triggered. Initializing audio with URL:", assets.ringtone);
       
       // 1. Initialize Audio Object
-      const audio = new Audio(assets.ringtone);
+      const ringtoneUrl = assets.ringtone || 'https://res.cloudinary.com/demo/video/upload/v1626343568/sample_audio.mp3';
+      const audio = new Audio(ringtoneUrl);
       audio.loop = true;
       audio.volume = 1.0;
       audioRef.current = audio;
@@ -56,6 +64,12 @@ export default function ZegoIncomingCallUI() {
           .catch(e => {
             console.warn("Autoplay blocked ringtone. Waiting for user interaction.", e);
             setAudioBlocked(true);
+            
+            // Handle source error immediately if detected
+            if (e.message?.includes('no supported sources') || e.name === 'NotSupportedError') {
+              console.log("Source error detected. Switching to reliable public fallback.");
+              audio.src = 'https://res.cloudinary.com/demo/video/upload/v1626343568/sample_audio.mp3';
+            }
           });
       }
 
