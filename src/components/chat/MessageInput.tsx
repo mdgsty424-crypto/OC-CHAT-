@@ -75,6 +75,9 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [waveforms, setWaveforms] = useState<number[]>([]);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackProgress, setPlaybackProgress] = useState(0);
+  const playbackRef = useRef<HTMLAudioElement | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -275,9 +278,39 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       setIsPaused(false);
       setAudioBlob(null);
       setWaveforms([]);
+      if (playbackRef.current) {
+        playbackRef.current.pause();
+        playbackRef.current = null;
+      }
+      setIsPlaying(false);
+      setPlaybackProgress(0);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (audioContextRef.current) audioContextRef.current.close();
     }
+  };
+
+  const togglePlayback = () => {
+    if (!audioBlob) return;
+    
+    if (!playbackRef.current) {
+      const url = URL.createObjectURL(audioBlob);
+      const audio = new Audio(url);
+      audio.onended = () => {
+        setIsPlaying(false);
+        setPlaybackProgress(0);
+      };
+      audio.ontimeupdate = () => {
+        setPlaybackProgress((audio.currentTime / audio.duration) * 100);
+      };
+      playbackRef.current = audio;
+    }
+
+    if (isPlaying) {
+      playbackRef.current.pause();
+    } else {
+      playbackRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
   };
 
   const handleSendVoice = async () => {
@@ -341,6 +374,16 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         fileType: 'audio/mpeg', // ZIM automatically converts/treats it as mpeg
         status: 'sent'
       });
+
+      // Clean up local playback
+      if (playbackRef.current) {
+        playbackRef.current.pause();
+        playbackRef.current = null;
+      }
+      setIsPlaying(false);
+      setPlaybackProgress(0);
+      setAudioBlob(null);
+      setWaveforms([]);
       
       // Send Push Notification
       participants.forEach(pid => {
@@ -745,29 +788,49 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-full py-2.5 px-4 w-full">
               <div className="w-2.5 h-2.5 bg-primary rounded-full animate-pulse"></div>
               <span className="text-xs font-mono text-primary">{formatTime(recordingTime)}</span>
-              <div className="flex-1 flex items-end gap-[2px] h-6">
+              <div className="flex-1 flex items-center justify-center gap-[3px] h-8">
                 {waveforms.map((h, i) => (
-                  <div 
+                  <motion.div 
                     key={i} 
-                    className="w-[2px] bg-primary rounded-full" 
-                    style={{ height: `${Math.max(10, (h / 255) * 100)}%` }}
-                  ></div>
+                    initial={{ scaleY: 0.5 }}
+                    animate={{ scaleY: 1 }}
+                    className="w-[3px] bg-primary rounded-full origin-center" 
+                    style={{ height: `${Math.max(15, (h / 255) * 100)}%` }}
+                  ></motion.div>
                 ))}
               </div>
-              <button onClick={cancelRecording} className="text-primary hover:text-red-500">
-                <X size={16} />
+              <button onClick={cancelRecording} className="text-primary hover:text-red-500 p-1">
+                <X size={18} />
               </button>
             </div>
           ) : audioBlob ? (
-            <div className="flex items-center gap-3 bg-surface border border-border rounded-2xl py-2 px-4">
-              <button className="p-2 bg-primary text-white rounded-full">
-                <Play size={16} fill="white" />
+            <div className="flex items-center gap-3 bg-surface border border-border rounded-2xl py-2 px-4 shadow-sm">
+              <button 
+                onClick={togglePlayback}
+                className="p-2 bg-primary text-white rounded-full hover:opacity-90 transition-all active:scale-90"
+              >
+                {isPlaying ? <Pause size={16} fill="white" /> : <Play size={16} fill="white" />}
               </button>
-              <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
-                <div className="w-1/2 h-full bg-primary"></div>
+              <div className="flex-1 h-2 bg-border rounded-full overflow-hidden relative">
+                <motion.div 
+                  className="absolute inset-y-0 left-0 bg-primary"
+                  style={{ width: `${playbackProgress}%` }}
+                ></motion.div>
               </div>
-              <button onClick={() => setAudioBlob(null)} className="p-1.5 text-muted hover:bg-border rounded-full">
-                <X size={16} />
+              <span className="text-[10px] font-mono text-muted">{formatTime(audioDuration)}</span>
+              <button 
+                onClick={() => {
+                  if (playbackRef.current) {
+                    playbackRef.current.pause();
+                    playbackRef.current = null;
+                  }
+                  setAudioBlob(null);
+                  setIsPlaying(false);
+                  setPlaybackProgress(0);
+                }} 
+                className="p-1.5 text-muted hover:bg-border rounded-full transition-colors"
+              >
+                <X size={18} />
               </button>
             </div>
           ) : (

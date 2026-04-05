@@ -23,9 +23,29 @@
             "minAge": { "type": "number" },
             "maxAge": { "type": "number" }
           }
-        }
+        },
+        "sex": { "type": "string", "description": "User's sex (Public)." },
+        "birthYear": { "type": "number", "description": "User's birth year (Public)." },
+        "verified": { "type": "boolean", "description": "Whether the user is identity verified." }
       },
       "required": ["uid", "displayName"]
+    },
+    "Identity": {
+      "title": "Identity",
+      "description": "Private identity verification data.",
+      "type": "object",
+      "properties": {
+        "nameBangla": { "type": "string" },
+        "nameEnglish": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "motherName": { "type": "string" },
+        "address": { "type": "string" },
+        "ocId": { "type": "string" },
+        "signatureURL": { "type": "string" },
+        "bloodGroup": { "type": "string" },
+        "nidNo": { "type": "string" },
+        "barcode": { "type": "string" }
+      }
     },
     "Chat": {
       "title": "Chat",
@@ -110,15 +130,43 @@
         "type": { "type": "string", "enum": ["like", "skip"] },
         "timestamp": { "type": "string", "format": "date-time" }
       }
+    },
+    "Story": {
+      "title": "Story",
+      "description": "A short video story or reel.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "caption": { "type": "string" },
+        "likes": { "type": "array", "items": { "type": "string" }, "description": "UIDs of users who liked." },
+        "views": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "comments": { 
+          "type": "array", 
+          "items": { 
+            "type": "object", 
+            "properties": { 
+              "userId": { "type": "string" }, 
+              "text": { "type": "string" }, 
+              "timestamp": { "type": "string" } 
+            } 
+          } 
+        }
+      }
     }
   },
   "firestore": {
     "/users/{uid}": { "schema": "User", "description": "User profile documents." },
+    "/users/{uid}/private/identity": { "schema": "Identity", "description": "Private identity data." },
     "/chats/{chatId}": { "schema": "Chat", "description": "Chat session documents." },
     "/chats/{chatId}/messages/{messageId}": { "schema": "Message", "description": "Messages within a chat." },
     "/matches/{matchId}": { "schema": "Match", "description": "Dating matches." },
     "/swipes/{swipeId}": { "schema": "Swipe", "description": "User swipe history." },
     "/calls/{callId}": { "schema": "CallSession", "description": "Real-time call sessions." },
-    "/groups/{groupId}": { "schema": "Group", "description": "Community groups and channels." }
+    "/groups/{groupId}": { "schema": "Group", "description": "Community groups and channels." },
+    "/stories/{storyId}": { "schema": "Story", "description": "User stories and reels." }
   }
 }

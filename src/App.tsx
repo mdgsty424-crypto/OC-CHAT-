@@ -225,6 +225,7 @@ function AppRoutes() {
           <Route path="/wallet" element={<><Wallet /><BottomNav /></>} />
           <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
           <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
+          <Route path="/profile/:id" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
           <Route path="/search" element={<SearchScreen />} />
           <Route path="/chat/:id" element={<ChatDetail />} />
           <Route path="/call/:id" element={<CallScreen />} />

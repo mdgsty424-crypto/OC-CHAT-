@@ -32,6 +32,20 @@ export interface User {
     notificationsEnabled?: boolean;
     isMuted?: boolean;
   };
+  // Identity Verification Fields (Private)
+  nameBangla?: string;
+  nameEnglish?: string;
+  fatherName?: string;
+  motherName?: string;
+  address?: string;
+  ocId?: string;
+  signatureURL?: string;
+  bloodGroup?: string;
+  nidNo?: string;
+  barcode?: string;
+  // Public Identity Fields
+  sex?: string;
+  birthYear?: number;
 }
 
 export interface Chat {
@@ -167,4 +181,20 @@ export interface Transaction {
   status: 'pending' | 'completed' | 'failed';
   timestamp: string;
   note?: string;
+}
+
+export interface Story {
+  id: string;
+  userId: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  caption?: string;
+  likes: string[]; // UIDs
+  views: number;
+  timestamp: string;
+  comments?: {
+    userId: string;
+    text: string;
+    timestamp: string;
+  }[];
 }
