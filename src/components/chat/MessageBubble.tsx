@@ -409,10 +409,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               "relative rounded-[20px] transition-all cursor-pointer select-none active:scale-[0.98]",
               message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
                 isMe 
-                  ? "bg-primary text-white rounded-tr-[4px]" 
-                  : "bg-surface text-text rounded-tl-[4px]"
+                  ? "gradient-primary text-white rounded-tr-[4px] bubble-3d-lifted" 
+                  : "bg-surface text-text rounded-tl-[4px] bubble-3d"
               ),
-              (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5 shadow-sm"
+              (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5"
             )}
           >
           {/* Self-destruct Indicator */}
@@ -456,7 +456,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Text Message */}
         {message.type === 'text' && (
           <div className="space-y-1">
-            <p className="text-[14px] leading-tight font-normal">
+            <p className="text-[14px] leading-tight font-extrabold">
               {showTranslation ? message.translatedText : message.text}
             </p>
             {/* Link Previews */}

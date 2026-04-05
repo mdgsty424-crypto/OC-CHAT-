@@ -87,7 +87,7 @@ export default function Login() {
               className="bg-surface p-4 rounded-3xl flex flex-col items-center gap-2 border border-border/50"
             >
               <item.icon className={item.color} size={24} />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted">{item.label}</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted">{item.label}</span>
             </motion.div>
           ))}
         </div>
@@ -112,7 +112,7 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {isSignUp && (
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted ml-2">Full Name</label>
+                  <label className="text-[10px] font-extrabold uppercase tracking-widest text-muted ml-2">Full Name</label>
                   <div className="relative">
                     <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
                     <input
@@ -128,7 +128,7 @@ export default function Login() {
               )}
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-muted ml-2">Email Address</label>
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-muted ml-2">Email Address</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
                   <input
@@ -143,7 +143,7 @@ export default function Login() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-muted ml-2">Password</label>
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-muted ml-2">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
                   <input
@@ -162,7 +162,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full py-4 bg-primary text-white rounded-2xl font-extrabold flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign In')}
                 {!loading && <ArrowRight size={18} />}
@@ -172,7 +172,7 @@ export default function Login() {
             <div className="mt-auto text-center pb-8">
               <button 
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-sm font-bold text-primary hover:underline"
+                className="text-sm font-extrabold text-primary hover:underline"
               >
                 {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
               </button>
@@ -189,7 +189,7 @@ export default function Login() {
           onClick={signInWithGoogle}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
-          className="w-full py-4 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-3 relative overflow-hidden group"
+          className="w-full py-4 bg-primary text-white rounded-2xl font-extrabold flex items-center justify-center gap-3 relative overflow-hidden group"
         >
           <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"></div>
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 bg-white rounded-full p-0.5" alt="Google" />
@@ -199,7 +199,7 @@ export default function Login() {
 
         <button 
           onClick={() => setShowEmailForm(true)}
-          className="w-full py-4 bg-surface text-text border border-border rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-border/20 transition-all"
+          className="w-full py-4 bg-surface text-text border border-border rounded-2xl font-extrabold flex items-center justify-center gap-3 hover:bg-border/20 transition-all"
         >
           <Mail size={18} className="text-muted" />
           <span>Login with Email</span>
@@ -212,7 +212,7 @@ export default function Login() {
 
       {/* Footer */}
       <div className="text-center opacity-30 pb-4">
-        <p className="text-[8px] font-bold uppercase tracking-[0.3em]">Privacy Policy • Terms of Service</p>
+        <p className="text-[8px] font-extrabold uppercase tracking-[0.3em]">Privacy Policy • Terms of Service</p>
       </div>
     </div>
   );

@@ -31,7 +31,7 @@ export default function Wallet() {
         </div>
 
         <div className="text-white text-center">
-          <p className="text-sm opacity-70 mb-1 font-bold uppercase tracking-widest">Total Balance</p>
+          <p className="text-sm opacity-70 mb-1 font-extrabold uppercase tracking-widest">Total Balance</p>
           <h2 className="text-5xl font-black mb-6">৳ {user?.walletBalance?.toLocaleString() || '0.00'}</h2>
           
           <div className="flex justify-center gap-4">
@@ -58,13 +58,13 @@ export default function Wallet() {
       </header>
 
       <main className="flex-1 p-6 -mt-4">
-        <div className="bg-surface rounded-[2rem] border border-border p-6 min-h-full">
+        <div className="bg-surface rounded-[2rem] border border-border p-6 min-h-full card-3d">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-black flex items-center gap-2">
               <History size={20} className="text-primary" />
               RECENT ACTIVITY
             </h3>
-            <button className="text-xs font-bold text-primary">View All</button>
+            <button className="text-xs font-extrabold text-primary">View All</button>
           </div>
 
           <div className="space-y-4">
@@ -78,7 +78,7 @@ export default function Wallet() {
                     {tx.type === 'received' ? <ArrowDownLeft size={24} /> : <ArrowUpRight size={24} />}
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold">{tx.type === 'received' ? `From ${tx.from}` : `To ${tx.to}`}</h4>
+                    <h4 className="text-sm font-extrabold">{tx.type === 'received' ? `From ${tx.from}` : `To ${tx.to}`}</h4>
                     <p className="text-[10px] text-muted">{tx.date}</p>
                   </div>
                 </div>
@@ -89,7 +89,7 @@ export default function Wallet() {
                   )}>
                     {tx.type === 'received' ? '+' : '-'} ৳{tx.amount}
                   </p>
-                  <span className="text-[8px] font-bold uppercase text-muted tracking-widest">{tx.status}</span>
+                  <span className="text-[8px] font-extrabold uppercase text-muted tracking-widest">{tx.status}</span>
                 </div>
               </div>
             ))}
@@ -100,7 +100,7 @@ export default function Wallet() {
               <ShieldCheck size={20} />
             </div>
             <div>
-              <h4 className="text-xs font-bold">Secure Payments</h4>
+              <h4 className="text-xs font-extrabold">Secure Payments</h4>
               <p className="text-[10px] text-muted">All transactions are encrypted and protected by OC-Shield.</p>
             </div>
           </div>

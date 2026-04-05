@@ -116,7 +116,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-0.5">
-              <h3 className="text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center">
+              <h3 className="text-lg font-extrabold text-text truncate group-hover:text-primary transition-colors flex items-center">
                 {loading ? (
                   <div className="h-5 w-24 bg-surface animate-pulse rounded" />
                 ) : (

@@ -148,7 +148,7 @@ export default function Home() {
       <div className="px-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Stories</h3>
-          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{storyUsers.length} active</span>
+          <span className="text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{storyUsers.length} active</span>
         </div>
         <div className="flex gap-5 overflow-x-auto no-scrollbar pb-2">
           {/* Your Story / Add Story */}
@@ -168,7 +168,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-muted">Your Story</span>
+            <span className="text-[10px] font-extrabold text-muted">Your Story</span>
           </div>
 
           {storyUsers.map(u => (
@@ -189,7 +189,7 @@ export default function Home() {
                   <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 border-2 border-surface rounded-full"></div>
                 )}
               </div>
-              <span className="text-[10px] font-bold text-muted truncate w-14 text-center">{(u.displayName || 'User').split(' ')[0]}</span>
+              <span className="text-[10px] font-extrabold text-muted truncate w-14 text-center">{(u.displayName || 'User').split(' ')[0]}</span>
             </div>
           ))}
         </div>
@@ -268,7 +268,7 @@ export default function Home() {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-surface rounded-[2rem] p-8 w-full max-w-xs border border-border text-center"
+              className="bg-surface rounded-[2rem] p-8 w-full max-w-xs border border-border text-center card-3d"
             >
               <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
                 <Lock size={32} />
@@ -285,13 +285,13 @@ export default function Home() {
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowHiddenInput(false)}
-                  className="flex-1 py-3 bg-surface text-text rounded-2xl font-bold border border-border"
+                  className="flex-1 py-3 bg-surface text-text rounded-2xl font-extrabold border border-border"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleHiddenAccess}
-                  className="flex-1 py-3 bg-primary text-white rounded-2xl font-bold"
+                  className="flex-1 py-3 bg-primary text-white rounded-2xl font-extrabold"
                 >
                   Unlock
                 </button>
