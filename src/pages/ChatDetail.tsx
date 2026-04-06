@@ -401,7 +401,7 @@ export default function ChatDetail() {
               )}
             </div>
             <div className="flex flex-col">
-              <h2 className="text-sm font-extrabold text-text truncate max-w-[120px]">
+              <h2 className="text-sm font-bold text-text truncate max-w-[120px]">
                 {chat?.type === 'direct' ? (otherUser?.displayName || 'Loading...') : chat?.name}
               </h2>
               <span className="text-[10px] font-medium text-muted uppercase tracking-wider">

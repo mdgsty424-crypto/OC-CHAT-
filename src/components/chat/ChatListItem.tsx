@@ -57,7 +57,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
       setLoading(false);
     };
     fetchOtherUser();
-  }, [otherId]);
+  }, [otherId, otherUser]);
 
   const unreadCount = currentUser ? chat.unreadCount?.[currentUser.uid] || 0 : 0;
   const chatName = chat.type === 'group' || chat.type === 'channel' ? chat.name : (loading ? '' : (otherUser?.displayName || 'Unknown User'));
@@ -116,30 +116,19 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-0.5">
-              <h3 className="text-lg font-extrabold text-text truncate group-hover:text-primary transition-colors flex items-center">
+              <h3 className="text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center">
                 {loading ? (
                   <div className="h-5 w-24 bg-surface animate-pulse rounded" />
                 ) : (
                   <>
-                    <span className="truncate">{chatName}</span>
-                    {chat.type === 'direct' && otherUser && (
-                      <Phone 
-                        size={14} 
-                        className={cn(
-                          "ml-2 flex-shrink-0",
-                          (otherUser.status === 'in-call' || otherUser.status === 'calling') ? "text-green-500" :
-                          otherUser.status === 'busy' ? "text-red-500" :
-                          "text-gray-400"
-                        )} 
-                      />
-                    )}
+                    {chatName}
                     {chat.type === 'group' && (
-                      <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-md ml-2 flex-shrink-0 flex items-center gap-1">
+                      <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
                         <Users size={10} /> GROUP
                       </span>
                     )}
                     {chat.type === 'channel' && (
-                      <span className="text-[9px] font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md ml-2 flex-shrink-0 flex items-center gap-1">
+                      <span className="text-[9px] font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md ml-2 flex items-center gap-1">
                         <Megaphone size={10} /> BROADCAST
                       </span>
                     )}

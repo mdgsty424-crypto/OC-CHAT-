@@ -178,7 +178,7 @@ export default function SearchScreen() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-32 px-10 text-center opacity-30">
-                <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mb-6 border border-border card-3d">
+                <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mb-6 border border-border">
                   <SearchIcon size={40} className="text-muted" />
                 </div>
                 <h3 className="text-xl font-black mb-2">Search Global Users</h3>

@@ -291,12 +291,12 @@ export default function Calls() {
 
                 <div className="flex-1 min-w-0">
                   <h3 className={cn(
-                    "text-base font-extrabold truncate",
+                    "text-base font-bold truncate",
                     call.status === 'ended' && call.receiverId === user?.uid && !call.startTime ? "text-red-500" : "text-text"
                   )}>
                     {call.otherUser?.displayName || 'Unknown User'}
                   </h3>
-                  <div className="flex items-center gap-1 text-[10px] text-muted font-extrabold uppercase tracking-wider">
+                  <div className="flex items-center gap-1 text-[10px] text-muted font-bold uppercase tracking-wider">
                     {call.receiverId === user?.uid ? (
                       <ArrowDownLeft size={12} className={call.startTime ? "text-green-500" : "text-red-500"} />
                     ) : (
@@ -324,7 +324,7 @@ export default function Calls() {
         </div>
       ) : (
         <div className="p-6 space-y-6">
-          <div className="bg-surface rounded-[2rem] p-8 border border-border text-center card-3d">
+          <div className="bg-surface rounded-[2rem] p-8 border border-border text-center">
             <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
               <Video size={40} />
             </div>
@@ -350,9 +350,9 @@ export default function Calls() {
 
           <div className="space-y-4">
             <h4 className="text-xs font-black text-muted uppercase tracking-widest px-2">Scheduled Meetings</h4>
-            <div className="bg-surface rounded-3xl p-6 border border-border flex items-center justify-between card-3d">
+            <div className="bg-surface rounded-3xl p-6 border border-border flex items-center justify-between">
               <div>
-                <h5 className="font-extrabold">Weekly Team Sync</h5>
+                <h5 className="font-bold">Weekly Team Sync</h5>
                 <p className="text-xs text-muted">Today, 4:00 PM</p>
               </div>
               <button className="px-4 py-2 bg-primary/10 text-primary rounded-xl text-xs font-black">
@@ -375,7 +375,7 @@ export default function Calls() {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-surface rounded-[2.5rem] p-8 w-full max-sm text-center card-3d"
+              className="bg-surface rounded-[2.5rem] p-8 w-full max-sm text-center"
             >
               <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check size={40} />

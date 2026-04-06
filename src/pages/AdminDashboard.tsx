@@ -40,7 +40,6 @@ import { db, auth } from '../lib/firebase';
 import { User } from '../types';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { cn } from '../lib/utils';
-import UserDetailsModal from '../components/admin/UserDetailsModal';
 
 export default function AdminDashboard() {
   const { user: currentUser } = useAuth();
@@ -62,7 +61,6 @@ export default function AdminDashboard() {
     typing: 'https://actions.google.com/sounds/v1/foley/keyboard_typing_fast.ogg'
   });
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Security Check
   if (!currentUser || currentUser.email !== 'info@ocsthael.com') {
@@ -179,14 +177,6 @@ export default function AdminDashboard() {
         method: 'POST',
         body: formData
       });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Upload failed: ${response.status} ${text}`);
-      }
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned non-JSON response. This usually means the file is too large.");
-      }
       const data = await response.json();
       if (data.url) {
         await setDoc(doc(db, 'app_settings', 'assets'), {
@@ -285,7 +275,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-surface border border-border/50 rounded-2xl overflow-hidden card-3d">
+                <div className="bg-surface border border-border/50 rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
@@ -303,7 +293,7 @@ export default function AdminDashboard() {
                               <div className="flex items-center gap-3">
                                 <img src={u.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`} alt="" className="w-10 h-10 rounded-full object-cover border border-border/50" />
                                 <div>
-                                  <p className="font-extrabold text-sm">{u.displayName}</p>
+                                  <p className="font-bold text-sm">{u.displayName}</p>
                                   <p className="text-[10px] text-muted-foreground font-mono">{u.uid}</p>
                                 </div>
                               </div>
@@ -347,13 +337,13 @@ export default function AdminDashboard() {
                                 >
                                   <Trash2 size={18} />
                                 </button>
-                                <button 
-                                  onClick={() => setSelectedUser(u)}
+                                <Link 
+                                  to={`/profile/${u.uid}`}
                                   className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
-                                  title="View Details"
+                                  title="View Profile"
                                 >
                                   <ExternalLink size={18} />
-                                </button>
+                                </Link>
                               </div>
                             </td>
                           </tr>
@@ -422,8 +412,8 @@ export default function AdminDashboard() {
                   <StatsCard title="Messages (24h)" value={stats.messages24h} icon={<Mail className="text-primary" />} />
                 </div>
                 
-                <div className="bg-surface border border-border/50 rounded-2xl p-6 card-3d">
-                  <h3 className="text-lg font-extrabold mb-4">System Health</h3>
+                <div className="bg-surface border border-border/50 rounded-2xl p-6">
+                  <h3 className="text-lg font-bold mb-4">System Health</h3>
                   <div className="space-y-4">
                     <HealthRow label="Firebase Firestore" status="Operational" />
                     <HealthRow label="Firebase Auth" status="Operational" />
@@ -443,13 +433,13 @@ export default function AdminDashboard() {
                 className="space-y-6"
               >
                 <h2 className="text-2xl font-black tracking-tight">Global Broadcast</h2>
-                <div className="bg-surface border border-border/50 rounded-2xl p-8 max-w-2xl card-3d">
+                <div className="bg-surface border border-border/50 rounded-2xl p-8 max-w-2xl">
                   <div className="flex items-center gap-4 mb-6">
                     <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
                       <Bell size={24} />
                     </div>
                     <div>
-                      <h3 className="text-lg font-extrabold">Send Notification</h3>
+                      <h3 className="text-lg font-bold">Send Notification</h3>
                       <p className="text-sm text-muted-foreground">This will be sent to all registered users immediately.</p>
                     </div>
                   </div>
@@ -488,17 +478,6 @@ export default function AdminDashboard() {
           </AnimatePresence>
         </main>
       </div>
-
-      {/* User Details Modal */}
-      {selectedUser && (
-        <UserDetailsModal 
-          user={selectedUser} 
-          onClose={() => setSelectedUser(null)} 
-          onUpdate={() => {
-            // The snapshot listener handles updates automatically
-          }} 
-        />
-      )}
     </div>
   );
 }
@@ -515,14 +494,14 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
       )}
     >
       <span className={cn("transition-transform group-hover:scale-110", active ? "scale-110" : "")}>{icon}</span>
-      <span className="text-sm font-extrabold hidden sm:block">{label}</span>
+      <span className="text-sm font-bold hidden sm:block">{label}</span>
     </button>
   );
 }
 
 function StatsCard({ title, value, icon }: { title: string; value: number; icon: React.ReactNode }) {
   return (
-    <div className="bg-surface border border-border/50 rounded-2xl p-6 flex items-center gap-4 card-3d">
+    <div className="bg-surface border border-border/50 rounded-2xl p-6 flex items-center gap-4">
       <div className="w-12 h-12 bg-muted/30 rounded-xl flex items-center justify-center text-2xl">
         {icon}
       </div>
@@ -536,10 +515,10 @@ function StatsCard({ title, value, icon }: { title: string; value: number; icon:
 
 function AssetCard({ title, description, url, onUpload, isUploading }: { title: string; description: string; url: string; onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void; isUploading: boolean }) {
   return (
-    <div className="bg-surface border border-border/50 rounded-2xl p-6 space-y-4 card-3d">
+    <div className="bg-surface border border-border/50 rounded-2xl p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-extrabold">{title}</h3>
+          <h3 className="font-bold">{title}</h3>
           <p className="text-xs text-muted-foreground">{description}</p>
         </div>
         <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">

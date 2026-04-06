@@ -37,8 +37,7 @@ import {
   Clock,
   Droplets,
   QrCode,
-  CheckCircle2,
-  Users
+  CheckCircle2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { doc, updateDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
@@ -200,15 +199,7 @@ export default function Profile() {
         body: formData,
       });
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Upload failed: ${response.status} ${text}`);
-      }
-      
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned non-JSON response. This usually means the file is too large.");
-      }
+      if (!response.ok) throw new Error('Upload failed');
 
       const data = await response.json();
       
@@ -233,8 +224,16 @@ export default function Profile() {
       // 1. Update private identity subcollection
       await setDoc(doc(db, 'users', currentUser.uid, 'private', 'identity'), identity);
 
-      // 2. Update public user document with public fields
+      // 2. Check if all fields are filled for verification
+      const requiredFields = [
+        'nameBangla', 'nameEnglish', 'fatherName', 'motherName', 
+        'address', 'ocId', 'signatureURL', 'bloodGroup', 'nidNo', 'barcode'
+      ];
+      const isVerified = requiredFields.every(field => !!(identity as any)[field]);
+
+      // 3. Update public user document with verification status and public fields
       await updateDoc(doc(db, 'users', currentUser.uid), {
+        verified: isVerified,
         sex: identity.sex,
         birthYear: identity.birthYear
       });
@@ -262,15 +261,7 @@ export default function Profile() {
         body: formData,
       });
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Upload failed: ${response.status} ${text}`);
-      }
-      
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned non-JSON response. This usually means the file is too large.");
-      }
+      if (!response.ok) throw new Error('Upload failed');
 
       const data = await response.json();
       
@@ -449,7 +440,7 @@ export default function Profile() {
           <button onClick={() => setSubView('settings')} className="p-2 hover:bg-surface rounded-xl transition-colors">
             <ChevronLeft size={24} />
           </button>
-          <h2 className="text-lg font-extrabold">{t('profile.accountSettings')}</h2>
+          <h2 className="text-lg font-black">{t('profile.accountSettings')}</h2>
         </div>
 
         <div className="p-6 space-y-6">
@@ -533,7 +524,7 @@ export default function Profile() {
           <button onClick={() => setSubView('settings')} className="p-2 hover:bg-surface rounded-xl transition-colors">
             <ChevronLeft size={24} />
           </button>
-          <h2 className="text-lg font-extrabold">{t('profile.helpSupport')}</h2>
+          <h2 className="text-lg font-black">{t('profile.helpSupport')}</h2>
         </div>
 
         <div className="p-6 space-y-6">
@@ -584,11 +575,11 @@ export default function Profile() {
           <button onClick={() => setSubView('main')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <ChevronLeft size={24} />
           </button>
-          <h2 className="text-lg font-extrabold">Settings & Privacy</h2>
+          <h2 className="text-lg font-bold">Settings & Privacy</h2>
         </div>
 
         <div className="p-4 space-y-4">
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden card-3d">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             {menuItems.map((item, index) => (
               <button
                 key={item.label}
@@ -729,7 +720,7 @@ export default function Profile() {
             {/* Name & Bio */}
             <div className="flex-1 pt-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900">{profileUser?.displayName}</h2>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">{profileUser?.displayName}</h2>
                 {profileUser?.verified && (
                   <CheckCircle2 className="text-blue-500 fill-blue-500" size={20} />
                 )}
@@ -802,73 +793,107 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* About Section */}
+      {/* Stats Bar (Facebook About Style) */}
       <div className="px-4 py-4 space-y-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 card-3d">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-extrabold text-gray-900 flex items-center gap-2">
-              <UserIcon size={18} className="text-gray-500" />
-              About
-            </h3>
-            {(isOwnProfile || currentUser?.role === 'admin') && (
+        {/* Digital ID Card (Owner Only) */}
+        {isOwnProfile && (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+            <div className="bg-blue-600 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white">
+                <Fingerprint size={20} />
+                <h3 className="font-bold text-sm uppercase tracking-wider">Digital Identity Card</h3>
+              </div>
               <button 
                 onClick={() => setIsEditingIdentity(true)}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                className="text-white/80 hover:text-white transition-colors"
               >
-                Edit
+                <Edit3 size={18} />
               </button>
-            )}
-          </div>
-          
-          <div className="space-y-1">
-            {/* Public Info */}
-            <InfoItem icon={<UserIcon size={16} />} label="Name (Bangla)" value={identity.nameBangla} />
-            <InfoItem icon={<UserIcon size={16} />} label="Name (English)" value={identity.nameEnglish} />
-            <InfoItem icon={<UserIcon size={16} />} label="Sex" value={identity.sex} />
-            <InfoItem icon={<Clock size={16} />} label="Birth Year" value={identity.birthYear?.toString()} />
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div className="flex gap-4">
+                <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                  <img 
+                    src={currentUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.uid}`} 
+                    className="w-full h-full object-cover"
+                    alt="ID Photo"
+                  />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Name (Bangla)</p>
+                  <p className="text-sm font-bold text-gray-900">{identity.nameBangla || 'Not Set'}</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mt-2">Name (English)</p>
+                  <p className="text-xs font-bold text-gray-700">{identity.nameEnglish || 'Not Set'}</p>
+                </div>
+              </div>
 
-            {/* Private Info (Owner or Admin only) */}
-            {(isOwnProfile || currentUser?.role === 'admin') && (
-              <>
-                <InfoItem icon={<Users size={16} />} label="Father's Name" value={identity.fatherName} />
-                <InfoItem icon={<Users size={16} />} label="Mother's Name" value={identity.motherName} />
-                <InfoItem icon={<MapPin size={16} />} label="Address" value={identity.address} />
-                <InfoItem icon={<Fingerprint size={16} />} label="OC ID" value={identity.ocId} valueClass="text-blue-600 font-medium" />
-                <InfoItem icon={<CreditCard size={16} />} label="NID No" value={identity.nidNo} />
-                <InfoItem icon={<Droplets size={16} />} label="Blood Group" value={identity.bloodGroup} valueClass="text-red-600 font-medium" />
-                
-                {identity.signatureURL && (
-                  <div className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                    <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 flex-shrink-0">
-                      <Edit3 size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-gray-500">Signature</p>
-                      <div className="h-10 mt-1">
-                        <img src={identity.signatureURL} className="h-full object-contain" alt="Signature" />
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Father's Name</p>
+                  <p className="text-xs font-bold text-gray-900">{identity.fatherName || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Mother's Name</p>
+                  <p className="text-xs font-bold text-gray-900">{identity.motherName || '-'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Address</p>
+                  <p className="text-xs font-bold text-gray-900">{identity.address || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">OC ID</p>
+                  <p className="text-xs font-bold text-blue-600">{identity.ocId || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">NID No</p>
+                  <p className="text-xs font-bold text-gray-900">{identity.nidNo || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Blood Group</p>
+                  <p className="text-xs font-bold text-red-600 flex items-center gap-1">
+                    <Droplets size={12} /> {identity.bloodGroup || '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Sex</p>
+                  <p className="text-xs font-bold text-gray-900">{identity.sex || '-'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-end justify-between pt-4 border-t border-gray-50">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Signature</p>
+                  <div className="h-10 w-32 bg-gray-50 rounded border border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
+                    {identity.signatureURL ? (
+                      <img src={identity.signatureURL} className="h-full object-contain" alt="Signature" />
+                    ) : (
+                      <span className="text-[8px] text-gray-400">No Signature</span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Verification Barcode</p>
+                  <div className="h-12 w-32 bg-white flex items-center justify-center">
+                    {identity.barcode ? (
+                      <div className="flex flex-col items-center">
+                        <QrCode size={32} className="text-gray-800" />
+                        <span className="text-[8px] font-mono mt-1">{identity.barcode}</span>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 rounded flex items-center justify-center">
+                        <QrCode size={20} className="text-gray-300" />
+                      </div>
+                    )}
                   </div>
-                )}
-                
-                {identity.barcode && (
-                  <div className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                    <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 flex-shrink-0">
-                      <QrCode size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-gray-500">Barcode</p>
-                      <p className="text-sm font-mono text-gray-900">{identity.barcode}</p>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="bg-white rounded-xl shadow-sm p-4 space-y-4 card-3d">
-          <h3 className="text-lg font-extrabold text-gray-900">Stats</h3>
+        <div className="bg-white rounded-xl shadow-sm p-4 space-y-4">
+          <h3 className="text-lg font-bold text-gray-900">About</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { label: 'Friends', value: '248', icon: UserPlus },
@@ -889,9 +914,9 @@ export default function Profile() {
         </div>
 
         {/* Reels Section */}
-        <div className="bg-white rounded-xl shadow-sm p-4 space-y-4 card-3d">
+        <div className="bg-white rounded-xl shadow-sm p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-extrabold text-gray-900">Reels</h3>
+            <h3 className="text-lg font-bold text-gray-900">Reels</h3>
             <button 
               onClick={() => storyInputRef.current?.click()}
               className="text-blue-600 text-sm font-bold hover:underline"
@@ -954,7 +979,7 @@ export default function Profile() {
               className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
-                <h3 className="text-lg font-extrabold">Identity Verification</h3>
+                <h3 className="text-lg font-bold">Identity Verification</h3>
                 <button onClick={() => setIsEditingIdentity(false)} className="p-2 hover:bg-gray-100 rounded-full">
                   <X size={20} />
                 </button>
@@ -1107,20 +1132,5 @@ export default function Profile() {
         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-900">OC Chat v1.0.0</span>
       </div>
     </main>
-  );
-}
-
-function InfoItem({ icon, label, value, valueClass = "text-gray-900" }: { icon: React.ReactNode, label: string, value?: string, valueClass?: string }) {
-  if (!value) return null;
-  return (
-    <div className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-      <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 flex-shrink-0">
-        {icon}
-      </div>
-      <div className="flex-1">
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className={`text-sm font-medium ${valueClass}`}>{value}</p>
-      </div>
-    </div>
   );
 }

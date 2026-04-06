@@ -314,8 +314,8 @@ async function startServer() {
         siteName: siteName || new URL(url).hostname,
         url
       });
-    } catch (error: any) {
-      console.error("Link preview error:", error.message || "Unknown error");
+    } catch (error) {
+      console.error("Link preview error:", error);
       res.status(500).json({ error: "Failed to fetch link preview" });
     }
   });

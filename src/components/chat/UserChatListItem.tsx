@@ -83,17 +83,8 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-0.5">
-              <h3 className="text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center">
-                <span className="truncate">{user.displayName}</span>
-                <Phone 
-                  size={14} 
-                  className={cn(
-                    "ml-2 flex-shrink-0",
-                    (user.status === 'in-call' || user.status === 'calling') ? "text-green-500" :
-                    user.status === 'busy' ? "text-red-500" :
-                    "text-gray-400"
-                  )} 
-                />
+              <h3 className="text-lg font-semibold text-text truncate group-hover:text-primary transition-colors">
+                {user.displayName}
               </h3>
               <div role="button" className="text-muted hover:text-primary p-1" onClick={(e) => { e.stopPropagation(); /* TODO: Implement call */ }}>
                 <Phone size={18} />
