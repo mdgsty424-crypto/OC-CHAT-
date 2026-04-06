@@ -48,37 +48,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (firebaseUser) {
           const userRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userRef);
           
-          if (!userDoc.exists()) {
-            const newUser: User = {
-              uid: firebaseUser.uid,
-              displayName: firebaseUser.displayName || 'Anonymous',
-              email: firebaseUser.email || undefined,
-              photoURL: firebaseUser.photoURL || '',
-              online: true,
-              lastSeen: new Date().toISOString(),
-              role: firebaseUser.email === 'info@ocsthael.com' ? 'admin' : 'user'
-            };
-            await setDoc(userRef, newUser);
-            setUser(newUser);
-          } else {
-            const updateData: any = { online: true, lastSeen: new Date().toISOString() };
-            if (firebaseUser.email === 'info@ocsthael.com' && userDoc.data()?.role !== 'admin') {
-              updateData.role = 'admin';
-            }
-            if (firebaseUser.email && !userDoc.data()?.email) {
-              updateData.email = firebaseUser.email;
-            }
-            await setDoc(userRef, updateData, { merge: true });
-            setUser({ ...userDoc.data(), ...updateData } as User);
+          const updateData: any = { 
+            uid: firebaseUser.uid,
+            displayName: firebaseUser.displayName || 'Anonymous',
+            photoURL: firebaseUser.photoURL || '',
+            online: true, 
+            lastSeen: new Date().toISOString() 
+          };
+          
+          if (firebaseUser.email === 'info@ocsthael.com') {
+            updateData.role = 'admin';
           }
+          if (firebaseUser.email) {
+            updateData.email = firebaseUser.email;
+          }
+
+          // Fire and forget the update so it syncs when online
+          setDoc(userRef, updateData, { merge: true }).catch(e => console.log("Offline update pending", e));
 
           // Listen for real-time updates to the current user's document
           userUnsubscribe = onSnapshot(userRef, (snapshot) => {
             if (snapshot.exists()) {
               setUser(snapshot.data() as User);
+            } else {
+              setUser(updateData as User);
             }
+            setLoading(false);
+            clearTimeout(timeoutId);
+          }, (error) => {
+            console.error("Auth snapshot error:", error);
+            setUser(updateData as User);
+            setLoading(false);
+            clearTimeout(timeoutId);
           });
 
           // Register user with OneSignal
@@ -92,8 +94,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
           }
 
-          setLoading(false);
-          clearTimeout(timeoutId);
         } else {
           setUser(null);
           setLoading(false);

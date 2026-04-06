@@ -543,7 +543,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       text: text.trim(),
       type: 'text',
       timestamp: new Date().toISOString(),
-      status: isOnline ? 'sent' : 'pending',
+      status: 'sent',
       translatedText: translated,
       isSelfDestruct: selfDestructTime !== null,
       destructTime: selfDestructTime
@@ -556,21 +556,6 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
 
     setText('');
     setSelfDestructTime(null);
-
-    // Save locally first
-    const localId = `local-${Date.now()}`;
-    const localMsg = { ...messageData, id: localId };
-    await saveMessage(localMsg);
-
-    if (!isOnline) {
-      await addToQueue({
-        type: 'message',
-        chatId,
-        data: messageData,
-        id: localId
-      });
-      return;
-    }
 
     try {
       await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
@@ -586,21 +571,23 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         if (pid !== user.uid) {
           unreadUpdates[`unreadCount.${pid}`] = increment(1);
           
-          // Send Push Notification
-          sendNotification({
-            targetUserId: pid,
-            title: user.displayName || 'New Message',
-            message: text.trim(),
-            image: user.photoURL || '',
-            link: `${window.location.origin}/chat/${chatId}`,
-            priority: 'high'
-          });
+          if (isOnline) {
+            // Send Push Notification
+            sendNotification({
+              targetUserId: pid,
+              title: user.displayName || 'New Message',
+              message: text.trim(),
+              image: user.photoURL || '',
+              link: `${window.location.origin}/chat/${chatId}`,
+              priority: 'high'
+            });
+          }
         }
       });
 
       await updateDoc(doc(db, 'chats', chatId), unreadUpdates);
 
-      if (isAICommand && prompt) {
+      if (isAICommand && prompt && isOnline) {
         handleAIResponse(prompt);
       }
     } catch (error) {

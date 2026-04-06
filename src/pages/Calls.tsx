@@ -20,7 +20,6 @@ export default function Calls() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'recent' | 'meetings'>('recent');
   const [calls, setCalls] = useState<CallWithUser[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [meetingId, setMeetingId] = useState('');
@@ -93,7 +92,6 @@ export default function Calls() {
             const userDoc = await getDoc(doc(db, 'users', otherId));
             return { ...call, otherUser: userDoc.data() as User };
           } catch (e) {
-            console.log('Chat/Profile Fetch Error:', e);
             return call;
           }
         })
@@ -121,9 +119,6 @@ export default function Calls() {
         });
         return updated;
       });
-      setLoading(false);
-    }, (error) => {
-      console.log('Chat/Profile Fetch Error:', error);
     });
 
     const unsub2 = onSnapshot(q2, async (snapshot) => {
@@ -146,9 +141,6 @@ export default function Calls() {
         });
         return updated;
       });
-      setLoading(false);
-    }, (error) => {
-      console.log('Chat/Profile Fetch Error:', error);
     });
 
     return () => {
@@ -273,11 +265,7 @@ export default function Calls() {
             </div>
           </div>
           
-          {loading ? (
-            <div className="flex justify-center py-20">
-              <Loader2 className="animate-spin text-primary" size={32} />
-            </div>
-          ) : filteredCalls.length > 0 ? (
+          {filteredCalls.length > 0 ? (
             filteredCalls.map((call) => (
               <div key={call.id} className="flex items-center gap-4 px-6 py-4 hover:bg-surface transition-all group border-b border-border/30">
                 <div className="relative flex-shrink-0">

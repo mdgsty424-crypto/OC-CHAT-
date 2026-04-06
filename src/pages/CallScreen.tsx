@@ -10,6 +10,7 @@ import { Wand2, Sparkles, Sun, Ghost, Palette, X, Check, Sliders, Phone, PhoneOf
 import { cn } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { useAppAssets } from '../hooks/useAppAssets';
+import { useNetwork } from '../hooks/useNetwork';
 
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -36,6 +37,7 @@ export default function CallScreen() {
   const { user: currentUser } = useAuth();
   const { isMuted } = useSettings();
   const assets = useAppAssets();
+  const { isOnline } = useNetwork();
   const { sendNotification } = useNotifications();
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -167,7 +169,7 @@ export default function CallScreen() {
   }, [callId, currentUser?.uid, callStatus, navigate]);
 
   useEffect(() => {
-    if (!currentUser || !containerRef.current) return;
+    if (!currentUser || !containerRef.current || !isOnline) return;
 
     const appID = 1698335343;
     const serverSecret = '827755ef5ec4c06648bc783998a6d0c2';
@@ -388,11 +390,13 @@ export default function CallScreen() {
                 <div className="flex items-center justify-center gap-2">
                   <span className={cn(
                     "text-lg font-bold tracking-widest uppercase transition-all duration-500",
+                    !isOnline ? "text-yellow-500 animate-pulse" :
                     callStatus === 'no_answer' ? "text-red-500" : "text-indigo-400 animate-pulse"
                   )}>
-                    {callStatus === 'calling' && 'Calling...'}
-                    {callStatus === 'ringing' && 'Ringing...'}
-                    {callStatus === 'no_answer' && 'No Answer'}
+                    {!isOnline && 'Waiting for network...'}
+                    {isOnline && callStatus === 'calling' && 'Calling...'}
+                    {isOnline && callStatus === 'ringing' && 'Ringing...'}
+                    {isOnline && callStatus === 'no_answer' && 'No Answer'}
                   </span>
                 </div>
               </div>
