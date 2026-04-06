@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 import { ZIM } from 'zego-zim-web';
 import { useAuth } from '../../hooks/useAuth';
@@ -13,11 +13,11 @@ export default function ZegoCallInvitation() {
   const { setZp, setIncomingCall, setOutgoingCall } = useZegoStore();
   const assets = useAppAssets();
 
+  const zegoInitialized = useRef(false);
+
   useEffect(() => {
-    if (!user) {
-      setZp(null);
-      return;
-    }
+    if (zegoInitialized.current || !user) return;
+    zegoInitialized.current = true;
 
     const initZego = async () => {
       try {

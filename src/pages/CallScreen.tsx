@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Wand2, Sparkles, Sun, Ghost, Palette, X, Check, Sliders, Phone, PhoneOff, Video } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
+import { useAppAssets } from '../hooks/useAppAssets';
 
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -34,6 +35,7 @@ export default function CallScreen() {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { isMuted } = useSettings();
+  const assets = useAppAssets();
   const { sendNotification } = useNotifications();
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -42,14 +44,11 @@ export default function CallScreen() {
 
   useEffect(() => {
     // Pre-load sounds
-    const sounds = ['ringtone'];
-    sounds.forEach(sound => {
-      const audio = new Audio(`/assets/sounds/${sound}.mp3`);
-      audio.load();
-      audio.loop = true;
-      audioRefs.current[sound] = audio;
-    });
-  }, []);
+    const audio = new Audio(assets.ringtone);
+    audio.load();
+    audio.loop = true;
+    audioRefs.current['ringtone'] = audio;
+  }, [assets]);
 
   const playSound = (soundName: string) => {
     if (isMuted) return;

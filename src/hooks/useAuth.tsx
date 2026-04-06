@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { 
   onAuthStateChanged, 
   User as FirebaseUser, 
@@ -27,77 +27,35 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const authInitialized = useRef(false);
 
   useEffect(() => {
+    if (authInitialized.current) return;
+    authInitialized.current = true;
+
     // Fallback timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.warn("Auth state check timed out after 3 seconds. Forcing login screen.");
-        setLoading(false);
-      }
+      console.warn("Auth state check timed out after 3 seconds. Forcing login screen.");
+      setLoading(false);
     }, 3000);
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (firebaseUser) {
-          const userRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userRef);
-          
-          if (!userDoc.exists()) {
-            const newUser: User = {
-              uid: firebaseUser.uid,
-              displayName: firebaseUser.displayName || 'Anonymous',
-              email: firebaseUser.email || undefined,
-              photoURL: firebaseUser.photoURL || '',
-              online: true,
-              lastSeen: new Date().toISOString(),
-              role: firebaseUser.email === 'info@ocsthael.com' ? 'admin' : 'user'
-            };
-            await setDoc(userRef, newUser);
-            setUser(newUser);
-          } else {
-            const updateData: any = { online: true, lastSeen: new Date().toISOString() };
-            if (firebaseUser.email === 'info@ocsthael.com' && userDoc.data()?.role !== 'admin') {
-              updateData.role = 'admin';
-            }
-            if (firebaseUser.email && !userDoc.data()?.email) {
-              updateData.email = firebaseUser.email;
-            }
-            await setDoc(userRef, updateData, { merge: true });
-            setUser({ ...userDoc.data(), ...updateData } as User);
-          }
-
-          // Listen for real-time updates to the current user's document
-          const userUnsubscribe = onSnapshot(userRef, (snapshot) => {
-            if (snapshot.exists()) {
-              setUser(snapshot.data() as User);
-            }
-          });
-
-          // Register user with OneSignal
-          if (window.OneSignal) {
-            window.OneSignal.push(function() {
-              if (typeof window.OneSignal.login === 'function') {
-                window.OneSignal.login(firebaseUser.uid);
-              } else if (typeof window.OneSignal.setExternalUserId === 'function') {
-                window.OneSignal.setExternalUserId(firebaseUser.uid);
-              }
-            });
-          }
-
-          setLoading(false);
-          clearTimeout(timeoutId);
-          return () => userUnsubscribe();
-        } else {
-          setUser(null);
-          setLoading(false);
-          clearTimeout(timeoutId);
-        }
-      } catch (error) {
-        console.error("Error in auth state change:", error);
+      if (firebaseUser) {
+        // Only fetch basic user info or just use firebaseUser
+        const basicUser: User = {
+          uid: firebaseUser.uid,
+          displayName: firebaseUser.displayName || 'Anonymous',
+          email: firebaseUser.email || undefined,
+          photoURL: firebaseUser.photoURL || '',
+          online: true,
+          lastSeen: new Date().toISOString(),
+          role: 'user' // Default, will be updated by Profile page if needed
+        };
+        setUser(basicUser);
+        setLoading(false);
+      } else {
         setUser(null);
         setLoading(false);
-        clearTimeout(timeoutId);
       }
     });
 

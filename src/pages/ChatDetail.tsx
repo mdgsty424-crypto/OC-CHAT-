@@ -34,9 +34,9 @@ export default function ChatDetail() {
   useEffect(() => {
     // Pre-load sounds using local assets for zero delay
     const soundsToLoad = [
-      { key: 'received', url: '/assets/sounds/received.mp3' },
-      { key: 'typing', url: '/assets/sounds/typing.mp3' },
-      { key: 'sticker', url: '/assets/sounds/received.mp3' }, // Fallback to received if no sticker sound
+      { key: 'received', url: assets.received },
+      { key: 'typing', url: assets.typing },
+      { key: 'sticker', url: assets.received }, // Fallback to received if no sticker sound
     ];
 
     soundsToLoad.forEach(({ key, url }) => {
@@ -45,7 +45,7 @@ export default function ChatDetail() {
       audioRefs.current[key] = audio;
       console.log(`Pre-loaded chat sound: ${key} from ${url}`);
     });
-  }, []);
+  }, [assets]);
 
   const playSound = (soundName: string) => {
     if (isMuted) return;

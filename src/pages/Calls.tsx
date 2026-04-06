@@ -93,6 +93,7 @@ export default function Calls() {
             const userDoc = await getDoc(doc(db, 'users', otherId));
             return { ...call, otherUser: userDoc.data() as User };
           } catch (e) {
+            console.log('Chat/Profile Fetch Error:', e);
             return call;
           }
         })
@@ -121,6 +122,8 @@ export default function Calls() {
         return updated;
       });
       setLoading(false);
+    }, (error) => {
+      console.log('Chat/Profile Fetch Error:', error);
     });
 
     const unsub2 = onSnapshot(q2, async (snapshot) => {
@@ -144,6 +147,8 @@ export default function Calls() {
         return updated;
       });
       setLoading(false);
+    }, (error) => {
+      console.log('Chat/Profile Fetch Error:', error);
     });
 
     return () => {

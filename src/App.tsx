@@ -119,17 +119,20 @@ function AppRoutes() {
   }, []);
 
   useEffect(() => {
-    // Pre-load all system sounds
-    const soundKeys = Object.keys(assets) as Array<keyof typeof assets>;
-    soundKeys.forEach(key => {
-      const url = assets[key];
-      if (url) {
-        const audio = new Audio(url);
-        audio.load();
-        audioRefs.current[key] = audio;
-        console.log(`Pre-loaded sound: ${String(key)} from ${url}`);
-      }
-    });
+    const timer = setTimeout(() => {
+      // Pre-load all system sounds
+      const soundKeys = Object.keys(assets) as Array<keyof typeof assets>;
+      soundKeys.forEach(key => {
+        const url = assets[key];
+        if (url) {
+          const audio = new Audio(url);
+          audio.load();
+          audioRefs.current[key] = audio;
+          console.log(`Pre-loaded sound: ${String(key)} from ${url}`);
+        }
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [assets]);
 
   const permissionsRequested = useRef(false);
@@ -210,15 +213,7 @@ function AppRoutes() {
     }
   }, [user?.securitySettings?.privacyModeEnabled]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
+  if (!user && !loading) {
     return <Login />;
   }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit, doc, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Chat, User, Story } from '../types';
@@ -15,6 +15,7 @@ import StoryPlayer from '../components/stories/StoryPlayer';
 export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
@@ -23,12 +24,16 @@ export default function Home() {
   const [view, setView] = useState<'all' | 'archived'>('all');
   const [showHiddenInput, setShowHiddenInput] = useState(false);
   const [hiddenPassword, setHiddenPassword] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const onlineUsers = allUsers.filter(u => u.online && u.uid).slice(0, 5);
   const usersWithoutChats = allUsers.filter(u => u.uid && !chats.some(c => c.participants && Array.isArray(c.participants) && c.participants.includes(u.uid)));
 
   useEffect(() => {
     if (!user) return;
+    
+    console.log('My UID:', user.uid);
+    setLoading(true);
 
     // Load from IndexedDB first
     const loadLocalData = async () => {
@@ -41,8 +46,16 @@ export default function Home() {
       if (localUsers.length > 0) {
         setAllUsers(localUsers as any);
       }
+      setLoading(false);
     };
     loadLocalData();
+
+    // Fetch current user profile
+    const unsubUser = onSnapshot(doc(db, 'users', user.uid), (doc) => {
+      if (doc.exists()) {
+        setCurrentUserProfile({ uid: doc.id, ...doc.data() } as User);
+      }
+    });
 
     const q = query(
       collection(db, 'chats'),
@@ -60,11 +73,13 @@ export default function Home() {
       setChats(chatList);
       // Save to IndexedDB
       chatList.forEach(chat => saveChat(chat as any));
+    }, (error) => {
+      console.log('Chat/Profile Fetch Error:', error);
     });
 
     // Fetch all users
     const usersQ = query(collection(db, 'users'));
-    const usersUnsubscribe = onSnapshot(usersQ, (snapshot) => {
+    getDocs(usersQ).then((snapshot) => {
       const usersList = snapshot.docs
         .map(doc => ({ uid: doc.id, ...doc.data() } as User))
         .filter(u => u.uid && u.uid !== user.uid);
@@ -77,19 +92,23 @@ export default function Home() {
         }
       };
       saveUsers();
+    }).catch((error) => {
+      console.error("Error fetching users:", error);
     });
 
     // Fetch all stories
-    const storiesQ = query(collection(db, 'stories'), orderBy('timestamp', 'desc'));
-    const storiesUnsubscribe = onSnapshot(storiesQ, (snapshot) => {
+    const storiesQ = query(collection(db, 'stories'));
+    getDocs(storiesQ).then((snapshot) => {
       const storiesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
+      storiesList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setStories(storiesList);
+    }).catch((error) => {
+      console.error("Error fetching stories:", error);
     });
 
     return () => {
       unsubscribe();
-      usersUnsubscribe();
-      storiesUnsubscribe();
+      unsubUser();
     };
   }, [user]);
 
@@ -159,7 +178,7 @@ export default function Home() {
             <div className="relative">
               <div className="w-14 h-14 rounded-full p-0.5 border-2 border-dashed border-muted flex items-center justify-center group-hover:border-primary transition-colors overflow-hidden">
                 <img 
-                  src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
+                  src={currentUserProfile?.photoURL || user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
                   className="w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-opacity rounded-full"
                   alt="Your Story"
                 />
@@ -238,13 +257,19 @@ export default function Home() {
         </div>
         
         <div className="divide-y divide-border">
-          {filteredChats.map((chat) => (
-            <ChatListItem key={`chat-${chat.id}`} chat={chat} />
-          ))}
-          {view === 'all' && usersWithoutChats.map((u) => (
-            <UserChatListItem key={`user-${u.uid}`} user={u} />
-          ))}
-          {filteredChats.length === 0 && (view !== 'all' || usersWithoutChats.length === 0) && (
+          {loading ? (
+            <div className="p-4 text-center text-muted">Fetching Data...</div>
+          ) : (
+            <>
+              {filteredChats.map((chat) => (
+                <ChatListItem key={`chat-${chat.id}`} chat={chat} />
+              ))}
+              {view === 'all' && usersWithoutChats.map((u) => (
+                <UserChatListItem key={`user-${u.uid}`} user={u} />
+              ))}
+            </>
+          )}
+          {filteredChats.length === 0 && (view !== 'all' || usersWithoutChats.length === 0) && chats.length > 0 && (
             <div className="flex flex-col items-center justify-center py-24 px-10 text-center opacity-40">
               <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mb-6 border border-border">
                 <Search size={40} className="text-muted" />

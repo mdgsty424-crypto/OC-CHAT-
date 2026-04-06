@@ -100,37 +100,47 @@ export default function Profile() {
   const [editPassword, setEditPassword] = useState('');
 
   useEffect(() => {
-    if (isOwnProfile) {
-      setProfileUser(currentUser);
-      if (currentUser) {
-        setEditName(currentUser.displayName || '');
-        setEditBio(currentUser.bio || '');
-        setEditEmail(currentUser.email || '');
-        setEditPhone(currentUser.phone || '');
-        setIdentity(prev => ({
-          ...prev,
-          sex: currentUser.sex || '',
-          birthYear: currentUser.birthYear || new Date().getFullYear() - 20
-        }));
-      }
-    } else if (id) {
-      const unsub = onSnapshot(doc(db, 'users', id), (doc) => {
-        if (doc.exists()) {
-          setProfileUser({ uid: doc.id, ...doc.data() } as User);
+    if (!currentUser) return;
+    
+    console.log('My UID:', currentUser.uid);
+    
+    const fetchProfile = async () => {
+      const targetUid = isOwnProfile ? currentUser.uid : id;
+      if (!targetUid) return;
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', targetUid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setProfileUser({ uid: userDoc.id, ...data } as User);
+          
+          if (isOwnProfile) {
+            setEditName(data.displayName || '');
+            setEditBio(data.bio || '');
+            setEditEmail(data.email || '');
+            setEditPhone(data.phone || '');
+            setIdentity(prev => ({
+              ...prev,
+              sex: data.sex || '',
+              birthYear: data.birthYear || new Date().getFullYear() - 20
+            }));
+          }
         }
-      });
-      return () => unsub();
-    }
+      } catch (error) {
+        console.log('Chat/Profile Fetch Error:', error);
+      }
+    };
+    
+    fetchProfile();
   }, [id, currentUser, isOwnProfile]);
 
   useEffect(() => {
     if (isOwnProfile && currentUser) {
-      const unsub = onSnapshot(doc(db, 'users', currentUser.uid, 'private', 'identity'), (doc) => {
-        if (doc.exists()) {
-          setIdentity(prev => ({ ...prev, ...doc.data() }));
+      getDoc(doc(db, 'users', currentUser.uid, 'private', 'identity')).then((docSnap) => {
+        if (docSnap.exists()) {
+          setIdentity(prev => ({ ...prev, ...docSnap.data() }));
         }
-      });
-      return () => unsub();
+      }).catch(error => console.log('Identity Fetch Error:', error));
     }
   }, [isOwnProfile, currentUser?.uid]);
 
@@ -139,12 +149,10 @@ export default function Profile() {
     if (!targetUid) return;
 
     const q = query(collection(db, 'stories'), where('userId', '==', targetUid));
-    const unsub = onSnapshot(q, (snapshot) => {
+    getDocs(q).then((snapshot) => {
       const storyList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
       setStories(storyList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-    });
-
-    return () => unsub();
+    }).catch(error => console.log('Story Fetch Error:', error));
   }, [id, currentUser?.uid, isOwnProfile]);
 
   useEffect(() => {
@@ -726,37 +734,43 @@ export default function Profile() {
               )}
             </div>
 
-            {/* Name & Bio */}
+          {/* Name & Bio */}
             <div className="flex-1 pt-2">
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900">{profileUser?.displayName}</h2>
-                {profileUser?.verified && (
-                  <CheckCircle2 className="text-blue-500 fill-blue-500" size={20} />
-                )}
-              </div>
-              {profileUser?.bio ? (
-                <p className="text-gray-600 font-semibold mt-1">{profileUser.bio}</p>
-              ) : isOwnProfile && (
-                <button 
-                  onClick={() => setIsEditing(true)}
-                  className="text-blue-600 font-bold text-sm hover:underline mt-1"
-                >
-                  Add Bio
-                </button>
+              {profileUser ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900">{profileUser.displayName}</h2>
+                    {profileUser.verified && (
+                      <CheckCircle2 className="text-blue-500 fill-blue-500" size={20} />
+                    )}
+                  </div>
+                  {profileUser.bio ? (
+                    <p className="text-gray-600 font-semibold mt-1">{profileUser.bio}</p>
+                  ) : isOwnProfile && (
+                    <button 
+                      onClick={() => setIsEditing(true)}
+                      className="text-blue-600 font-bold text-sm hover:underline mt-1"
+                    >
+                      Add Bio
+                    </button>
+                  )}
+                  {/* Public Identity Info */}
+                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 font-medium">
+                    {profileUser.sex && (
+                      <span className="flex items-center gap-1">
+                        <Fingerprint size={12} /> {profileUser.sex}
+                      </span>
+                    )}
+                    {profileUser.birthYear && (
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} /> Born {profileUser.birthYear}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="p-4 text-center text-muted">Fetching Data...</div>
               )}
-              {/* Public Identity Info */}
-              <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 font-medium">
-                {profileUser?.sex && (
-                  <span className="flex items-center gap-1">
-                    <Fingerprint size={12} /> {profileUser.sex}
-                  </span>
-                )}
-                {profileUser?.birthYear && (
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} /> Born {profileUser.birthYear}
-                  </span>
-                )}
-              </div>
             </div>
           </div>
 

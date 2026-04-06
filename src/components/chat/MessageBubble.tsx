@@ -58,15 +58,36 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
+    // Disable for APK (file protocol)
+    if (window.location.protocol === 'file:') {
+      setLoading(false);
+      return;
+    }
+
     const fetchPreview = async () => {
       try {
-        const res = await fetch(`/api/fetch-preview?url=${encodeURIComponent(url)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setPreview(data);
-        }
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const res = await fetch(proxyUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch');
+        
+        const data = await res.json();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(data.contents, 'text/html');
+        
+        const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || doc.title;
+        const description = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || '';
+        const image = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
+        const siteName = doc.querySelector('meta[property="og:site_name"]')?.getAttribute('content') || new URL(url).hostname;
+        
+        setPreview({ title, description, image, siteName });
       } catch (err) {
-        // Suppress link preview fetch errors to avoid console spam
+        console.error("Link preview fetch failed:", err);
+        setPreview(null);
       } finally {
         setLoading(false);
       }
@@ -75,7 +96,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
   }, [url]);
 
   if (loading) return null;
-  if (!preview) return null;
+  if (!preview) return <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm break-all">{url}</a>;
 
   const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
   const isFacebook = url.includes('facebook.com');
