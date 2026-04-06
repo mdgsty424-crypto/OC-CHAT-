@@ -113,9 +113,9 @@ export default function AdminDashboard() {
 
   const handleSuspendUser = async (uid: string, currentStatus: boolean) => {
     try {
-      await updateDoc(doc(db, 'users', uid), {
+      updateDoc(doc(db, 'users', uid), {
         suspended: !currentStatus
-      });
+      }).catch(e => console.error("Error suspending user:", e));
     } catch (error) {
       console.error("Error suspending user:", error);
     }
@@ -124,7 +124,7 @@ export default function AdminDashboard() {
   const handleDeleteUser = async (uid: string) => {
     if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
     try {
-      await deleteDoc(doc(db, 'users', uid));
+      deleteDoc(doc(db, 'users', uid)).catch(e => console.error("Error deleting user:", e));
       // Note: Deleting from Auth requires Admin SDK, but we'll remove them from Firestore
     } catch (error) {
       console.error("Error deleting user:", error);

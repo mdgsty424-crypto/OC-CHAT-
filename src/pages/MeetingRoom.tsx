@@ -48,9 +48,9 @@ export default function MeetingRoom() {
           const isHost = data.hostId === user.uid || !data.hostId;
           
           if (!data.hostId) {
-            await updateDoc(meetingRef, {
+            updateDoc(meetingRef, {
               hostId: user.uid
-            });
+            }).catch(e => console.error("Error updating hostId:", e));
           }
 
           zp.joinRoom({

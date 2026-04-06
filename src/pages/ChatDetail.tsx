@@ -107,6 +107,8 @@ export default function ChatDetail() {
     };
     loadLocalData();
 
+    let userUnsubscribe: (() => void) | undefined;
+
     // Fetch Chat info and listen for changes (typing indicator)
     const chatUnsubscribe = onSnapshot(doc(db, 'chats', id), (snapshot) => {
       if (snapshot.exists()) {
@@ -130,14 +132,13 @@ export default function ChatDetail() {
 
         if (chatData.type === 'direct') {
           const otherId = chatData.participants.find(uid => uid !== currentUser.uid);
-          if (otherId) {
+          if (otherId && !userUnsubscribe) {
             // Listen for other user's real-time status
-            const userUnsubscribe = onSnapshot(doc(db, 'users', otherId), (userDoc) => {
+            userUnsubscribe = onSnapshot(doc(db, 'users', otherId), (userDoc) => {
               if (userDoc.exists()) {
                 setOtherUser({ ...userDoc.data(), uid: userDoc.id } as User);
               }
             });
-            return () => userUnsubscribe();
           }
         }
       }
@@ -176,16 +177,17 @@ export default function ChatDetail() {
         });
         
         // Mark unread messages as 'seen'
-        snapshot.docs.forEach(async (msgDoc) => {
+        snapshot.docs.forEach((msgDoc) => {
           const msgData = msgDoc.data() as Message;
           if (msgData.senderId !== currentUser.uid && msgData.status !== 'seen') {
-            await updateDoc(msgDoc.ref, { status: 'seen' });
+            updateDoc(msgDoc.ref, { status: 'seen' }).catch(e => console.error("Error updating seen status:", e));
           }
         });
       }
     });
 
     return () => {
+      if (userUnsubscribe) userUnsubscribe();
       chatUnsubscribe();
       messagesUnsubscribe();
       chatsUnsubscribe();
@@ -315,12 +317,12 @@ export default function ChatDetail() {
         };
       }
 
-      await addDoc(collection(db, 'chats', targetChatId, 'messages'), newMessage);
+      addDoc(collection(db, 'chats', targetChatId, 'messages'), newMessage).catch(e => console.error("Error forwarding message:", e));
       
-      await updateDoc(doc(db, 'chats', targetChatId), {
+      updateDoc(doc(db, 'chats', targetChatId), {
         lastMessage: forwardingMessage.text || 'Forwarded message',
         lastMessageTime: new Date().toISOString(),
-      });
+      }).catch(e => console.error("Error updating chat:", e));
 
       setForwardingMessage(null);
       // alert('Message forwarded!'); // Removed alert to be less annoying

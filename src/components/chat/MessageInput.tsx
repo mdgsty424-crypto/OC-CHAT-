@@ -129,21 +129,23 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       timestamp: serverTimestamp(),
       status: 'sent'
     };
-    await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+    addDoc(collection(db, 'chats', chatId, 'messages'), messageData).catch(e => console.error("Error adding money:", e));
     
-    // Send Push Notification
-    participants.forEach(pid => {
-      if (pid !== user.uid) {
-        sendNotification({
-          targetUserId: pid,
-          title: user.displayName || 'New Message',
-          message: `💸 Sent you ৳${moneyAmount}`,
-          image: user.photoURL || '',
-          link: `${window.location.origin}/chat/${chatId}`,
-          priority: 'high'
-        });
-      }
-    });
+    if (isOnline) {
+      // Send Push Notification
+      participants.forEach(pid => {
+        if (pid !== user.uid) {
+          sendNotification({
+            targetUserId: pid,
+            title: user.displayName || 'New Message',
+            message: `💸 Sent you ৳${moneyAmount}`,
+            image: user.photoURL || '',
+            link: `${window.location.origin}/chat/${chatId}`,
+            priority: 'high'
+          });
+        }
+      });
+    }
 
     setShowMoneyModal(false);
     setMoneyAmount('');
@@ -151,9 +153,9 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
 
   const updateTypingStatus = async (isTyping: boolean) => {
     if (!user) return;
-    await updateDoc(doc(db, 'chats', chatId), {
+    updateDoc(doc(db, 'chats', chatId), {
       [`typing.${user.uid}`]: isTyping
-    });
+    }).catch(e => console.error("Error updating typing status:", e));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -368,12 +370,12 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       if (!finalUrl) throw new Error("Failed to get download URL from ZIM");
 
       // 2. Update the pending message
-      await updateDoc(messageRef, {
+      updateDoc(messageRef, {
         audioUrl: finalUrl,
         audioDuration: audioDuration,
         fileType: 'audio/mpeg', // ZIM automatically converts/treats it as mpeg
         status: 'sent'
-      });
+      }).catch(e => console.error("Error updating voice message:", e));
 
       // Clean up local playback
       if (playbackRef.current) {
@@ -405,7 +407,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     } catch (error) {
       console.error("Voice upload error:", error);
       // Update message status to failed
-      await updateDoc(messageRef, { status: 'failed' });
+      updateDoc(messageRef, { status: 'failed' }).catch(e => console.error("Error updating failed status:", e));
     } finally {
       setIsUploading(false);
     }
@@ -466,12 +468,12 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       
       // 2. Update the pending message
       if (messageRef) {
-        await updateDoc(messageRef, {
+        updateDoc(messageRef, {
           fileUrl: data.url,
           fileType: data.resource_type,
           type: data.resource_type === 'image' ? 'image' : (data.resource_type === 'video' ? 'video' : 'file'),
           status: 'sent'
-        });
+        }).catch(e => console.error("Error updating file message:", e));
       } else {
         // Fallback if pending message failed
         const messageData = {
@@ -484,7 +486,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
           timestamp: new Date().toISOString(),
           status: 'sent'
         };
-        await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+        addDoc(collection(db, 'chats', chatId, 'messages'), messageData).catch(e => console.error("Error adding file message:", e));
       }
       
       const unreadUpdates: Record<string, any> = {
@@ -509,7 +511,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         }
       });
 
-      await updateDoc(doc(db, 'chats', chatId), unreadUpdates);
+      updateDoc(doc(db, 'chats', chatId), unreadUpdates).catch(e => console.error("Error updating chat unread count:", e));
 
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -558,7 +560,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     setSelfDestructTime(null);
 
     try {
-      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      addDoc(collection(db, 'chats', chatId, 'messages'), messageData).catch(e => console.error("Error adding doc:", e));
       playSound('sent');
       
       const unreadUpdates: Record<string, any> = {
@@ -585,7 +587,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         }
       });
 
-      await updateDoc(doc(db, 'chats', chatId), unreadUpdates);
+      updateDoc(doc(db, 'chats', chatId), unreadUpdates).catch(e => console.error("Error updating chat:", e));
 
       if (isAICommand && prompt && isOnline) {
         handleAIResponse(prompt);
@@ -610,21 +612,23 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         timestamp: new Date().toISOString(),
         status: 'sent'
       };
-      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      addDoc(collection(db, 'chats', chatId, 'messages'), messageData).catch(e => console.error("Error adding location:", e));
       
-      // Send Push Notification
-      participants.forEach(pid => {
-        if (pid !== user.uid) {
-          sendNotification({
-            targetUserId: pid,
-            title: user.displayName || 'New Message',
-            message: '📍 Shared a location',
-            image: user.photoURL || '',
-            link: `${window.location.origin}/chat/${chatId}`,
-            priority: 'high'
-          });
-        }
-      });
+      if (isOnline) {
+        // Send Push Notification
+        participants.forEach(pid => {
+          if (pid !== user.uid) {
+            sendNotification({
+              targetUserId: pid,
+              title: user.displayName || 'New Message',
+              message: '📍 Shared a location',
+              image: user.photoURL || '',
+              link: `${window.location.origin}/chat/${chatId}`,
+              priority: 'high'
+            });
+          }
+        });
+      }
 
       setShowMore(false);
     });
@@ -644,21 +648,23 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       timestamp: new Date().toISOString(),
       status: 'sent'
     };
-    await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+    addDoc(collection(db, 'chats', chatId, 'messages'), messageData).catch(e => console.error("Error adding poll:", e));
     
-    // Send Push Notification
-    participants.forEach(pid => {
-      if (pid !== user.uid) {
-        sendNotification({
-          targetUserId: pid,
-          title: user.displayName || 'New Message',
-          message: `📊 Created a poll: ${pollQuestion}`,
-          image: user.photoURL || '',
-          link: `${window.location.origin}/chat/${chatId}`,
-          priority: 'high'
-        });
-      }
-    });
+    if (isOnline) {
+      // Send Push Notification
+      participants.forEach(pid => {
+        if (pid !== user.uid) {
+          sendNotification({
+            targetUserId: pid,
+            title: user.displayName || 'New Message',
+            message: `📊 Created a poll: ${pollQuestion}`,
+            image: user.photoURL || '',
+            link: `${window.location.origin}/chat/${chatId}`,
+            priority: 'high'
+          });
+        }
+      });
+    }
 
     setShowPollModal(false);
     setPollQuestion('');

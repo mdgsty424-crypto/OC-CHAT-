@@ -81,9 +81,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     
     if (user) {
       try {
-        await updateDoc(doc(db, 'users', user.uid), {
+        updateDoc(doc(db, 'users', user.uid), {
           'preferences.theme': newTheme
-        });
+        }).catch(e => console.error("Error updating theme preference:", e));
       } catch (error) {
         console.error("Error updating theme preference:", error);
       }
@@ -95,9 +95,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     
     if (user) {
       try {
-        await updateDoc(doc(db, 'users', user.uid), {
+        updateDoc(doc(db, 'users', user.uid), {
           'preferences.language': lang
-        });
+        }).catch(e => console.error("Error updating language preference:", e));
       } catch (error) {
         console.error("Error updating language preference:", error);
       }
@@ -110,9 +110,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     
     if (user) {
       try {
-        await updateDoc(doc(db, 'users', user.uid), {
+        updateDoc(doc(db, 'users', user.uid), {
           'preferences.isMuted': newMuted
-        });
+        }).catch(e => console.error("Error updating mute preference:", e));
       } catch (error) {
         console.error("Error updating mute preference:", error);
       }

@@ -64,9 +64,9 @@ export default function StoryPlayer({ stories, initialIndex = 0, onClose }: Stor
     // Increment view count
     const incrementView = async () => {
       try {
-        await updateDoc(doc(db, 'stories', currentStory.id), {
+        updateDoc(doc(db, 'stories', currentStory.id), {
           views: increment(1)
-        });
+        }).catch(e => console.error("Error incrementing view:", e));
       } catch (error) {
         console.error("Error incrementing view:", error);
       }
@@ -114,9 +114,9 @@ export default function StoryPlayer({ stories, initialIndex = 0, onClose }: Stor
     const storyRef = doc(db, 'stories', storyData.id);
 
     try {
-      await updateDoc(storyRef, {
+      updateDoc(storyRef, {
         likes: isLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid)
-      });
+      }).catch(e => console.error("Error toggling like:", e));
     } catch (error) {
       console.error("Error toggling like:", error);
     }
@@ -127,13 +127,13 @@ export default function StoryPlayer({ stories, initialIndex = 0, onClose }: Stor
     const storyRef = doc(db, 'stories', storyData.id);
 
     try {
-      await updateDoc(storyRef, {
+      updateDoc(storyRef, {
         comments: arrayUnion({
           userId: currentUser.uid,
           text: commentText,
           timestamp: new Date().toISOString()
         })
-      });
+      }).catch(e => console.error("Error adding comment:", e));
       setCommentText('');
     } catch (error) {
       console.error("Error adding comment:", error);

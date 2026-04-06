@@ -85,14 +85,14 @@ export default function Community() {
 
     setJoiningId(item.id);
     try {
-      await updateDoc(doc(db, 'groups', item.id), {
+      updateDoc(doc(db, 'groups', item.id), {
         members: arrayUnion(user.uid)
-      });
+      }).catch(e => console.error("Error joining group:", e));
       
-      await updateDoc(doc(db, 'chats', item.id), {
+      updateDoc(doc(db, 'chats', item.id), {
         participants: arrayUnion(user.uid),
         [`unreadCount.${user.uid}`]: 0
-      });
+      }).catch(e => console.error("Error updating chat participants:", e));
 
       navigate(`/chat/${item.id}`);
     } catch (error) {
@@ -105,11 +105,11 @@ export default function Community() {
   const handleStartVoiceClub = async (groupId: string) => {
     if (!user) return;
     try {
-      await updateDoc(doc(db, 'groups', groupId), {
+      updateDoc(doc(db, 'groups', groupId), {
         'voiceRoom.isActive': true,
         'voiceRoom.participants': arrayUnion(user.uid),
         'voiceRoom.startTime': new Date().toISOString()
-      });
+      }).catch(e => console.error("Error starting voice club:", e));
       navigate(`/voice/${groupId}`);
     } catch (error) {
       console.error("Error starting voice club:", error);

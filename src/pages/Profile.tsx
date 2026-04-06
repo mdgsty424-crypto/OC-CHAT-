@@ -174,10 +174,10 @@ export default function Profile() {
     if (!currentUser) return;
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      updateDoc(doc(db, 'users', currentUser.uid), {
         displayName: editName,
         bio: editBio
-      });
+      }).catch(e => console.error("Error updating profile:", e));
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -217,7 +217,7 @@ export default function Profile() {
         setIdentity(prev => ({ ...prev, signatureURL: data.url }));
       } else {
         const updateData = type === 'avatar' ? { photoURL: data.url } : { coverURL: data.url };
-        await updateDoc(doc(db, 'users', currentUser.uid), updateData);
+        updateDoc(doc(db, 'users', currentUser.uid), updateData).catch(e => console.error("Error updating photo:", e));
       }
     } catch (error) {
       console.error("Error uploading photo:", error);
@@ -232,13 +232,13 @@ export default function Profile() {
     setIsSaving(true);
     try {
       // 1. Update private identity subcollection
-      await setDoc(doc(db, 'users', currentUser.uid, 'private', 'identity'), identity);
+      setDoc(doc(db, 'users', currentUser.uid, 'private', 'identity'), identity).catch(e => console.error("Error updating identity:", e));
 
       // 2. Update public user document with public fields
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      updateDoc(doc(db, 'users', currentUser.uid), {
         sex: identity.sex,
         birthYear: identity.birthYear
-      });
+      }).catch(e => console.error("Error updating public identity:", e));
 
       setIsEditingIdentity(false);
     } catch (error) {
@@ -305,9 +305,9 @@ export default function Profile() {
     const newSettings = { ...currentSettings, [key]: !currentSettings[key as keyof typeof currentSettings] };
     
     try {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      updateDoc(doc(db, 'users', currentUser.uid), {
         securitySettings: newSettings
-      });
+      }).catch(e => console.error("Error updating security settings:", e));
     } catch (error) {
       console.error("Error updating security settings:", error);
     }
@@ -329,9 +329,9 @@ export default function Profile() {
     const newPrefs = { ...currentPrefs, [key]: newValue };
     
     try {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      updateDoc(doc(db, 'users', currentUser.uid), {
         preferences: newPrefs
-      });
+      }).catch(e => console.error("Error updating preferences:", e));
     } catch (error) {
       console.error("Error updating preferences:", error);
     }
@@ -340,10 +340,10 @@ export default function Profile() {
   const handleSetPin = async (pin: string) => {
     if (!currentUser) return;
     try {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      updateDoc(doc(db, 'users', currentUser.uid), {
         'securitySettings.pin': pin,
         'securitySettings.appLockEnabled': true
-      });
+      }).catch(e => console.error("Error setting PIN:", e));
       setSubView('main');
     } catch (error) {
       console.error("Error setting PIN:", error);
@@ -501,10 +501,10 @@ export default function Profile() {
               if (!currentUser) return;
               setIsSaving(true);
               try {
-                await updateDoc(doc(db, 'users', currentUser.uid), {
+                updateDoc(doc(db, 'users', currentUser.uid), {
                   email: editEmail,
                   phone: editPhone
-                });
+                }).catch(e => console.error("Error updating account:", e));
                 // Password change requires re-auth, so we'll just show a message for now
                 if (editPassword) {
                   alert("Password update requires re-authentication. Please use the 'Forgot Password' flow if needed.");

@@ -50,9 +50,9 @@ export default function VoiceRoom() {
           const isHost = (data.voiceRoom as any)?.hostId === user.uid || !(data.voiceRoom as any)?.hostId;
           
           if (!(data.voiceRoom as any)?.hostId) {
-            await updateDoc(groupRef, {
+            updateDoc(groupRef, {
               'voiceRoom.hostId': user.uid
-            });
+            }).catch(e => console.error("Error updating hostId:", e));
           }
 
           zp.joinRoom({

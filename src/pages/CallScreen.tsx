@@ -149,10 +149,10 @@ export default function CallScreen() {
           setCallStatus('no_answer');
           // Update Firestore to end the call
           try {
-            await updateDoc(doc(db, 'calls', callId), {
+            updateDoc(doc(db, 'calls', callId), {
               status: 'ended',
               reason: 'no_answer'
-            });
+            }).catch(e => console.error("Error updating call status to no_answer:", e));
           } catch (error) {
             console.error("Error updating call status to no_answer:", error);
           }
@@ -213,10 +213,10 @@ export default function CallScreen() {
       onLeaveRoom: async () => {
         if (callId) {
           try {
-            await updateDoc(doc(db, 'calls', callId), {
+            updateDoc(doc(db, 'calls', callId), {
               status: 'ended',
               endTime: new Date().toISOString()
-            });
+            }).catch(e => console.error("Error updating call end status:", e));
 
             // Send Call Dismiss Notification to other user
             if (id && !isGroup) {
@@ -231,7 +231,7 @@ export default function CallScreen() {
             
             // Add call history message to chat
             if (chatId) {
-              await addDoc(collection(db, 'chats', chatId, 'messages'), {
+              addDoc(collection(db, 'chats', chatId, 'messages'), {
                 chatId,
                 senderId: currentUser?.uid,
                 type: 'call_history',
@@ -239,7 +239,7 @@ export default function CallScreen() {
                 timestamp: new Date().toISOString(),
                 callType: type,
                 duration: timer
-              });
+              }).catch(e => console.error("Error adding call history:", e));
             }
           } catch (error) {
             console.error("Error ending call:", error);
