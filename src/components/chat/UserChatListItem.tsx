@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { User } from '../../types';
 import { cn } from '../../lib/utils';
 import { motion } from 'motion/react';
-import { Phone } from 'lucide-react';
+import { Phone, CheckCircle2 } from 'lucide-react';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -85,6 +85,9 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
             <div className="flex justify-between items-center mb-0.5">
               <h3 className="text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center">
                 <span className="truncate">{user.displayName}</span>
+                {user.verified && (
+                  <CheckCircle2 className="text-blue-500 fill-blue-500 ml-1 flex-shrink-0" size={16} />
+                )}
                 <Phone 
                   size={14} 
                   className={cn(

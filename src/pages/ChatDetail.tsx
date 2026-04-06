@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Message, Chat, User } from '../types';
 import { getMessages, saveMessage, initDB } from '../lib/db';
 import { useSettings } from '../hooks/useSettings';
-import { ChevronLeft, Phone, Video, MoreVertical, Smile, Paperclip, Camera, Mic, Send } from 'lucide-react';
+import { ChevronLeft, Phone, Video, MoreVertical, Smile, Paperclip, Camera, Mic, Send, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MessageBubble from '../components/chat/MessageBubble';
 import MessageInput from '../components/chat/MessageInput';
@@ -401,9 +401,14 @@ export default function ChatDetail() {
               )}
             </div>
             <div className="flex flex-col">
-              <h2 className="text-sm font-extrabold text-text truncate max-w-[120px]">
-                {chat?.type === 'direct' ? (otherUser?.displayName || 'Loading...') : chat?.name}
-              </h2>
+              <div className="flex items-center gap-1">
+                <h2 className="text-sm font-extrabold text-text truncate max-w-[120px]">
+                  {chat?.type === 'direct' ? (otherUser?.displayName || 'Loading...') : chat?.name}
+                </h2>
+                {chat?.type === 'direct' && otherUser?.verified && (
+                  <CheckCircle2 className="text-blue-500 fill-blue-500" size={14} />
+                )}
+              </div>
               <span className="text-[10px] font-medium text-muted uppercase tracking-wider">
                 {isOtherTyping ? (
                   <span className="text-primary animate-pulse">Typing...</span>

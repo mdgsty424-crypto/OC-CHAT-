@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { initDB } from '../../lib/db';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../../lib/utils';
-import { Check, CheckCheck, Archive, BellOff, Users, Megaphone, Phone } from 'lucide-react';
+import { Check, CheckCheck, Archive, BellOff, Users, Megaphone, Phone, CheckCircle2 } from 'lucide-react';
 import { motion, useMotionValue, useTransform } from 'motion/react';
 
 interface ChatListItemProps {
@@ -122,6 +122,9 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                 ) : (
                   <>
                     <span className="truncate">{chatName}</span>
+                    {chat.type === 'direct' && otherUser?.verified && (
+                      <CheckCircle2 className="text-blue-500 fill-blue-500 ml-1 flex-shrink-0" size={16} />
+                    )}
                     {chat.type === 'direct' && otherUser && (
                       <Phone 
                         size={14} 
