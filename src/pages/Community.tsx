@@ -178,7 +178,7 @@ export default function Community() {
               key={group.id}
               whileHover={{ y: -5 }}
               onClick={() => navigate(`/voice/${group.id}`)}
-              className="flex-shrink-0 w-40 bg-surface rounded-3xl p-4 border border-white/20 cursor-pointer group"
+              className="flex-shrink-0 w-40 bg-surface rounded-3xl p-4 border border-white/20 cursor-pointer group card-3d"
             >
               <div className="relative mb-3">
                 <img src={group.photo} className="w-full h-24 rounded-2xl object-cover" alt="" />
@@ -199,7 +199,7 @@ export default function Community() {
                     </div>
                   ))}
                 </div>
-                <span className="text-[10px] font-bold text-muted">+{group.voiceRoom?.participants.length || 0}</span>
+                <span className="text-[10px] font-extrabold text-muted">+{group.voiceRoom?.participants.length || 0}</span>
               </div>
             </motion.div>
           ))}
@@ -210,7 +210,7 @@ export default function Community() {
               const myGroup = items.find(g => g.members?.includes(user?.uid || ''));
               if (myGroup) handleStartVoiceClub(myGroup.id);
             }}
-            className="flex-shrink-0 w-40 bg-surface border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-surface/30 transition-all group"
+            className="flex-shrink-0 w-40 bg-surface border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-surface/30 transition-all group card-3d"
           >
             <div className="w-10 h-10 bg-background rounded-full flex items-center justify-center text-muted group-hover:text-primary transition-colors">
               <Plus size={24} />
@@ -298,15 +298,15 @@ export default function Community() {
             <div className="w-20 h-20 bg-muted/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <Search size={32} className="text-muted" />
             </div>
-            <p className="text-muted text-sm font-bold">No {activeTab}s found. Be the first to create one!</p>
+            <p className="text-muted text-sm font-extrabold">No {activeTab}s found. Be the first to create one!</p>
           </div>
         )}
 
         {/* Create New */}
         <div className="px-6 py-8">
           {isCreating ? (
-            <div className="bg-surface p-6 rounded-3xl border border-border space-y-4">
-              <h3 className="font-bold text-lg">Create New {activeTab === 'group' ? 'Group' : 'Channel'}</h3>
+            <div className="bg-surface p-6 rounded-3xl border border-border space-y-4 card-3d">
+              <h3 className="font-extrabold text-lg">Create New {activeTab === 'group' ? 'Group' : 'Channel'}</h3>
               <input
                 type="text"
                 placeholder="Enter name..."
@@ -317,13 +317,13 @@ export default function Community() {
               <div className="flex gap-2">
                 <button 
                   onClick={handleCreateGroup}
-                  className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:opacity-90 transition-all"
+                  className="flex-1 py-3 bg-primary text-white rounded-xl font-extrabold hover:opacity-90 transition-all"
                 >
                   Create
                 </button>
                 <button 
                   onClick={() => setIsCreating(false)}
-                  className="flex-1 py-3 bg-border text-text rounded-xl font-bold hover:bg-border/80 transition-all"
+                  className="flex-1 py-3 bg-border text-text rounded-xl font-extrabold hover:bg-border/80 transition-all"
                 >
                   Cancel
                 </button>
@@ -335,7 +335,7 @@ export default function Community() {
               className="w-full py-4 border-2 border-dashed border-border rounded-3xl flex items-center justify-center gap-3 text-muted hover:border-primary hover:text-primary transition-all group"
             >
               <Plus size={20} className="group-hover:scale-110 transition-transform" />
-              <span className="font-bold">Create New {activeTab === 'group' ? 'Group' : 'Channel'}</span>
+              <span className="font-extrabold">Create New {activeTab === 'group' ? 'Group' : 'Channel'}</span>
             </button>
           )}
         </div>

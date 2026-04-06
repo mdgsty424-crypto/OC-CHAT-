@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Message } from '../../types';
 import { cn } from '../../lib/utils';
+import MessageInteractionMenu from './MessageInteractionMenu';
 import { format, isToday, isYesterday } from 'date-fns';
 import { 
   Check, 
@@ -87,7 +88,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
 
   if (showPlayer && isYouTube && videoId) {
     return (
-      <div className="mt-2 rounded-xl overflow-hidden border border-border shadow-sm bg-black aspect-video relative">
+      <div className="mt-2 rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black aspect-video relative">
         <iframe
           src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
           className="w-full h-full"
@@ -110,8 +111,8 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
   return (
     <div 
       className={cn(
-        "mt-2 rounded-2xl overflow-hidden border shadow-sm transition-all hover:bg-opacity-95 cursor-pointer max-w-[300px] group",
-        isMe ? "bg-white/10 border-white/20 text-white" : "bg-surface border-border text-text"
+        "mt-2 rounded-3xl overflow-hidden border shadow-2xl transition-all hover:bg-opacity-95 cursor-pointer max-w-[300px] group backdrop-blur-md",
+        isMe ? "bg-white/10 border-white/20 text-white" : "bg-surface/80 border-white/10 text-text"
       )} 
       onClick={() => {
         if (isYouTube || isFacebook) {
@@ -146,12 +147,12 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
           </span>
         </div>
       )}
-      <div className="p-3 space-y-1 bg-inherit">
-        <h4 className="text-[11px] font-bold line-clamp-2 leading-snug">
+      <div className="p-4 space-y-1 bg-inherit">
+        <h4 className="text-[12px] font-extrabold line-clamp-2 leading-snug">
           {preview.title}
         </h4>
         {preview.description && (
-          <p className="text-[10px] opacity-70 line-clamp-2 leading-tight">
+          <p className="text-[11px] opacity-70 line-clamp-2 leading-tight">
             {preview.description}
           </p>
         )}
@@ -177,6 +178,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const { user } = useAuth();
   const [showReactions, setShowReactions] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [showInteractionMenu, setShowInteractionMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -399,6 +401,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           className="relative overflow-visible"
         >
           <div
+            onClick={() => setShowInteractionMenu(!showInteractionMenu)}
             onMouseDown={handlePressStart}
             onMouseUp={handlePressEnd}
             onMouseLeave={handlePressEnd}
@@ -409,12 +412,28 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               "relative rounded-[20px] transition-all cursor-pointer select-none active:scale-[0.98]",
               message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
                 isMe 
-                  ? "bg-primary text-white rounded-tr-[4px]" 
-                  : "bg-surface text-text rounded-tl-[4px]"
+                  ? "gradient-primary text-white rounded-tr-[4px] bubble-3d-lifted" 
+                  : "bg-surface text-text rounded-tl-[4px] bubble-3d"
               ),
-              (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5 shadow-sm"
+              (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5"
             )}
           >
+            {showInteractionMenu && (
+              <MessageInteractionMenu 
+                onClose={() => setShowInteractionMenu(false)}
+                onEmojiClick={(emoji) => {
+                  toggleReaction(emoji);
+                  setShowInteractionMenu(false);
+                }}
+                onAction={(action) => {
+                  if (action === 'delete') handleDelete();
+                  if (action === 'copy') handleCopy();
+                  if (action === 'reply' && onReply) onReply(message);
+                  if (action === 'forward' && onForward) onForward(message);
+                  setShowInteractionMenu(false);
+                }}
+              />
+            )}
           {/* Self-destruct Indicator */}
         {message.isSelfDestruct && (
           <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-sm">
@@ -456,7 +475,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Text Message */}
         {message.type === 'text' && (
           <div className="space-y-1">
-            <p className="text-[14px] leading-tight font-normal">
+            <p className="text-[14px] leading-tight font-extrabold">
               {showTranslation ? message.translatedText : message.text}
             </p>
             {/* Link Previews */}

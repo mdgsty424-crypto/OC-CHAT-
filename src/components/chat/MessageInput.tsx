@@ -691,7 +691,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
           >
             <div className="flex items-center gap-3 border-l-2 border-primary pl-3">
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-primary">Replying to {replyingTo.senderId === user?.uid ? 'yourself' : 'Message'}</span>
+                <span className="text-[10px] font-extrabold text-primary">Replying to {replyingTo.senderId === user?.uid ? 'yourself' : 'Message'}</span>
                 <p className="text-xs text-muted truncate max-w-[250px]">
                   {replyingTo.text || (replyingTo.type === 'image' || replyingTo.fileType === 'image' ? 'Photo' : replyingTo.type === 'video' || replyingTo.fileType === 'video' ? 'Video' : replyingTo.type === 'voice' || replyingTo.messageType === 'voice' ? 'Voice Message' : 'Attachment')}
                 </p>
@@ -717,19 +717,19 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               <div className="w-12 h-12 bg-green-500/10 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <MapPin size={22} />
               </div>
-              <span className="text-[10px] font-bold text-muted uppercase">Location</span>
+              <span className="text-[10px] font-extrabold text-muted uppercase">Location</span>
             </button>
             <button onClick={() => setShowPollModal(true)} className="flex flex-col items-center gap-2 group">
               <div className="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <BarChart2 size={22} />
               </div>
-              <span className="text-[10px] font-bold text-muted uppercase">Poll</span>
+              <span className="text-[10px] font-extrabold text-muted uppercase">Poll</span>
             </button>
             <button className="flex flex-col items-center gap-2 group">
               <div className="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <UserPlus size={22} />
               </div>
-              <span className="text-[10px] font-bold text-muted uppercase">Contact</span>
+              <span className="text-[10px] font-extrabold text-muted uppercase">Contact</span>
             </button>
             <button 
               onClick={() => setIsTranslationEnabled(!isTranslationEnabled)}
@@ -738,7 +738,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform", isTranslationEnabled ? "bg-primary text-white" : "bg-primary/10 text-primary")}>
                 <Languages size={22} />
               </div>
-              <span className="text-[10px] font-bold text-muted uppercase">Translate</span>
+              <span className="text-[10px] font-extrabold text-muted uppercase">Translate</span>
             </button>
             <button 
               onClick={() => setShowMoneyModal(true)}
@@ -747,7 +747,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               <div className="w-12 h-12 bg-green-500/10 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Wallet size={22} />
               </div>
-              <span className="text-[10px] font-bold text-muted uppercase">Pay</span>
+              <span className="text-[10px] font-extrabold text-muted uppercase">Pay</span>
             </button>
           </motion.div>
         )}

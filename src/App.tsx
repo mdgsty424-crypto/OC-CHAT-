@@ -7,6 +7,8 @@ import { useAppAssets } from './hooks/useAppAssets';
 import { useZegoStore } from './hooks/useZegoStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from './lib/firebase';
 import Home from './pages/Home';
 import Community from './pages/Community';
 import Discovery from './pages/Discovery';
@@ -22,7 +24,6 @@ import TopBar from './components/layout/TopBar';
 import IncomingCall from './components/common/IncomingCall';
 import OutgoingCall from './components/common/OutgoingCall';
 import ZegoCallInvitation from './components/common/ZegoCallInvitation';
-import SplashScreen from './pages/SplashScreen';
 import Login from './pages/Login';
 import MeetingRoom from './pages/MeetingRoom';
 import VoiceRoom from './pages/VoiceRoom';
@@ -58,11 +59,11 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
       <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
         <WifiOff className="w-8 h-8 text-red-600" />
       </div>
-      <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+      <h2 className="text-xl font-extrabold mb-2">Something went wrong</h2>
       <p className="text-muted-foreground mb-6 max-w-xs">{error.message}</p>
       <button
         onClick={resetErrorBoundary}
-        className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-opacity"
+        className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-extrabold hover:opacity-90 transition-opacity"
       >
         Try again
       </button>
@@ -76,7 +77,6 @@ import PinLock from './components/common/PinLock';
 function AppRoutes() {
   const { user, loading } = useAuth();
   const { theme } = useSettings();
-  const [showSplash, setShowSplash] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
   const { setIsAudioUnlocked, setAudioContext } = useZegoStore();
   const assets = useAppAssets();
@@ -102,7 +102,7 @@ function AppRoutes() {
       console.log("Audio Context & Vibration unlocked via user gesture");
       
       // Pre-play a silent sound if needed to fully unlock
-      const silentAudio = new Audio();
+      const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
       silentAudio.play().catch(() => {});
 
       window.removeEventListener('click', handleFirstInteraction);
@@ -132,9 +132,12 @@ function AppRoutes() {
     });
   }, [assets]);
 
+  const permissionsRequested = useRef(false);
+
   useEffect(() => {
     // 2. Browser Permission Prompts on Login
-    if (user && !loading) {
+    if (user && !loading && !permissionsRequested.current) {
+      permissionsRequested.current = true;
       const requestPermissions = async () => {
         try {
           // Notification Permission
@@ -147,6 +150,29 @@ function AppRoutes() {
           stream.getTracks().forEach(track => track.stop()); // Stop immediately after permission granted
           
           console.log("Permissions granted successfully");
+
+          // Location tracking
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+              try {
+                // Simple reverse geocoding using a free API (or just store lat/lng)
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+                const data = await res.json();
+                const locationString = data.address.city || data.address.town || data.address.village || data.address.country || `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
+                
+                await updateDoc(doc(db, 'users', user.uid), {
+                  location: locationString
+                });
+              } catch (e) {
+                console.error("Reverse geocoding failed", e);
+                await updateDoc(doc(db, 'users', user.uid), {
+                  location: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`
+                });
+              }
+            }, (err) => {
+              console.warn("Location permission denied", err);
+            });
+          }
         } catch (error) {
           console.warn("Permissions denied or failed:", error);
         }
@@ -184,22 +210,12 @@ function AppRoutes() {
     }
   }, [user?.securitySettings?.privacyModeEnabled]);
 
-  useEffect(() => {
-    // If auth is resolved and user is logged in, hide splash immediately
-    if (!loading && user) {
-      setShowSplash(false);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 2000); // 2 seconds splash as requested
-
-    return () => clearTimeout(timer);
-  }, [loading, user]);
-
-  if (showSplash || loading) {
-    return <SplashScreen />;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!user) {

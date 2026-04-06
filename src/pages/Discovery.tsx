@@ -124,7 +124,7 @@ export default function Discovery() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ x: 500, opacity: 0, rotate: 20 }}
-                  className="w-full aspect-[3/4] bg-surface rounded-[2rem] border border-border overflow-hidden relative"
+                  className="w-full aspect-[3/4] bg-surface rounded-[2rem] border border-border overflow-hidden relative card-3d"
                 >
                   <img 
                     src={swipeUsers[currentIndex].photoURL || `https://picsum.photos/seed/${swipeUsers[currentIndex].uid}/600/800`}
@@ -146,7 +146,7 @@ export default function Discovery() {
                     </p>
                     <div className="flex gap-2">
                       {['Travel', 'Music', 'Coffee'].map(tag => (
-                        <span key={tag} className="px-3 py-1 bg-background/20 rounded-full text-[10px] font-bold">
+                        <span key={tag} className="px-3 py-1 bg-background/20 rounded-full text-[10px] font-extrabold">
                           {tag}
                         </span>
                       ))}
@@ -158,11 +158,11 @@ export default function Discovery() {
                   <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                     <Users size={40} className="text-primary" />
                   </div>
-                  <h3 className="text-xl font-bold">No more people nearby</h3>
+                  <h3 className="text-xl font-extrabold">No more people nearby</h3>
                   <p className="text-muted text-sm">Try expanding your search radius</p>
                   <button 
                     onClick={() => setCurrentIndex(0)}
-                    className="px-6 py-2 bg-primary text-white rounded-full font-bold"
+                    className="px-6 py-2 bg-primary text-white rounded-full font-extrabold"
                   >
                     Reset
                   </button>
@@ -197,7 +197,7 @@ export default function Discovery() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-surface rounded-3xl p-3 border border-border transition-all group"
+                className="bg-surface rounded-3xl p-3 border border-border transition-all group card-3d"
               >
                 <div className="relative aspect-square rounded-2xl overflow-hidden mb-3">
                   <img 
@@ -206,13 +206,13 @@ export default function Discovery() {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-2 right-2 px-2 py-1 bg-black/50 rounded-full text-[8px] font-bold text-white flex items-center gap-1">
+                  <div className="absolute top-2 right-2 px-2 py-1 bg-black/50 rounded-full text-[8px] font-extrabold text-white flex items-center gap-1">
                     <MapPin size={8} /> {Math.floor(Math.random() * 10) + 1}km
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-xs font-bold truncate max-w-[80px]">{user.displayName}</h4>
+                    <h4 className="text-xs font-extrabold truncate max-w-[80px]">{user.displayName}</h4>
                     <p className="text-[10px] text-muted">Active 5m ago</p>
                   </div>
                   <button className="p-2 bg-primary/10 text-primary rounded-full hover:bg-primary hover:text-white transition-colors">
