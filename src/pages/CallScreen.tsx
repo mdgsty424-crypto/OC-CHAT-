@@ -337,80 +337,87 @@ export default function CallScreen() {
 
       <div 
         ref={containerRef} 
-        className="w-full h-full"
+        className={cn("w-full h-full", (callStatus === 'calling' || callStatus === 'ringing' || callStatus === 'no_answer' || callStatus === 'connected') && "hidden")}
         id="call-container"
       />
 
       {/* Calling/Ringing Overlay */}
       <AnimatePresence>
-        {(callStatus === 'calling' || callStatus === 'ringing' || callStatus === 'no_answer') && isCaller && (
+        {(callStatus === 'calling' || callStatus === 'ringing' || callStatus === 'no_answer' || callStatus === 'connected') && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-6"
+            className="absolute inset-0 z-[60] flex flex-col items-center justify-between p-6 pt-20 pb-12"
           >
             {/* Background Blur Effect */}
-            <div className="absolute inset-0 opacity-30">
+            <div className="absolute inset-0 -z-10">
               <img 
                 src={otherUser?.photoURL || `https://ui-avatars.com/api/?name=${otherUser?.displayName}`} 
                 alt="background"
-                className="w-full h-full object-cover blur-3xl scale-110"
+                className="w-full h-full object-cover"
+                style={{ filter: 'blur(40px) brightness(0.6)' }}
+                referrerPolicy="no-referrer"
               />
+              <div className="absolute inset-0 bg-black/40" />
             </div>
 
-            <div className="relative z-10 flex flex-col items-center gap-8">
-              <motion.div
-                animate={{ 
-                  scale: [1, 1.05, 1],
-                  boxShadow: [
-                    "0 0 0 0px rgba(99, 102, 241, 0)",
-                    "0 0 0 20px rgba(99, 102, 241, 0.2)",
-                    "0 0 0 0px rgba(99, 102, 241, 0)"
-                  ]
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="relative"
-              >
+            {/* Profile Image & Details */}
+            <div className="flex flex-col items-center gap-6 z-10 mt-20">
+              <div className="relative">
                 <img 
                   src={otherUser?.photoURL || `https://ui-avatars.com/api/?name=${otherUser?.displayName}`} 
                   alt={otherUser?.displayName}
-                  className="w-32 h-32 rounded-full border-4 border-white object-cover shadow-2xl"
+                  className="w-32 h-32 rounded-full border border-white/30 object-cover shadow-2xl"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center border-4 border-black">
-                  {type === 'video' ? <Video className="w-5 h-5 text-white" /> : <Phone className="w-5 h-5 text-white" />}
-                </div>
-              </motion.div>
-
+                {otherUser?.verified && (
+                  <div className="absolute bottom-1 right-1 bg-blue-500 rounded-full p-1.5 border-2 border-black">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                )}
+              </div>
               <div className="text-center">
-                <h2 className="text-2xl font-black text-white mb-2 tracking-tight">
+                <h2 className="text-4xl font-bold text-white tracking-tight">
                   {otherUser?.displayName || 'User'}
                 </h2>
-                <div className="flex items-center justify-center gap-2">
-                  <span className={cn(
-                    "text-lg font-bold tracking-widest uppercase transition-all duration-500",
-                    !isOnline ? "text-yellow-500 animate-pulse" :
-                    callStatus === 'no_answer' ? "text-red-500" : "text-indigo-400 animate-pulse"
-                  )}>
-                    {!isOnline && 'Waiting for network...'}
-                    {isOnline && callStatus === 'calling' && 'Calling...'}
-                    {isOnline && callStatus === 'ringing' && 'Ringing...'}
-                    {isOnline && callStatus === 'no_answer' && 'No Answer'}
-                  </span>
-                </div>
+                <p className="text-white/80 text-xl mt-2 font-medium">
+                  {callStatus === 'connected' ? formatTime(timer) : 
+                   !isOnline ? 'Waiting for network...' : 
+                   callStatus === 'calling' ? 'Calling...' : 
+                   callStatus === 'ringing' ? 'Ringing...' : 'No Answer'}
+                </p>
               </div>
+            </div>
 
-              {callStatus !== 'no_answer' && (
-                <div className="mt-12">
-                  <button
-                    onClick={() => zpRef.current?.hangUp()}
-                    className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors active:scale-90"
-                  >
-                    <PhoneOff className="w-8 h-8 text-white" />
-                  </button>
-                </div>
-              )}
+            {/* Bottom Controls */}
+            <div className="flex flex-col items-center gap-8 w-full max-w-sm z-10 mb-12">
+              <div className="grid grid-cols-3 gap-8 w-full">
+                <button 
+                  onClick={() => zpRef.current?.muteMicrophone()}
+                  className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30"
+                >
+                  <span className="text-2xl">🔇</span>
+                </button>
+                <button 
+                  onClick={() => zpRef.current?.muteCamera()}
+                  className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30"
+                >
+                  <span className="text-2xl">📷</span>
+                </button>
+                <button 
+                  onClick={() => zpRef.current?.setSpeaker(!zpRef.current?.isSpeakerOn)}
+                  className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30"
+                >
+                  <span className="text-2xl">🔊</span>
+                </button>
+              </div>
+              <button
+                onClick={() => zpRef.current?.hangUp()}
+                className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors active:scale-90"
+              >
+                <Phone className="w-10 h-10 text-white rotate-[135deg]" />
+              </button>
             </div>
           </motion.div>
         )}
