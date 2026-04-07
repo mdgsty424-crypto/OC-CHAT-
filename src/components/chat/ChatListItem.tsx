@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Chat, User } from '../../types';
@@ -14,10 +14,13 @@ import { useGlobalSettings } from '../../hooks/useGlobalSettings';
 
 interface ChatListItemProps {
   chat: Chat;
+  isSelected?: boolean;
+  onSelect?: (chatId: string) => void;
   key?: any;
 }
 
-export default function ChatListItem({ chat }: ChatListItemProps) {
+export default function ChatListItem({ chat, isSelected, onSelect }: ChatListItemProps) {
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { settings: globalSettings } = useGlobalSettings();
   const [otherUser, setOtherUser] = useState<User | null>(null);
@@ -25,6 +28,19 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-100, 0], [1, 0]);
   const scale = useTransform(x, [-100, 0], [1, 0.5]);
+
+  // Long press state
+  const timer = useRef<NodeJS.Timeout | null>(null);
+
+  const startPress = () => {
+    timer.current = setTimeout(() => {
+      onSelect?.(chat.id);
+    }, 500);
+  };
+
+  const endPress = () => {
+    if (timer.current) clearTimeout(timer.current);
+  };
 
   const otherId = chat.type === 'direct' ? chat.participants?.find(id => id !== currentUser?.uid) : null;
 
@@ -69,7 +85,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
   const isTyping = chat.typing && Object.values(chat.typing).some(t => t);
 
   return (
-    <div className="relative overflow-hidden bg-background mb-1">
+    <div className={cn("relative overflow-hidden bg-background mb-1 transition-colors", isSelected && "bg-primary/10")}>
       {/* Swipe Actions (Background) */}
       <div className="absolute inset-0 flex justify-end items-center px-6 gap-4 bg-surface">
         <motion.div style={{ opacity, scale }} className="flex items-center gap-4">
@@ -87,9 +103,21 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
         dragConstraints={{ left: -150, right: 0 }}
         style={{ x }}
         className="relative z-10 bg-background"
+        onTouchStart={startPress}
+        onTouchEnd={endPress}
+        onMouseDown={startPress}
+        onMouseUp={endPress}
       >
-        <Link
-          to={`/chat/${chat.id}`}
+        <div
+          onClick={(e) => {
+            if (isSelected) {
+              e.preventDefault();
+              onSelect?.(chat.id);
+            } else {
+              // Navigate to chat
+              navigate(`/chat/${chat.id}`);
+            }
+          }}
           className="flex items-center gap-4 px-6 py-3 hover:bg-surface transition-all active:scale-[0.98] group"
         >
           {/* Avatar */}
@@ -111,7 +139,12 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                 />
               )}
             </div>
-            {(otherUser?.online || chat.type !== 'direct') && (
+            {isSelected && (
+              <div className="absolute inset-0 bg-primary/50 rounded-full flex items-center justify-center">
+                <Check className="text-white" size={20} />
+              </div>
+            )}
+            {(otherUser?.online || chat.type !== 'direct') && !isSelected && (
               <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background rounded-full"></div>
             )}
           </div>
@@ -169,7 +202,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
               )}
             </div>
           </div>
-        </Link>
+        </div>
       </motion.div>
     </div>
   );

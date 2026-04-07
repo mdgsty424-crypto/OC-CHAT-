@@ -6,7 +6,7 @@ import { doc, updateDoc, getDoc, addDoc, collection, onSnapshot } from 'firebase
 import { db } from '../lib/firebase';
 import { User, CallSession } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wand2, Sparkles, Sun, Ghost, Palette, X, Check, Sliders, Phone, PhoneOff, Video } from 'lucide-react';
+import { Wand2, Sparkles, Sun, Ghost, Palette, X, Check, Sliders, Phone, PhoneOff, Video, MoreVertical, Volume2, Mic, MicOff, UserPlus, RefreshCw, CameraOff } from 'lucide-react';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { cn } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
@@ -302,262 +302,127 @@ export default function CallScreen() {
 
   const filterStyle = COLOR_FILTERS.find(f => f.id === activeFilter)?.filter || 'none';
 
+  const isVideo = type === 'video';
+  const isConnected = callStatus === 'connected';
+
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [isCameraOn, setIsCameraOn] = useState(true);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
+
   return (
-    <div className="w-screen h-screen bg-black relative overflow-hidden">
-      <style>
-        {`
-          #call-container video {
-            filter: ${filterStyle};
-            transition: filter 0.3s ease;
-          }
-          .effects-scroll::-webkit-scrollbar {
-            display: none;
-          }
-          .effects-scroll {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-          }
-        `}
-      </style>
-
-      {/* Custom Header Overlay */}
-      {!isGroup && otherUser && (
-        <div className="absolute top-0 left-0 w-full p-4 flex items-center justify-between z-50 bg-gradient-to-b from-black/60 to-transparent">
-          <div className="flex items-center gap-3">
-            <img 
-              src={otherUser.photoURL || `https://ui-avatars.com/api/?name=${otherUser.displayName}`} 
-              alt={otherUser.displayName}
-              className="w-10 h-10 rounded-full border-2 border-white"
-              referrerPolicy="no-referrer"
-            />
-            <span className="text-white font-bold text-lg">{otherUser.displayName}</span>
-          </div>
-          <div className="text-white font-mono text-lg bg-black/30 px-3 py-1 rounded-full">
-            {formatTime(timer)}
-          </div>
-        </div>
-      )}
-
+    <div className="w-screen h-screen bg-[#0b141a] relative overflow-hidden">
+      {/* Zego Container for Video Call */}
       <div 
         ref={containerRef} 
-        className={cn("w-full h-full", (callStatus === 'calling' || callStatus === 'ringing' || callStatus === 'no_answer' || callStatus === 'connected') && "hidden")}
+        className={cn("w-full h-full", !isVideo && "hidden")}
         id="call-container"
       />
 
-      {/* Calling/Ringing Overlay */}
-      <AnimatePresence>
-        {(callStatus === 'calling' || callStatus === 'ringing' || callStatus === 'no_answer' || callStatus === 'connected') && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[60] flex flex-col items-center justify-between p-6 pt-20 pb-12"
-          >
-            {/* Background Blur Effect */}
-            <div className="absolute inset-0 -z-10">
+      {/* Audio Call Background (WhatsApp Style) */}
+      {!isVideo && (
+        <div className="absolute inset-0 z-0 bg-[#0b141a]">
+          <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/stardust.png")' }} />
+        </div>
+      )}
+
+      {/* Overlay UI */}
+      <div className="absolute inset-0 z-10 flex flex-col justify-between p-6">
+        {/* Top Controls */}
+        <div className="flex justify-between items-center text-white mt-4">
+          <button className="p-2 bg-white/10 rounded-full"><MoreVertical /></button>
+          
+          {/* User Info (Video Call) */}
+          {isVideo && otherUser && (
+            <div className="flex items-center gap-2 bg-black/30 px-3 py-1 rounded-full">
+              <span className="font-bold">{otherUser.displayName}</span>
+              {otherUser.verified && <VerifiedBadge size={globalSettings.badgeSize} />}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <button className="p-2 bg-white/10 rounded-full"><UserPlus /></button>
+            {isVideo && (
+              <button 
+                className="p-2 bg-white/10 rounded-full" 
+                onClick={() => {
+                  const newState = !isFrontCamera;
+                  setIsFrontCamera(newState);
+                  zpRef.current?.useFrontFacingCamera(newState);
+                }}
+              >
+                <RefreshCw />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Center UI (Audio Call) */}
+        {!isVideo && (
+          <div className="flex flex-col items-center justify-center flex-grow gap-6">
+            <div className="relative">
               <img 
                 src={otherUser?.photoURL || `https://ui-avatars.com/api/?name=${otherUser?.displayName}`} 
-                alt="background"
-                className="w-full h-full object-cover"
-                style={{ filter: 'blur(40px) brightness(0.6)' }}
+                alt={otherUser?.displayName}
+                className="w-40 h-40 rounded-full border-4 border-white/10 shadow-[0_0_30px_rgba(255,255,255,0.2)]"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-0 bg-black/40" />
             </div>
-
-            {/* Profile Image & Details */}
-            <div className="flex flex-col items-center gap-6 z-10 mt-20">
-              <div className="relative">
-                <img 
-                  src={otherUser?.photoURL || `https://ui-avatars.com/api/?name=${otherUser?.displayName}`} 
-                  alt={otherUser?.displayName}
-                  className="w-32 h-32 rounded-full border border-white/30 object-cover shadow-2xl"
-                  referrerPolicy="no-referrer"
-                />
-                {otherUser?.verified && (
-                  <VerifiedBadge className="absolute bottom-1 right-1" size={globalSettings.badgeSize} />
-                )}
-              </div>
-              <div className="text-center">
-                <h2 className="text-4xl font-bold text-white tracking-tight">
-                  {otherUser?.displayName || 'User'}
-                </h2>
-                <p className="text-white/80 text-xl mt-2 font-medium">
-                  {callStatus === 'connected' ? formatTime(timer) : 
-                   !isOnline ? 'Waiting for network...' : 
-                   callStatus === 'calling' ? 'Calling...' : 
-                   callStatus === 'ringing' ? 'Ringing...' : 'No Answer'}
-                </p>
-              </div>
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-white flex items-center justify-center gap-2">
+                {otherUser?.displayName || 'User'}
+                {otherUser?.verified && <VerifiedBadge size={globalSettings.badgeSize} />}
+              </h2>
+              <p className="text-white/70 text-lg mt-1 font-medium">
+                {callStatus === 'connected' ? formatTime(timer) : 'Calling...'}
+              </p>
             </div>
-
-            {/* Bottom Controls */}
-            <div className="flex flex-col items-center gap-8 w-full max-w-sm z-10 mb-12">
-              <div className="grid grid-cols-3 gap-8 w-full">
-                <button 
-                  onClick={() => zpRef.current?.muteMicrophone()}
-                  className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30"
-                >
-                  <span className="text-2xl">🔇</span>
-                </button>
-                <button 
-                  onClick={() => zpRef.current?.muteCamera()}
-                  className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30"
-                >
-                  <span className="text-2xl">📷</span>
-                </button>
-                <button 
-                  onClick={() => zpRef.current?.setSpeaker(!zpRef.current?.isSpeakerOn)}
-                  className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30"
-                >
-                  <span className="text-2xl">🔊</span>
-                </button>
-              </div>
-              <button
-                onClick={() => zpRef.current?.hangUp()}
-                className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors active:scale-90"
-              >
-                <Phone className="w-10 h-10 text-white rotate-[135deg]" />
-              </button>
-            </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
 
-      {/* Magic Wand Button */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setShowEffects(!showEffects)}
-        className={`absolute bottom-24 right-6 w-14 h-14 rounded-full flex items-center justify-center z-50 shadow-lg transition-colors ${
-          showEffects ? 'bg-indigo-600 text-white' : 'bg-white/20 backdrop-blur-md text-white border border-white/30'
-        }`}
-      >
-        <Wand2 className="w-7 h-7" />
-      </motion.button>
-
-      {/* Effects Menu */}
-      <AnimatePresence>
-        {showEffects && (
-          <motion.div
-            initial={{ y: 300, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 300, opacity: 0 }}
-            className="absolute bottom-0 left-0 w-full bg-black/80 backdrop-blur-xl border-t border-white/10 z-50 p-6 pb-10"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => setActiveTab('beauty')}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    activeTab === 'beauty' ? 'bg-white text-black' : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  Beauty
-                </button>
-                <button 
-                  onClick={() => setActiveTab('filters')}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    activeTab === 'filters' ? 'bg-white text-black' : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  Filters
-                </button>
-                <button 
-                  onClick={() => setActiveTab('advanced')}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    activeTab === 'advanced' ? 'bg-white text-black' : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  Advanced
-                </button>
-              </div>
-              <button onClick={() => setShowEffects(false)} className="text-white/60 hover:text-white">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="overflow-x-auto flex gap-6 pb-2 effects-scroll">
-              {activeTab === 'beauty' && BEAUTY_EFFECTS.map((effect) => (
-                <div key={effect.id} className="flex flex-col items-center gap-3 min-w-[80px]">
-                  <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl">
-                    {effect.icon}
-                  </div>
-                  <span className="text-xs text-white/80 whitespace-nowrap">{effect.label}</span>
-                  <input 
-                    type="range" 
-                    min={effect.min} 
-                    max={effect.max} 
-                    value={beautyParams[effect.id as keyof typeof beautyParams]}
-                    onChange={(e) => setBeautyParams(prev => ({ ...prev, [effect.id]: parseInt(e.target.value) }))}
-                    className="w-20 accent-indigo-500"
-                  />
-                  <span className="text-[10px] text-white/40">{beautyParams[effect.id as keyof typeof beautyParams]}%</span>
-                </div>
-              ))}
-
-              {activeTab === 'filters' && COLOR_FILTERS.map((filter) => (
-                <button
-                  key={filter.id}
-                  onClick={() => setActiveFilter(filter.id)}
-                  className="flex flex-col items-center gap-3 min-w-[80px]"
-                >
-                  <div 
-                    className={`w-14 h-14 rounded-xl border-2 transition-all overflow-hidden ${
-                      activeFilter === filter.id ? 'border-indigo-500 scale-110' : 'border-white/10'
-                    }`}
-                    style={{ filter: filter.filter }}
-                  >
-                    <img 
-                      src="https://picsum.photos/seed/filter-preview/100/100" 
-                      alt={filter.label}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className={`text-xs whitespace-nowrap ${activeFilter === filter.id ? 'text-indigo-400 font-bold' : 'text-white/60'}`}>
-                    {filter.label}
-                  </span>
-                </button>
-              ))}
-
-              {activeTab === 'advanced' && (
-                <>
-                  <button
-                    onClick={() => setLowLightBoost(!lowLightBoost)}
-                    className="flex flex-col items-center gap-3 min-w-[80px]"
-                  >
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-colors ${
-                      lowLightBoost ? 'bg-yellow-500 text-black' : 'bg-white/10 text-white'
-                    }`}>
-                      <Sun className="w-6 h-6" />
-                    </div>
-                    <span className="text-xs text-white/80 whitespace-nowrap">Low Light</span>
-                    <div className={`w-8 h-4 rounded-full relative transition-colors ${lowLightBoost ? 'bg-indigo-500' : 'bg-white/20'}`}>
-                      <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${lowLightBoost ? 'left-4.5' : 'left-0.5'}`} />
-                    </div>
-                  </button>
-
-                  <div className="flex flex-col items-center gap-3 min-w-[80px] opacity-50">
-                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl">
-                      👁️
-                    </div>
-                    <span className="text-xs text-white/80 whitespace-nowrap">Big Eyes</span>
-                    <span className="text-[10px] text-indigo-400">Pro Only</span>
-                  </div>
-
-                  <div className="flex flex-col items-center gap-3 min-w-[80px] opacity-50">
-                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl">
-                      👤
-                    </div>
-                    <span className="text-xs text-white/80 whitespace-nowrap">Slim Face</span>
-                    <span className="text-[10px] text-indigo-400">Pro Only</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Bottom Control Bar */}
+        <div className="flex justify-center mb-12">
+          <div className="bg-[#1f2c34]/90 backdrop-blur-md rounded-full p-4 flex items-center gap-4 shadow-xl border border-white/10">
+            <button className="p-4 rounded-full bg-white/10 text-white hover:bg-white/20"><MoreVertical /></button>
+            <button 
+              className="p-4 rounded-full bg-white/10 text-white hover:bg-white/20"
+              onClick={() => {
+                const newState = !isCameraOn;
+                setIsCameraOn(newState);
+                zpRef.current?.setCameraOn(newState);
+              }}
+            >
+              {isCameraOn ? <Video /> : <CameraOff />}
+            </button>
+            <button 
+              className="p-4 rounded-full bg-white/10 text-white hover:bg-white/20"
+              onClick={() => {
+                const newState = !isSpeakerOn;
+                setIsSpeakerOn(newState);
+                zpRef.current?.setSpeaker(newState);
+              }}
+            >
+              <Volume2 />
+            </button>
+            <button 
+              className="p-4 rounded-full bg-white/10 text-white hover:bg-white/20"
+              onClick={() => {
+                const newState = !isMicOn;
+                setIsMicOn(newState);
+                zpRef.current?.muteMicrophone(!newState);
+              }}
+            >
+              {isMicOn ? <Mic /> : <MicOff />}
+            </button>
+            <button 
+              className="p-4 rounded-full bg-red-600 text-white hover:bg-red-700 shadow-lg"
+              onClick={() => zpRef.current?.hangUp()}
+            >
+              <Phone className="w-6 h-6 rotate-[135deg]" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

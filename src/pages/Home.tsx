@@ -6,7 +6,7 @@ import { Chat, User, Story } from '../types';
 import { getChats, saveChat, initDB } from '../lib/db';
 import ChatListItem from '../components/chat/ChatListItem';
 import UserChatListItem from '../components/chat/UserChatListItem';
-import { Search, Plus, Archive, EyeOff, Lock, Video } from 'lucide-react';
+import { Search, Plus, Archive, EyeOff, Lock, Video, ArrowLeft, Pin, Trash2, ShieldAlert, MoreVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +26,54 @@ export default function Home() {
   const [view, setView] = useState<'all' | 'archived'>('all');
   const [showHiddenInput, setShowHiddenInput] = useState(false);
   const [hiddenPassword, setHiddenPassword] = useState('');
-  // Removed loading state
+  const [selectedChats, setSelectedChats] = useState<string[]>([]);
+  const [showMenu, setShowMenu] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const toggleChatSelection = (chatId: string) => {
+    setSelectedChats(prev => 
+      prev.includes(chatId) ? prev.filter(id => id !== chatId) : [...prev, chatId]
+    );
+  };
+
+  const clearSelection = () => {
+    setSelectedChats([]);
+    setShowMenu(false);
+  };
+
+  const selectAllChats = () => {
+    setSelectedChats(filteredChats.map(c => c.id));
+    setShowMenu(false);
+  };
+
+  const handleAddToHome = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the A2HS prompt');
+        }
+        setDeferredPrompt(null);
+      });
+    } else {
+      alert('Add to Home Screen is not available.');
+    }
+    setShowMenu(false);
+  };
+
+  const handleAction = (action: string) => {
+    console.log(`Action: ${action} on chats:`, selectedChats);
+    clearSelection();
+  };
 
   const onlineUsers = allUsers.filter(u => u.online && u.uid).slice(0, 5);
   const usersWithoutChats = allUsers.filter(u => u.uid && !chats.some(c => c.participants && Array.isArray(c.participants) && c.participants.includes(u.uid)));
@@ -152,17 +199,47 @@ export default function Home() {
 
   return (
     <main className="flex-1 overflow-y-auto pb-40 bg-background no-scrollbar flex flex-col gap-y-4">
-      {/* Search Bar */}
+      {/* Search Bar / Action Bar */}
       <div className="px-6 mt-2 mb-4">
-        <div className="relative group" onClick={() => navigate('/search')}>
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
-          <input
-            type="text"
-            readOnly
-            placeholder="Search chats, groups, channels..."
-            className={cn("w-full bg-surface border border-border rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium cursor-pointer", globalSettings.fontFamily)}
-          />
-        </div>
+        {selectedChats.length > 0 ? (
+          <div className="flex items-center justify-between bg-surface border border-border rounded-full py-3 px-4 shadow-sm">
+            <div className="flex items-center gap-4">
+              <button onClick={clearSelection} className="text-text">
+                <ArrowLeft size={20} />
+              </button>
+              <span className="font-extrabold text-text">{selectedChats.length} selected</span>
+            </div>
+            <div className="flex items-center gap-4 text-muted">
+              <button onClick={() => handleAction('pin')}><Pin size={20} /></button>
+              <button onClick={() => handleAction('delete')}><Trash2 size={20} /></button>
+              <button onClick={() => handleAction('block')}><ShieldAlert size={20} /></button>
+              <button onClick={() => handleAction('archive')}><Archive size={20} /></button>
+              <div className="relative">
+                <button onClick={() => setShowMenu(!showMenu)}><MoreVertical size={20} /></button>
+                {showMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-surface border border-border rounded-2xl shadow-xl z-50 p-2">
+                    <button onClick={handleAddToHome} className="block w-full text-left px-4 py-2 hover:bg-background rounded-xl text-sm font-medium">Add chat shortcut</button>
+                    <button onClick={() => handleAction('view-contact')} className="block w-full text-left px-4 py-2 hover:bg-background rounded-xl text-sm font-medium">View contact</button>
+                    <button onClick={() => handleAction('mark-unread')} className="block w-full text-left px-4 py-2 hover:bg-background rounded-xl text-sm font-medium">Mark as unread</button>
+                    <button onClick={selectAllChats} className="block w-full text-left px-4 py-2 hover:bg-background rounded-xl text-sm font-medium">Select all</button>
+                    <button onClick={() => handleAction('lock')} className="block w-full text-left px-4 py-2 hover:bg-background rounded-xl text-sm font-medium">Lock chat</button>
+                    <button onClick={() => handleAction('clear')} className="block w-full text-left px-4 py-2 hover:bg-background rounded-xl text-sm font-medium">Clear chat</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="relative group" onClick={() => navigate('/search')}>
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
+            <input
+              type="text"
+              readOnly
+              placeholder="Search chats, groups, channels..."
+              className={cn("w-full bg-surface border border-border rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium cursor-pointer", globalSettings.fontFamily)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Stories Section */}
@@ -262,7 +339,12 @@ export default function Home() {
         
         <div className="divide-y divide-border">
           {filteredChats.map((chat) => (
-            <ChatListItem key={`chat-${chat.id}`} chat={chat} />
+            <ChatListItem 
+              key={`chat-${chat.id}`} 
+              chat={chat} 
+              isSelected={selectedChats.includes(chat.id)}
+              onSelect={toggleChatSelection}
+            />
           ))}
           {view === 'all' && usersWithoutChats.map((u) => (
             <UserChatListItem key={`user-${u.uid}`} user={u} />
