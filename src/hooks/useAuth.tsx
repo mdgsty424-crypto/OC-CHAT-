@@ -48,14 +48,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (firebaseUser) {
           const userRef = doc(db, 'users', firebaseUser.uid);
+          const userDoc = await getDoc(userRef);
           
           const updateData: any = { 
             uid: firebaseUser.uid,
             displayName: firebaseUser.displayName || 'Anonymous',
-            photoURL: firebaseUser.photoURL || '',
             online: true, 
             lastSeen: new Date().toISOString() 
           };
+          
+          if (!userDoc.exists() || !userDoc.data().photoURL) {
+            updateData.photoURL = firebaseUser.photoURL || '';
+          }
           
           if (firebaseUser.email === 'info@ocsthael.com') {
             updateData.role = 'admin';

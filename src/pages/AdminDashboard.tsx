@@ -624,6 +624,18 @@ export default function AdminDashboard() {
                         <option value="w-20 h-20">Extra Large</option>
                       </select>
                     </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Badge Size (px): {settings.badgeSize}</label>
+                      <input 
+                        type="range"
+                        min="12"
+                        max="64"
+                        value={settings.badgeSize}
+                        onChange={(e) => updateSettings({ badgeSize: e.target.value })}
+                        className="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                    </div>
                   </div>
 
                   {/* User Customization (Theme Gallery) */}

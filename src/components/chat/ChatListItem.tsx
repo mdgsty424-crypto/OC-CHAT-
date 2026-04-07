@@ -126,7 +126,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                   <>
                     <span className="truncate">{chatName}</span>
                     {chat.type === 'direct' && otherUser?.verified && (
-                      <VerifiedBadge className="w-4 h-4 ml-1 flex-shrink-0" />
+                      <VerifiedBadge className="w-4 h-4 ml-1 flex-shrink-0" size={globalSettings.badgeSize} />
                     )}
                     {chat.type === 'group' && (
                       <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-md ml-2 flex-shrink-0 flex items-center gap-1">

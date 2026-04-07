@@ -172,9 +172,14 @@ function AppRoutes() {
             navigator.geolocation.getCurrentPosition(async (pos) => {
               try {
                 // Simple reverse geocoding using a free API (or just store lat/lng)
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`, {
+                  headers: {
+                    'User-Agent': 'OC-CHAT-App/1.0'
+                  }
+                });
+                if (!res.ok) throw new Error('Failed to fetch location');
                 const data = await res.json();
-                const locationString = data.address.city || data.address.town || data.address.village || data.address.country || `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
+                const locationString = data.address ? (data.address.city || data.address.town || data.address.village || data.address.country || `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`) : `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
                 
                 await updateDoc(doc(db, 'users', user.uid), {
                   location: locationString

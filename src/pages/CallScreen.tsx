@@ -12,6 +12,7 @@ import { cn } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { useAppAssets } from '../hooks/useAppAssets';
 import { useNetwork } from '../hooks/useNetwork';
+import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -36,6 +37,7 @@ export default function CallScreen() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { settings: globalSettings } = useGlobalSettings();
   const { isMuted } = useSettings();
   const assets = useAppAssets();
   const { isOnline } = useNetwork();
@@ -373,7 +375,7 @@ export default function CallScreen() {
                   referrerPolicy="no-referrer"
                 />
                 {otherUser?.verified && (
-                  <VerifiedBadge className="absolute bottom-1 right-1 w-6 h-6" />
+                  <VerifiedBadge className="absolute bottom-1 right-1" size={globalSettings.badgeSize} />
                 )}
               </div>
               <div className="text-center">

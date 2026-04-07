@@ -11,6 +11,8 @@ export interface GlobalSettings {
   borderRadius: string;
   profileSize: string;
   storyCircleSize: string;
+  badgeSize: string;
+  theme?: string;
 }
 
 const defaultSettings: GlobalSettings = {
@@ -22,6 +24,7 @@ const defaultSettings: GlobalSettings = {
   borderRadius: 'rounded-2xl',
   profileSize: 'w-12 h-12',
   storyCircleSize: 'w-16 h-16',
+  badgeSize: '16',
 };
 
 interface GlobalSettingsContextType {

@@ -88,7 +88,7 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
               <h3 className={cn("text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center", globalSettings.userNameSize, globalSettings.fontWeight, globalSettings.fontFamily)}>
                 <span className="truncate">{user.displayName}</span>
                 {user.verified && (
-                  <VerifiedBadge className="w-4 h-4 ml-1 flex-shrink-0" />
+                  <VerifiedBadge className="w-4 h-4 ml-1 flex-shrink-0" size={globalSettings.badgeSize} />
                 )}
               </h3>
             </div>

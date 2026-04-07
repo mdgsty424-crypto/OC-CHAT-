@@ -8,10 +8,12 @@ import { db } from '../lib/firebase';
 import { User } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 export default function Discovery() {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { settings: globalSettings } = useGlobalSettings();
   const [activeTab, setActiveTab] = useState<'nearby' | 'swipe' | 'random'>('swipe');
   const [nearbyUsers, setNearbyUsers] = useState<User[]>([]);
   const [swipeUsers, setSwipeUsers] = useState<User[]>([]);
@@ -139,7 +141,7 @@ export default function Discovery() {
                     <div className="flex items-center gap-2 mb-1">
                       <h2 className="text-2xl font-black">{swipeUsers[currentIndex].displayName}, 24</h2>
                       {swipeUsers[currentIndex].verified && (
-                        <VerifiedBadge className="w-5 h-5" />
+                        <VerifiedBadge className="w-5 h-5" size={globalSettings.badgeSize} />
                       )}
                     </div>
                     <p className="text-sm opacity-80 flex items-center gap-1 mb-4">

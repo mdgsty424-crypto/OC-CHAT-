@@ -26,7 +26,7 @@ export default function Home() {
   const [view, setView] = useState<'all' | 'archived'>('all');
   const [showHiddenInput, setShowHiddenInput] = useState(false);
   const [hiddenPassword, setHiddenPassword] = useState('');
-  const [loading, setLoading] = useState(true);
+  // Removed loading state
 
   const onlineUsers = allUsers.filter(u => u.online && u.uid).slice(0, 5);
   const usersWithoutChats = allUsers.filter(u => u.uid && !chats.some(c => c.participants && Array.isArray(c.participants) && c.participants.includes(u.uid)));
@@ -35,7 +35,7 @@ export default function Home() {
     if (!user) return;
     
     console.log('My UID:', user.uid);
-    setLoading(true);
+    // Removed setLoading(true);
 
     // Load from IndexedDB first
     const loadLocalData = async () => {
@@ -48,7 +48,7 @@ export default function Home() {
       if (localUsers.length > 0) {
         setAllUsers(localUsers as any);
       }
-      setLoading(false);
+      // Removed setLoading(false);
     };
     loadLocalData();
 
@@ -261,18 +261,12 @@ export default function Home() {
         </div>
         
         <div className="divide-y divide-border">
-          {loading ? (
-            <div className="p-4 text-center text-muted">Fetching Data...</div>
-          ) : (
-            <>
-              {filteredChats.map((chat) => (
-                <ChatListItem key={`chat-${chat.id}`} chat={chat} />
-              ))}
-              {view === 'all' && usersWithoutChats.map((u) => (
-                <UserChatListItem key={`user-${u.uid}`} user={u} />
-              ))}
-            </>
-          )}
+          {filteredChats.map((chat) => (
+            <ChatListItem key={`chat-${chat.id}`} chat={chat} />
+          ))}
+          {view === 'all' && usersWithoutChats.map((u) => (
+            <UserChatListItem key={`user-${u.uid}`} user={u} />
+          ))}
           {filteredChats.length === 0 && (view !== 'all' || usersWithoutChats.length === 0) && chats.length > 0 && (
             <div className="flex flex-col items-center justify-center py-24 px-10 text-center opacity-40">
               <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mb-6 border border-border">

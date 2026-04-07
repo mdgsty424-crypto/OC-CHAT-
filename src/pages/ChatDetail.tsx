@@ -420,10 +420,10 @@ export default function ChatDetail() {
             <div className="flex flex-col">
               <div className="flex items-center gap-1">
                 <h2 className={cn("text-sm font-extrabold text-text truncate max-w-[120px]", globalSettings.userNameSize, globalSettings.fontWeight, globalSettings.fontFamily)}>
-                  {chat?.type === 'direct' ? (otherUser?.displayName || 'Loading...') : chat?.name}
+                  {chat?.type === 'direct' ? (otherUser?.displayName || 'User') : chat?.name}
                 </h2>
                 {chat?.type === 'direct' && otherUser?.verified && (
-                  <VerifiedBadge className="w-4 h-4 ml-1" />
+                  <VerifiedBadge className="w-4 h-4 ml-1" size={globalSettings.badgeSize} />
                 )}
               </div>
               <span className={cn("text-[10px] font-medium text-muted uppercase tracking-wider", globalSettings.fontFamily)}>

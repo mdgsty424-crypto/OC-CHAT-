@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { db } from '../lib/firebase';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
-import { ArrowRight, ArrowLeft, Camera, Image as ImageIcon, Check } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Camera, Image as ImageIcon, Check, Palette } from 'lucide-react';
+import { AvatarGallery } from '../components/common/AvatarGallery';
 
 export default function Signup() {
   const { signUpWithEmail } = useAuth();
@@ -11,6 +12,7 @@ export default function Signup() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showAvatarGallery, setShowAvatarGallery] = useState(false);
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -221,14 +223,33 @@ export default function Signup() {
                     <Camera className="text-white/70" size={32} />
                   )}
                 </div>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={(e) => e.target.files?.[0] && handleCloudinaryUpload(e.target.files[0], 'profile')}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                />
+                <div className="flex gap-2 mt-2 justify-center">
+                  <label className="p-2 bg-white/20 rounded-full cursor-pointer">
+                    <Camera size={16} />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => e.target.files?.[0] && handleCloudinaryUpload(e.target.files[0], 'profile')}
+                      className="hidden"
+                    />
+                  </label>
+                  <button onClick={() => setShowAvatarGallery(!showAvatarGallery)} className="p-2 bg-primary rounded-full"><Palette size={16} /></button>
+                </div>
                 <div className="text-center text-white text-xs mt-1">Profile Pic</div>
               </div>
+
+              {showAvatarGallery && (
+                <div className="absolute z-50 bg-background w-full max-w-sm rounded-2xl p-4">
+                  <AvatarGallery 
+                    onSelect={(url) => {
+                      setFormData({ ...formData, profilePic: url });
+                      setShowAvatarGallery(false);
+                    }}
+                    selectedUrl={formData.profilePic}
+                  />
+                  <button onClick={() => setShowAvatarGallery(false)} className="w-full mt-4 py-2 bg-surface rounded-xl font-bold">Close</button>
+                </div>
+              )}
 
               <div className="relative w-full h-24 rounded-xl bg-white/20 flex items-center justify-center overflow-hidden border-2 border-white/50">
                 {formData.bgPic ? (

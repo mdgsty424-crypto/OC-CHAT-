@@ -13,7 +13,6 @@ interface UserDetailsModalProps {
 
 export default function UserDetailsModal({ user, onClose, onUpdate }: UserDetailsModalProps) {
   const [identity, setIdentity] = useState<any>({});
-  const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -23,7 +22,6 @@ export default function UserDetailsModal({ user, onClose, onUpdate }: UserDetail
 
   useEffect(() => {
     const fetchDetails = async () => {
-      setLoading(true);
       try {
         const idDoc = await getDoc(doc(db, 'users', user.uid, 'private', 'identity'));
         if (idDoc.exists()) {
@@ -32,8 +30,6 @@ export default function UserDetailsModal({ user, onClose, onUpdate }: UserDetail
         }
       } catch (error) {
         console.error("Error fetching user identity:", error);
-      } finally {
-        setLoading(false);
       }
     };
     fetchDetails();
@@ -113,6 +109,23 @@ export default function UserDetailsModal({ user, onClose, onUpdate }: UserDetail
               </div>
             </div>
 
+            {/* Profile & Background Pictures */}
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <h4 className="font-bold mb-4">Profile & Background</h4>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Profile Picture</p>
+                  <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="Profile" className="w-20 h-20 rounded-full object-cover mb-2" />
+                  <button onClick={() => updateDoc(doc(db, 'users', user.uid), { photoURL: null })} className="text-xs text-red-500 hover:underline">Reset</button>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Background Picture</p>
+                  <img src={user.coverURL || "https://picsum.photos/seed/cover/200/100"} alt="Background" className="w-full h-20 rounded-lg object-cover mb-2" />
+                  <button onClick={() => updateDoc(doc(db, 'users', user.uid), { coverURL: null })} className="text-xs text-red-500 hover:underline">Reset</button>
+                </div>
+              </div>
+            </div>
+
             {/* Location Tracking */}
             <div className="bg-surface border border-border rounded-xl p-4">
               <h4 className="font-bold mb-2 flex items-center gap-2">
@@ -146,10 +159,7 @@ export default function UserDetailsModal({ user, onClose, onUpdate }: UserDetail
                 )}
               </div>
 
-              {loading ? (
-                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-primary" /></div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Name (Bangla)" name="nameBangla" value={editData.nameBangla} isEditing={isEditing} onChange={(v) => setEditData({...editData, nameBangla: v})} />
                   <Field label="Name (English)" name="nameEnglish" value={editData.nameEnglish} isEditing={isEditing} onChange={(v) => setEditData({...editData, nameEnglish: v})} />
                   <Field label="Father's Name" name="fatherName" value={editData.fatherName} isEditing={isEditing} onChange={(v) => setEditData({...editData, fatherName: v})} />
@@ -172,7 +182,6 @@ export default function UserDetailsModal({ user, onClose, onUpdate }: UserDetail
                     )}
                   </div>
                 </div>
-              )}
             </div>
           </div>
         </motion.div>

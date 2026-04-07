@@ -4,6 +4,7 @@ export interface User {
   email?: string;
   username?: string;
   photoURL?: string;
+  coverURL?: string;
   bio?: string;
   status?: string;
   online?: boolean;

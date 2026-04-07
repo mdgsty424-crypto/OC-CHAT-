@@ -48,6 +48,7 @@ import PinLock from '../components/common/PinLock';
 import { useSettings } from '../hooks/useSettings';
 import { motion, AnimatePresence } from 'motion/react';
 import { Story, User } from '../types';
+import { AvatarGallery } from '../components/common/AvatarGallery';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import StoryPlayer from '../components/stories/StoryPlayer';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
@@ -89,6 +90,7 @@ export default function Profile() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showAvatarGallery, setShowAvatarGallery] = useState(false);
   const [isUploadingStory, setIsUploadingStory] = useState(false);
   const [stories, setStories] = useState<Story[]>([]);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState<number | null>(null);
@@ -104,19 +106,23 @@ export default function Profile() {
   const [editPassword, setEditPassword] = useState('');
 
   useEffect(() => {
-    if (isOwnProfile) {
-      setProfileUser(currentUser);
-      if (currentUser) {
-        setEditName(currentUser.displayName || '');
-        setEditBio(currentUser.bio || '');
-        setEditEmail(currentUser.email || '');
-        setEditPhone(currentUser.phone || '');
-        setIdentity(prev => ({
-          ...prev,
-          sex: currentUser.sex || '',
-          birthYear: currentUser.birthYear || new Date().getFullYear() - 20
-        }));
-      }
+    if (isOwnProfile && currentUser) {
+      setEditName(currentUser.displayName || '');
+      setEditBio(currentUser.bio || '');
+      setEditEmail(currentUser.email || '');
+      setEditPhone(currentUser.phone || '');
+      setIdentity(prev => ({
+        ...prev,
+        sex: currentUser.sex || '',
+        birthYear: currentUser.birthYear || new Date().getFullYear() - 20
+      }));
+
+      const unsub = onSnapshot(doc(db, 'users', currentUser.uid), (doc) => {
+        if (doc.exists()) {
+          setProfileUser({ uid: doc.id, ...doc.data() } as User);
+        }
+      });
+      return () => unsub();
     } else if (id) {
       const unsub = onSnapshot(doc(db, 'users', id), (doc) => {
         if (doc.exists()) {
@@ -221,7 +227,7 @@ export default function Profile() {
         setIdentity(prev => ({ ...prev, signatureURL: data.url }));
       } else {
         const updateData = type === 'avatar' ? { photoURL: data.url } : { coverURL: data.url };
-        updateDoc(doc(db, 'users', currentUser.uid), updateData).catch(e => console.error("Error updating photo:", e));
+        await updateDoc(doc(db, 'users', currentUser.uid), updateData);
       }
     } catch (error) {
       console.error("Error uploading photo:", error);
@@ -763,12 +769,17 @@ export default function Profile() {
           <div className="flex flex-col md:flex-row md:items-end gap-4 -mt-12 md:-mt-16 mb-4">
             {/* Profile Picture */}
             <div className="relative inline-block">
-              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full p-1 bg-white shadow-xl overflow-hidden">
+              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full p-1 bg-white shadow-xl overflow-hidden relative">
                 <img
                   src={profileUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileUser?.uid}`}
                   alt={profileUser?.displayName}
                   className="w-full h-full rounded-full object-cover border-4 border-white"
                 />
+                {profileUser?.verified && (
+                  <div className="absolute bottom-2 left-2">
+                    <VerifiedBadge className="w-6 h-6" size={globalSettings.badgeSize} />
+                  </div>
+                )}
                 {isUploading && (
                   <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
                     <Loader2 className="text-white animate-spin" size={24} />
@@ -776,22 +787,46 @@ export default function Profile() {
                 )}
               </div>
               {isOwnProfile && (
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="absolute bottom-2 right-2 p-2 bg-gray-200 text-gray-800 rounded-full border-2 border-white hover:bg-gray-300 transition-colors shadow-md"
-                >
-                  <Camera size={20} />
-                </button>
+                <div className="absolute bottom-2 right-2 flex gap-2">
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="p-2 bg-gray-200 text-gray-800 rounded-full border-2 border-white hover:bg-gray-300 transition-colors shadow-md"
+                  >
+                    <Camera size={20} />
+                  </button>
+                  <button 
+                    onClick={() => setShowAvatarGallery(!showAvatarGallery)}
+                    className="p-2 bg-primary text-white rounded-full border-2 border-white hover:bg-primary/90 transition-colors shadow-md"
+                  >
+                    <Palette size={20} />
+                  </button>
+                </div>
               )}
             </div>
+
+            {showAvatarGallery && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="bg-background w-full max-w-sm rounded-2xl p-4">
+                  <h3 className="text-lg font-bold mb-4">Select Avatar</h3>
+                  <AvatarGallery 
+                    onSelect={async (url) => {
+                      await updateDoc(doc(db, 'users', currentUser!.uid), { photoURL: url });
+                      setShowAvatarGallery(false);
+                    }}
+                    selectedUrl={profileUser?.photoURL}
+                  />
+                  <button onClick={() => setShowAvatarGallery(false)} className="w-full mt-4 py-2 bg-surface rounded-xl font-bold">Close</button>
+                </div>
+              </div>
+            )}
 
             {/* Name & Bio */}
             <div className="flex-1 pt-2">
               <div className="flex items-center gap-2">
                 <h2 className={cn("text-2xl md:text-3xl font-extrabold text-gray-900", globalSettings.fontFamily, globalSettings.fontWeight)}>{profileUser?.displayName}</h2>
                 {profileUser?.verified && (
-                  <VerifiedBadge className="w-5 h-5" />
+                  <VerifiedBadge className="w-5 h-5" size={globalSettings.badgeSize} />
                 )}
               </div>
               {profileUser?.bio ? (

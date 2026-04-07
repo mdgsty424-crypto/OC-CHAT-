@@ -3,11 +3,16 @@ import { cn } from '../../lib/utils';
 
 interface VerifiedBadgeProps {
   className?: string;
+  size?: string;
 }
 
-export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({ className }) => {
+export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({ className, size = '16' }) => {
+  const badgeSize = `${size}px`;
   return (
-    <div className={cn("relative inline-flex items-center justify-center overflow-hidden rounded-full", className)}>
+    <div 
+      className={cn("relative inline-flex items-center justify-center overflow-hidden rounded-full", className)}
+      style={{ width: badgeSize, height: badgeSize }}
+    >
       <svg
         viewBox="0 0 24 24"
         fill="none"
