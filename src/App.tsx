@@ -25,6 +25,7 @@ import IncomingCall from './components/common/IncomingCall';
 import OutgoingCall from './components/common/OutgoingCall';
 import ZegoCallInvitation from './components/common/ZegoCallInvitation';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import MeetingRoom from './pages/MeetingRoom';
 import VoiceRoom from './pages/VoiceRoom';
 import AdminDashboard from './pages/AdminDashboard';
@@ -227,7 +228,12 @@ function AppRoutes() {
   }
 
   if (!user && !loading) {
-    return <Login />;
+    return (
+      <Routes>
+        <Route path="/signup" element={<Signup />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    );
   }
 
   if (isLocked) {
