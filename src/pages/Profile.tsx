@@ -48,6 +48,7 @@ import PinLock from '../components/common/PinLock';
 import { useSettings } from '../hooks/useSettings';
 import { motion, AnimatePresence } from 'motion/react';
 import { Story, User } from '../types';
+import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import StoryPlayer from '../components/stories/StoryPlayer';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
@@ -790,7 +791,7 @@ export default function Profile() {
               <div className="flex items-center gap-2">
                 <h2 className={cn("text-2xl md:text-3xl font-extrabold text-gray-900", globalSettings.fontFamily, globalSettings.fontWeight)}>{profileUser?.displayName}</h2>
                 {profileUser?.verified && (
-                  <CheckCircle2 className="text-blue-500 fill-blue-500" size={20} />
+                  <VerifiedBadge className="w-5 h-5" />
                 )}
               </div>
               {profileUser?.bio ? (

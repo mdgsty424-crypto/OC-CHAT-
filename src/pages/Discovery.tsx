@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapPin, Heart, X, Video, Users, Sparkles, ShieldCheck } from 'lucide-react';
+import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { cn } from '../lib/utils';
 import { collection, query, where, getDocs, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -138,7 +139,7 @@ export default function Discovery() {
                     <div className="flex items-center gap-2 mb-1">
                       <h2 className="text-2xl font-black">{swipeUsers[currentIndex].displayName}, 24</h2>
                       {swipeUsers[currentIndex].verified && (
-                        <ShieldCheck size={20} className="text-secondary fill-secondary" />
+                        <VerifiedBadge className="w-5 h-5" />
                       )}
                     </div>
                     <p className="text-sm opacity-80 flex items-center gap-1 mb-4">

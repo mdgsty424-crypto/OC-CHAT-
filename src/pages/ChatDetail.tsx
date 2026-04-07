@@ -7,6 +7,7 @@ import { Message, Chat, User } from '../types';
 import { getMessages, saveMessage, initDB } from '../lib/db';
 import { useSettings } from '../hooks/useSettings';
 import { ChevronLeft, Phone, Video, MoreVertical, Smile, Paperclip, Camera, Mic, Send, CheckCircle2 } from 'lucide-react';
+import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { motion, AnimatePresence } from 'motion/react';
 import MessageBubble from '../components/chat/MessageBubble';
 import MessageInput from '../components/chat/MessageInput';
@@ -422,7 +423,7 @@ export default function ChatDetail() {
                   {chat?.type === 'direct' ? (otherUser?.displayName || 'Loading...') : chat?.name}
                 </h2>
                 {chat?.type === 'direct' && otherUser?.verified && (
-                  <CheckCircle2 className="text-blue-500 fill-blue-500" size={14} />
+                  <VerifiedBadge className="w-4 h-4 ml-1" />
                 )}
               </div>
               <span className={cn("text-[10px] font-medium text-muted uppercase tracking-wider", globalSettings.fontFamily)}>

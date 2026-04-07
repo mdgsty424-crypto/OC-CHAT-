@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { User } from '../../types';
 import { cn } from '../../lib/utils';
 import { motion } from 'motion/react';
-import { Phone, CheckCircle2 } from 'lucide-react';
+import { VerifiedBadge } from '../common/VerifiedBadge';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -88,21 +88,9 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
               <h3 className={cn("text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center", globalSettings.userNameSize, globalSettings.fontWeight, globalSettings.fontFamily)}>
                 <span className="truncate">{user.displayName}</span>
                 {user.verified && (
-                  <CheckCircle2 className="text-blue-500 fill-blue-500 ml-1 flex-shrink-0" size={16} />
+                  <VerifiedBadge className="w-4 h-4 ml-1 flex-shrink-0" />
                 )}
-                <Phone 
-                  size={14} 
-                  className={cn(
-                    "ml-2 flex-shrink-0",
-                    (user.status === 'in-call' || user.status === 'calling') ? "text-green-500" :
-                    user.status === 'busy' ? "text-red-500" :
-                    "text-gray-400"
-                  )} 
-                />
               </h3>
-              <div role="button" className="text-muted hover:text-primary p-1" onClick={(e) => { e.stopPropagation(); /* TODO: Implement call */ }}>
-                <Phone size={18} />
-              </div>
             </div>
             <div className="flex justify-between items-center">
               <p className={cn("text-sm text-muted truncate", globalSettings.fontFamily)}>

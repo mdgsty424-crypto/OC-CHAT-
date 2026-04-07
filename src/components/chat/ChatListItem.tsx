@@ -7,7 +7,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { initDB } from '../../lib/db';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../../lib/utils';
-import { Check, CheckCheck, Archive, BellOff, Users, Megaphone, Phone, CheckCircle2 } from 'lucide-react';
+import { Check, CheckCheck, Archive, BellOff, Users, Megaphone } from 'lucide-react';
+import { VerifiedBadge } from '../common/VerifiedBadge';
 import { motion, useMotionValue, useTransform } from 'motion/react';
 import { useGlobalSettings } from '../../hooks/useGlobalSettings';
 
@@ -125,18 +126,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                   <>
                     <span className="truncate">{chatName}</span>
                     {chat.type === 'direct' && otherUser?.verified && (
-                      <CheckCircle2 className="text-blue-500 fill-blue-500 ml-1 flex-shrink-0" size={16} />
-                    )}
-                    {chat.type === 'direct' && otherUser && (
-                      <Phone 
-                        size={14} 
-                        className={cn(
-                          "ml-2 flex-shrink-0",
-                          (otherUser.status === 'in-call' || otherUser.status === 'calling') ? "text-green-500" :
-                          otherUser.status === 'busy' ? "text-red-500" :
-                          "text-gray-400"
-                        )} 
-                      />
+                      <VerifiedBadge className="w-4 h-4 ml-1 flex-shrink-0" />
                     )}
                     {chat.type === 'group' && (
                       <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-md ml-2 flex-shrink-0 flex items-center gap-1">
@@ -152,18 +142,14 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                 )}
               </h3>
               <div className="flex items-center gap-2">
-                <div className={cn(
-                  "w-2.5 h-2.5 rounded-full",
-                  unreadCount > 0 ? "bg-primary" : "border border-muted"
-                )}></div>
+                {unreadCount > 0 && (
+                  <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
+                )}
                 <span className={cn("text-[10px] font-bold text-muted uppercase tracking-widest", globalSettings.fontFamily)}>
                   {chat.lastMessageTime && !isNaN(new Date(chat.lastMessageTime).getTime()) 
                     ? formatDistanceToNow(new Date(chat.lastMessageTime), { addSuffix: false }) 
                     : ''}
                 </span>
-                <div role="button" className="text-muted hover:text-primary p-1" onClick={(e) => { e.preventDefault(); /* TODO: Implement call */ }}>
-                  <Phone size={18} />
-                </div>
               </div>
             </div>
             <div className="flex justify-between items-center">

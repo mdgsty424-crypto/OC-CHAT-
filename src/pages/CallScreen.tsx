@@ -7,6 +7,7 @@ import { db } from '../lib/firebase';
 import { User, CallSession } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wand2, Sparkles, Sun, Ghost, Palette, X, Check, Sliders, Phone, PhoneOff, Video } from 'lucide-react';
+import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { cn } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { useAppAssets } from '../hooks/useAppAssets';
@@ -372,9 +373,7 @@ export default function CallScreen() {
                   referrerPolicy="no-referrer"
                 />
                 {otherUser?.verified && (
-                  <div className="absolute bottom-1 right-1 bg-blue-500 rounded-full p-1.5 border-2 border-black">
-                    <Check className="w-4 h-4 text-white" />
-                  </div>
+                  <VerifiedBadge className="absolute bottom-1 right-1 w-6 h-6" />
                 )}
               </div>
               <div className="text-center">
