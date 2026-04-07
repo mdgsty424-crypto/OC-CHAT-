@@ -18,6 +18,8 @@ export interface User {
   isPremium?: boolean;
   suspended?: boolean;
   walletBalance?: number;
+  pinnedChats?: string[];
+  blockedUsers?: string[];
   securitySettings?: {
     appLockEnabled: boolean;
     twoStepVerificationEnabled: boolean;
@@ -61,6 +63,7 @@ export interface Chat {
   photo?: string; // For group chats
   isArchived?: Record<string, boolean>; // userId -> boolean
   isHidden?: Record<string, boolean>; // userId -> boolean
+  isLocked?: Record<string, boolean>; // userId -> boolean
   password?: string; // For hidden chats
 }
 

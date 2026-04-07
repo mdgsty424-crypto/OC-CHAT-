@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, orderBy, limit, doc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit, doc, getDocs, writeBatch, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Chat, User, Story } from '../types';
@@ -70,8 +70,73 @@ export default function Home() {
     setShowMenu(false);
   };
 
-  const handleAction = (action: string) => {
-    console.log(`Action: ${action} on chats:`, selectedChats);
+  const handleAction = async (action: string) => {
+    if (!user) return;
+    const batch = writeBatch(db);
+    
+    switch (action) {
+      case 'pin':
+        selectedChats.forEach(chatId => {
+          const userRef = doc(db, 'users', user.uid);
+          batch.update(userRef, { pinnedChats: arrayUnion(chatId) });
+        });
+        break;
+      case 'delete':
+        if (!confirm('Are you sure you want to delete these conversations?')) return;
+        selectedChats.forEach(chatId => {
+          const chatRef = doc(db, 'chats', chatId);
+          batch.update(chatRef, { participants: arrayRemove(user.uid) });
+        });
+        break;
+      case 'block':
+        selectedChats.forEach(chatId => {
+          const chat = chats.find(c => c.id === chatId);
+          if (chat && chat.type === 'direct') {
+            const otherId = chat.participants?.find(id => id !== user.uid);
+            if (otherId) {
+              const userRef = doc(db, 'users', user.uid);
+              batch.update(userRef, { blockedUsers: arrayUnion(otherId) });
+            }
+          }
+        });
+        break;
+      case 'archive':
+        selectedChats.forEach(chatId => {
+          const chatRef = doc(db, 'chats', chatId);
+          batch.update(chatRef, { [`isArchived.${user.uid}`]: true });
+        });
+        break;
+      case 'mark-unread':
+        selectedChats.forEach(chatId => {
+          const chatRef = doc(db, 'chats', chatId);
+          batch.update(chatRef, { [`unreadCount.${user.uid}`]: 1 });
+        });
+        break;
+      case 'lock':
+        selectedChats.forEach(chatId => {
+          const chatRef = doc(db, 'chats', chatId);
+          batch.update(chatRef, { [`isLocked.${user.uid}`]: true });
+        });
+        break;
+      case 'clear':
+        if (!confirm('Are you sure you want to clear all messages in these conversations?')) return;
+        selectedChats.forEach(chatId => {
+          const chatRef = doc(db, 'chats', chatId);
+          batch.update(chatRef, { lastMessage: '', lastMessageTime: new Date().toISOString() });
+        });
+        break;
+      case 'view-contact':
+        if (selectedChats.length === 1) {
+          const chat = chats.find(c => c.id === selectedChats[0]);
+          if (chat && chat.type === 'direct') {
+            const otherId = chat.participants?.find(id => id !== user.uid);
+            if (otherId) navigate(`/profile/${otherId}`);
+          }
+        }
+        break;
+    }
+    
+    await batch.commit();
     clearSelection();
   };
 
