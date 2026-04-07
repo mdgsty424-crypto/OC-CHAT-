@@ -12,15 +12,18 @@ import MessageBubble from '../components/chat/MessageBubble';
 import MessageInput from '../components/chat/MessageInput';
 import { useZegoStore } from '../hooks/useZegoStore';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
+import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 import { useNotifications } from '../hooks/useNotifications';
 
 import { useAppAssets } from '../hooks/useAppAssets';
+import { cn } from '../lib/utils';
 
 export default function ChatDetail() {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuth();
   const { isMuted } = useSettings();
+  const { settings: globalSettings } = useGlobalSettings();
   const assets = useAppAssets();
   const navigate = useNavigate();
   const { sendNotification } = useNotifications();
@@ -334,8 +337,19 @@ export default function ChatDetail() {
 
   const isOtherTyping = chat?.typing && otherUser?.uid && chat.typing[otherUser.uid];
 
+  const getThemeClass = () => {
+    const themeToUse = currentUser?.preferences?.chatTheme || globalSettings.theme;
+    switch (themeToUse) {
+      case 'theme-gradient-waves': return 'bg-gradient-to-br from-[#5f2c82] via-[#49a09d] to-[#ff4b8b]';
+      case 'theme-glass': return 'bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900';
+      case 'theme-solid-dark': return 'bg-[#121212]';
+      case 'theme-ocean': return 'bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]';
+      default: return 'bg-background';
+    }
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-background w-full relative">
+    <div className={cn("flex flex-col h-screen w-full relative", getThemeClass())}>
       {/* Forward Modal */}
       <AnimatePresence>
         {forwardingMessage && (
@@ -385,7 +399,7 @@ export default function ChatDetail() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="sticky top-0 left-0 right-0 bg-background border-b border-border py-3 px-4 flex items-center justify-between z-50">
+      <header className="sticky top-0 left-0 right-0 bg-background/80 backdrop-blur-md border-b border-border py-3 px-4 flex items-center justify-between z-50">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-border rounded-full transition-colors">
             <ChevronLeft size={24} className="text-text" />
@@ -404,14 +418,14 @@ export default function ChatDetail() {
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1">
-                <h2 className="text-sm font-extrabold text-text truncate max-w-[120px]">
+                <h2 className={cn("text-sm font-extrabold text-text truncate max-w-[120px]", globalSettings.userNameSize, globalSettings.fontWeight, globalSettings.fontFamily)}>
                   {chat?.type === 'direct' ? (otherUser?.displayName || 'Loading...') : chat?.name}
                 </h2>
                 {chat?.type === 'direct' && otherUser?.verified && (
                   <CheckCircle2 className="text-blue-500 fill-blue-500" size={14} />
                 )}
               </div>
-              <span className="text-[10px] font-medium text-muted uppercase tracking-wider">
+              <span className={cn("text-[10px] font-medium text-muted uppercase tracking-wider", globalSettings.fontFamily)}>
                 {isOtherTyping ? (
                   <span className="text-primary animate-pulse">Typing...</span>
                 ) : (
@@ -437,7 +451,7 @@ export default function ChatDetail() {
       {/* Messages Area */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 bg-background pb-24 no-scrollbar"
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-transparent pb-24 no-scrollbar"
       >
         {messages.map((msg) => {
           const replyMessage = msg.replyTo ? messages.find(m => m.id === msg.replyTo) : undefined;

@@ -35,6 +35,7 @@ import { motion, useMotionValue, useTransform, AnimatePresence } from 'motion/re
 import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
+import { useGlobalSettings } from '../../hooks/useGlobalSettings';
 
 interface MessageBubbleProps {
   message: Message;
@@ -176,6 +177,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   replyMessage
 }) => {
   const { user } = useAuth();
+  const { settings: globalSettings } = useGlobalSettings();
   const [showReactions, setShowReactions] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [showInteractionMenu, setShowInteractionMenu] = useState(false);
@@ -409,11 +411,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             onTouchEnd={handlePressEnd}
             onContextMenu={handleContextMenu}
             className={cn(
-              "relative rounded-[20px] transition-all cursor-pointer select-none active:scale-[0.98]",
+              "relative transition-all cursor-pointer select-none active:scale-[0.98]",
+              globalSettings.borderRadius,
+              globalSettings.blurIntensity,
               message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
                 isMe 
                   ? "gradient-primary text-white rounded-tr-[4px] bubble-3d-lifted" 
-                  : "bg-surface text-text rounded-tl-[4px] bubble-3d"
+                  : "bg-surface/80 text-text rounded-tl-[4px] bubble-3d"
               ),
               (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5"
             )}
@@ -472,27 +476,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         )}
 
-        {/* Text Message */}
-        {message.type === 'text' && (
-          <div className="space-y-1">
-            <p className="text-[14px] leading-tight font-extrabold">
-              {showTranslation ? message.translatedText : message.text}
-            </p>
-            {/* Link Previews */}
-            {!showTranslation && message.text.match(/(https?:\/\/[^\s]+)/g)?.map((url, idx) => (
-              <LinkPreview key={idx} url={url} isMe={isMe} />
-            ))}
-            {message.translatedText && (
-              <button 
-                onClick={() => setShowTranslation(!showTranslation)}
-                className={cn("text-[10px] font-bold flex items-center gap-1 mt-1", isMe ? "text-white/70" : "text-primary")}
-              >
-                <Languages size={12} />
-                {showTranslation ? "Original" : "Translate"}
-              </button>
-            )}
-          </div>
-        )}
+              {/* Text Message */}
+              {message.type === 'text' && (
+                <div className="space-y-1">
+                  <p className={cn("leading-tight", globalSettings.fontSize, globalSettings.fontWeight, globalSettings.fontFamily)}>
+                    {showTranslation ? message.translatedText : message.text}
+                  </p>
+                  {/* Link Previews */}
+                  {!showTranslation && message.text.match(/(https?:\/\/[^\s]+)/g)?.map((url, idx) => (
+                    <LinkPreview key={idx} url={url} isMe={isMe} />
+                  ))}
+                  {message.translatedText && (
+                    <button 
+                      onClick={() => setShowTranslation(!showTranslation)}
+                      className={cn("text-[10px] font-bold flex items-center gap-1 mt-1", isMe ? "text-white/70" : "text-primary")}
+                    >
+                      <Languages size={12} />
+                      {showTranslation ? "Original" : "Translate"}
+                    </button>
+                  )}
+                </div>
+              )}
         
         {/* Image Message */}
         {(message.type === 'image' || message.fileType === 'image') && (

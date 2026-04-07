@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
+import { GlobalSettingsProvider } from './hooks/useGlobalSettings';
 
 // Register PWA service worker
 registerSW({ immediate: true });
@@ -20,6 +21,8 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <GlobalSettingsProvider>
+      <App />
+    </GlobalSettingsProvider>
   </StrictMode>,
 );

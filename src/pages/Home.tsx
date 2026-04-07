@@ -11,10 +11,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import StoryPlayer from '../components/stories/StoryPlayer';
+import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { settings: globalSettings } = useGlobalSettings();
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -158,7 +160,7 @@ export default function Home() {
             type="text"
             readOnly
             placeholder="Search chats, groups, channels..."
-            className="w-full bg-surface border border-border rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium cursor-pointer"
+            className={cn("w-full bg-surface border border-border rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium cursor-pointer", globalSettings.fontFamily)}
           />
         </div>
       </div>
@@ -166,8 +168,8 @@ export default function Home() {
       {/* Stories Section */}
       <div className="px-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Stories</h3>
-          <span className="text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{storyUsers.length} active</span>
+          <h3 className={cn("text-[10px] font-black text-muted uppercase tracking-[0.2em]", globalSettings.fontFamily)}>Stories</h3>
+          <span className={cn("text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full", globalSettings.fontFamily)}>{storyUsers.length} active</span>
         </div>
         <div className="flex gap-5 overflow-x-auto no-scrollbar pb-2">
           {/* Your Story / Add Story */}
@@ -176,7 +178,7 @@ export default function Home() {
             className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group"
           >
             <div className="relative">
-              <div className="w-14 h-14 rounded-full p-0.5 border-2 border-dashed border-muted flex items-center justify-center group-hover:border-primary transition-colors overflow-hidden">
+              <div className={cn(globalSettings.storyCircleSize, "rounded-full p-0.5 border-2 border-dashed border-muted flex items-center justify-center group-hover:border-primary transition-colors overflow-hidden")}>
                 <img 
                   src={currentUserProfile?.photoURL || user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
                   className="w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-opacity rounded-full"
@@ -187,7 +189,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <span className="text-[10px] font-extrabold text-muted">Your Story</span>
+            <span className={cn("text-[10px] font-extrabold text-muted", globalSettings.fontFamily)}>Your Story</span>
           </div>
 
           {storyUsers.map(u => (
@@ -197,7 +199,7 @@ export default function Home() {
               className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group"
             >
               <div className="relative">
-                <div className="w-16 h-16 rounded-full p-1 border-2 border-primary flex items-center justify-center group-hover:scale-105 transition-transform">
+                <div className={cn(globalSettings.storyCircleSize, "rounded-full p-1 border-2 border-primary flex items-center justify-center group-hover:scale-105 transition-transform")}>
                   <img 
                     src={u.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`} 
                     className="w-full h-full rounded-full object-cover"
@@ -208,7 +210,7 @@ export default function Home() {
                   <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 border-2 border-surface rounded-full"></div>
                 )}
               </div>
-              <span className="text-[10px] font-extrabold text-muted truncate w-14 text-center">{(u.displayName || 'User').split(' ')[0]}</span>
+              <span className={cn("text-[10px] font-extrabold text-muted truncate w-14 text-center", globalSettings.fontFamily)}>{(u.displayName || 'User').split(' ')[0]}</span>
             </div>
           ))}
         </div>
@@ -230,7 +232,8 @@ export default function Home() {
               onClick={() => setView('all')}
               className={cn(
                 "text-base font-black tracking-tight transition-all relative py-2", 
-                view === 'all' ? "text-primary" : "text-muted hover:text-text"
+                view === 'all' ? "text-primary" : "text-muted hover:text-text",
+                globalSettings.fontFamily
               )}
             >
               Chats
@@ -240,7 +243,8 @@ export default function Home() {
               onClick={() => setView('archived')}
               className={cn(
                 "text-base font-black tracking-tight transition-all relative py-2", 
-                view === 'archived' ? "text-primary" : "text-muted hover:text-text"
+                view === 'archived' ? "text-primary" : "text-muted hover:text-text",
+                globalSettings.fontFamily
               )}
             >
               Archived

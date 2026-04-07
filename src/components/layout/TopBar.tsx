@@ -2,6 +2,8 @@ import React from 'react';
 import { Search, Plus, Settings } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useGlobalSettings } from '../../hooks/useGlobalSettings';
+import { cn } from '../../lib/utils';
 
 interface TopBarProps {
   title: string;
@@ -10,9 +12,10 @@ interface TopBarProps {
 export default function TopBar({ title }: TopBarProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { settings: globalSettings } = useGlobalSettings();
 
   return (
-    <header className="md:hidden sticky top-0 left-0 right-0 bg-background border-b border-border py-6 px-6 flex items-center justify-between z-50">
+    <header className={cn("md:hidden sticky top-0 left-0 right-0 bg-background/80 backdrop-blur-md border-b border-border py-6 px-6 flex items-center justify-between z-50", globalSettings.blurIntensity)}>
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 flex items-center justify-center">
           <img 
@@ -22,7 +25,7 @@ export default function TopBar({ title }: TopBarProps) {
             referrerPolicy="no-referrer"
           />
         </div>
-        <h1 className="text-xl font-black text-text tracking-tighter">{title}</h1>
+        <h1 className={cn("text-xl font-black text-text tracking-tighter", globalSettings.fontFamily)}>{title}</h1>
       </div>
       <div className="flex items-center gap-4">
         <button 

@@ -4,6 +4,7 @@ import { MessageSquare, Search as SearchIcon, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
+import { useGlobalSettings } from '../../hooks/useGlobalSettings';
 
 interface UserListProps {
   users: User[];
@@ -15,13 +16,14 @@ interface UserListProps {
 
 export default function UserList({ users, onUserClick, loading, emptyMessage = "No users found", title }: UserListProps) {
   const navigate = useNavigate();
+  const { settings } = useGlobalSettings();
 
   if (loading) {
     return (
       <div className="flex flex-col gap-4 p-6">
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex items-center gap-4 animate-pulse">
-            <div className="w-14 h-14 bg-border rounded-full" />
+            <div className={cn(settings.profileSize, "bg-border rounded-full")} />
             <div className="flex-1 space-y-2">
               <div className="h-4 bg-border rounded w-1/3" />
               <div className="h-3 bg-border rounded w-1/4" />
@@ -46,7 +48,7 @@ export default function UserList({ users, onUserClick, loading, emptyMessage = "
   }
 
   return (
-    <div className="flex flex-col">
+    <div className={cn("flex flex-col", settings.fontFamily)}>
       {title && (
         <div className="px-6 py-4">
           <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">{title}</h3>
@@ -63,7 +65,7 @@ export default function UserList({ users, onUserClick, loading, emptyMessage = "
           >
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-background shadow-sm">
+              <div className={cn(settings.profileSize, "rounded-full overflow-hidden border-2 border-background shadow-sm")}>
                 <img
                   src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`}
                   alt={user.displayName}
@@ -78,10 +80,10 @@ export default function UserList({ users, onUserClick, loading, emptyMessage = "
 
             {/* Info */}
             <div className="flex-1 min-w-0" onClick={() => onUserClick?.(user)}>
-              <h4 className="text-sm font-black text-text truncate group-hover:text-primary transition-colors">
+              <h4 className={cn(settings.userNameSize, settings.fontWeight, "text-text truncate group-hover:text-primary transition-colors")}>
                 {user.displayName}
               </h4>
-              <p className="text-xs text-muted truncate font-medium">
+              <p className={cn(settings.fontSize, "text-muted truncate")}>
                 @{user.username || user.displayName?.toLowerCase().replace(/\s+/g, '') || 'user'}
               </p>
             </div>

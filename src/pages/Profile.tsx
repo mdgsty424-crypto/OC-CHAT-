@@ -38,7 +38,8 @@ import {
   Droplets,
   QrCode,
   CheckCircle2,
-  Users
+  Users,
+  Palette
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { doc, updateDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
@@ -48,6 +49,7 @@ import { useSettings } from '../hooks/useSettings';
 import { motion, AnimatePresence } from 'motion/react';
 import { Story, User } from '../types';
 import StoryPlayer from '../components/stories/StoryPlayer';
+import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 type SubView = 'main' | 'account' | 'security' | 'notifications' | 'language' | 'help' | 'set-pin' | 'settings';
 
@@ -59,6 +61,7 @@ export default function Profile() {
   const isOwnProfile = !id || id === currentUser?.uid;
   
   const { theme, language, isMuted, toggleTheme, setLanguage, toggleMute, t } = useSettings();
+  const { settings: globalSettings } = useGlobalSettings();
   const [subView, setSubView] = useState<SubView>('main');
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingIdentity, setIsEditingIdentity] = useState(false);
@@ -421,6 +424,13 @@ export default function Profile() {
       onClick: () => setLanguage(language === 'en' ? 'bn' : 'en')
     },
     { 
+      icon: Palette, 
+      label: 'Chat Background', 
+      color: 'text-pink-500', 
+      bg: 'bg-pink-500/10',
+      onClick: () => setSubView('chat-background')
+    },
+    { 
       icon: HelpCircle, 
       label: t('profile.helpSupport'), 
       color: 'text-gray-500', 
@@ -572,6 +582,54 @@ export default function Profile() {
                 <span className="text-[10px] text-muted font-medium">Help us improve</span>
               </div>
             </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (subView === 'chat-background') {
+    return (
+      <main className="flex-1 overflow-y-auto pb-24 bg-background">
+        <div className="p-4 flex items-center gap-4 border-b border-border sticky top-0 bg-background/80 backdrop-blur-md z-10">
+          <button onClick={() => setSubView('settings')} className="p-2 hover:bg-border rounded-full transition-colors">
+            <ChevronLeft size={24} className="text-text" />
+          </button>
+          <h2 className="text-lg font-extrabold text-text">Chat Background</h2>
+        </div>
+
+        <div className="p-4 space-y-6">
+          <div className="bg-surface rounded-2xl p-6 border border-border/50">
+            <h3 className="text-sm font-bold text-text mb-4">Select Theme</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { id: 'theme-default', name: 'Default', class: 'bg-background' },
+                { id: 'theme-gradient-waves', name: 'Gradient Waves', class: 'bg-gradient-to-br from-[#5f2c82] via-[#49a09d] to-[#ff4b8b]' },
+                { id: 'theme-glass', name: 'Glass-morphism', class: 'bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900' },
+                { id: 'theme-solid-dark', name: 'Solid Dark', class: 'bg-[#121212]' },
+                { id: 'theme-ocean', name: 'Ocean Depth', class: 'bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]' },
+              ].map((themeOption) => (
+                <div 
+                  key={themeOption.id}
+                  onClick={() => {
+                    if (currentUser) {
+                      updateDoc(doc(db, 'users', currentUser.uid), {
+                        'preferences.chatTheme': themeOption.id
+                      });
+                    }
+                  }}
+                  className={cn(
+                    "cursor-pointer rounded-xl overflow-hidden border-2 transition-all",
+                    currentUser?.preferences?.chatTheme === themeOption.id ? "border-primary scale-105 shadow-lg shadow-primary/20" : "border-transparent hover:border-border"
+                  )}
+                >
+                  <div className={cn("h-32 w-full", themeOption.class)}></div>
+                  <div className="p-3 text-center bg-surface">
+                    <span className="text-xs font-bold text-text">{themeOption.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </main>
@@ -730,17 +788,17 @@ export default function Profile() {
             {/* Name & Bio */}
             <div className="flex-1 pt-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900">{profileUser?.displayName}</h2>
+                <h2 className={cn("text-2xl md:text-3xl font-extrabold text-gray-900", globalSettings.fontFamily, globalSettings.fontWeight)}>{profileUser?.displayName}</h2>
                 {profileUser?.verified && (
                   <CheckCircle2 className="text-blue-500 fill-blue-500" size={20} />
                 )}
               </div>
               {profileUser?.bio ? (
-                <p className="text-gray-600 font-semibold mt-1">{profileUser.bio}</p>
+                <p className={cn("text-gray-600 font-semibold mt-1", globalSettings.fontFamily)}>{profileUser.bio}</p>
               ) : isOwnProfile && (
                 <button 
                   onClick={() => setIsEditing(true)}
-                  className="text-blue-600 font-bold text-sm hover:underline mt-1"
+                  className={cn("text-blue-600 font-bold text-sm hover:underline mt-1", globalSettings.fontFamily)}
                 >
                   Add Bio
                 </button>

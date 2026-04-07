@@ -9,6 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../../lib/utils';
 import { Check, CheckCheck, Archive, BellOff, Users, Megaphone, Phone, CheckCircle2 } from 'lucide-react';
 import { motion, useMotionValue, useTransform } from 'motion/react';
+import { useGlobalSettings } from '../../hooks/useGlobalSettings';
 
 interface ChatListItemProps {
   chat: Chat;
@@ -17,6 +18,7 @@ interface ChatListItemProps {
 
 export default function ChatListItem({ chat }: ChatListItemProps) {
   const { user: currentUser } = useAuth();
+  const { settings: globalSettings } = useGlobalSettings();
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const x = useMotionValue(0);
@@ -91,16 +93,16 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
         >
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="p-[2px] bg-background rounded-full transition-all group-hover:scale-105">
+            <div className={cn(globalSettings.profileSize, "p-[2px] bg-background rounded-full transition-all group-hover:scale-105")}>
               {chat.type === 'group' && !chatPhoto ? (
-                <div className="w-12 h-12 rounded-full bg-surface flex items-center justify-center">
+                <div className="w-full h-full rounded-full bg-surface flex items-center justify-center">
                   <Users size={20} className="text-muted" />
                 </div>
               ) : (
                 <img
                   src={chatPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(chatName)}&background=random`}
                   alt={chatName}
-                  className="w-12 h-12 rounded-full object-cover"
+                  className="w-full h-full rounded-full object-cover"
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(chatName)}&background=random`;
@@ -116,7 +118,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-0.5">
-              <h3 className="text-lg font-extrabold text-text truncate group-hover:text-primary transition-colors flex items-center">
+              <h3 className={cn("text-lg font-extrabold text-text truncate group-hover:text-primary transition-colors flex items-center", globalSettings.userNameSize, globalSettings.fontWeight, globalSettings.fontFamily)}>
                 {loading ? (
                   <div className="h-5 w-24 bg-surface animate-pulse rounded" />
                 ) : (
@@ -154,7 +156,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
                   "w-2.5 h-2.5 rounded-full",
                   unreadCount > 0 ? "bg-primary" : "border border-muted"
                 )}></div>
-                <span className="text-[10px] font-bold text-muted uppercase tracking-widest">
+                <span className={cn("text-[10px] font-bold text-muted uppercase tracking-widest", globalSettings.fontFamily)}>
                   {chat.lastMessageTime && !isNaN(new Date(chat.lastMessageTime).getTime()) 
                     ? formatDistanceToNow(new Date(chat.lastMessageTime), { addSuffix: false }) 
                     : ''}
@@ -168,6 +170,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
               <div className="flex items-center gap-1 min-w-0">
                 <p className={cn(
                   "text-sm truncate",
+                  globalSettings.fontFamily,
                   isTyping ? "text-blue-500 font-medium" : (unreadCount > 0 ? "text-text font-black" : "text-muted")
                 )}>
                   {isTyping ? 'Typing...' : (chat.lastMessage || 'No messages yet')}

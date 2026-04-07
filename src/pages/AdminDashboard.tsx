@@ -17,7 +17,8 @@ import {
   Settings,
   AlertTriangle,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Palette
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate, Link } from 'react-router-dom';
@@ -41,10 +42,11 @@ import { User } from '../types';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { cn } from '../lib/utils';
 import UserDetailsModal from '../components/admin/UserDetailsModal';
+import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 export default function AdminDashboard() {
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'assets' | 'stats' | 'broadcast'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'assets' | 'stats' | 'broadcast' | 'ui'>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -63,6 +65,8 @@ export default function AdminDashboard() {
   });
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  const { settings, updateSettings } = useGlobalSettings();
 
   // Security Check
   if (!currentUser || currentUser.email !== 'info@ocsthael.com') {
@@ -257,6 +261,12 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('broadcast')} 
             icon={<Bell size={20} />} 
             label="Broadcast" 
+          />
+          <TabButton 
+            active={activeTab === 'ui'} 
+            onClick={() => setActiveTab('ui')} 
+            icon={<Palette size={20} />} 
+            label="UI Settings" 
           />
         </aside>
 
@@ -481,6 +491,169 @@ export default function AdminDashboard() {
                         </>
                       )}
                     </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            {activeTab === 'ui' && (
+              <motion.div
+                key="ui"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-black tracking-tight">Global UI Settings</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Font & Text Control */}
+                  <div className="bg-surface border border-border/50 rounded-2xl p-6 card-3d space-y-4">
+                    <h3 className="text-lg font-extrabold flex items-center gap-2"><Settings size={20}/> Font & Text Control</h3>
+                    
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Font Size</label>
+                      <select 
+                        value={settings.fontSize} 
+                        onChange={(e) => updateSettings({ fontSize: e.target.value })}
+                        className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="text-sm">Small</option>
+                        <option value="text-base">Medium</option>
+                        <option value="text-lg">Large</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Font Weight</label>
+                      <select 
+                        value={settings.fontWeight} 
+                        onChange={(e) => updateSettings({ fontWeight: e.target.value })}
+                        className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="font-normal">Normal</option>
+                        <option value="font-medium">Medium</option>
+                        <option value="font-bold">Bold</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Font Family</label>
+                      <select 
+                        value={settings.fontFamily} 
+                        onChange={(e) => updateSettings({ fontFamily: e.target.value })}
+                        className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="font-sans">Sans Serif</option>
+                        <option value="font-mono">Monospace</option>
+                        <option value="font-serif">Serif</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">User Name Size</label>
+                      <select 
+                        value={settings.userNameSize} 
+                        onChange={(e) => updateSettings({ userNameSize: e.target.value })}
+                        className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="text-sm">Small</option>
+                        <option value="text-base">Medium</option>
+                        <option value="text-lg">Large</option>
+                        <option value="text-xl">Extra Large</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 3D Capsule & Glass-morphism */}
+                  <div className="bg-surface border border-border/50 rounded-2xl p-6 card-3d space-y-4">
+                    <h3 className="text-lg font-extrabold flex items-center gap-2"><Palette size={20}/> 3D Capsule & Glass-morphism</h3>
+                    
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Blur Intensity (Backdrop Filter)</label>
+                      <select 
+                        value={settings.blurIntensity} 
+                        onChange={(e) => updateSettings({ blurIntensity: e.target.value })}
+                        className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="backdrop-blur-sm">Small</option>
+                        <option value="backdrop-blur-md">Medium</option>
+                        <option value="backdrop-blur-lg">Large</option>
+                        <option value="backdrop-blur-xl">Extra Large</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Border Radius</label>
+                      <select 
+                        value={settings.borderRadius} 
+                        onChange={(e) => updateSettings({ borderRadius: e.target.value })}
+                        className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="rounded-lg">Large</option>
+                        <option value="rounded-xl">Extra Large</option>
+                        <option value="rounded-2xl">2x Extra Large</option>
+                        <option value="rounded-3xl">3x Extra Large</option>
+                        <option value="rounded-full">Full</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Profile Size</label>
+                      <select 
+                        value={settings.profileSize} 
+                        onChange={(e) => updateSettings({ profileSize: e.target.value })}
+                        className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="w-10 h-10">Small</option>
+                        <option value="w-12 h-12">Medium</option>
+                        <option value="w-14 h-14">Large</option>
+                        <option value="w-16 h-16">Extra Large</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Story Circle Size</label>
+                      <select 
+                        value={settings.storyCircleSize} 
+                        onChange={(e) => updateSettings({ storyCircleSize: e.target.value })}
+                        className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="w-12 h-12">Small</option>
+                        <option value="w-14 h-14">Medium</option>
+                        <option value="w-16 h-16">Large</option>
+                        <option value="w-20 h-20">Extra Large</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* User Customization (Theme Gallery) */}
+                  <div className="bg-surface border border-border/50 rounded-2xl p-6 card-3d space-y-4 md:col-span-2">
+                    <h3 className="text-lg font-extrabold flex items-center gap-2"><Palette size={20}/> User Customization (Theme Gallery)</h3>
+                    <p className="text-xs text-muted-foreground">Select the default background theme for all users.</p>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                      {[
+                        { id: 'theme-default', name: 'Default', class: 'bg-background' },
+                        { id: 'theme-gradient-waves', name: 'Gradient Waves', class: 'bg-gradient-to-br from-[#5f2c82] via-[#49a09d] to-[#ff4b8b]' },
+                        { id: 'theme-glass', name: 'Glass-morphism', class: 'bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900' },
+                        { id: 'theme-solid-dark', name: 'Solid Dark', class: 'bg-[#121212]' },
+                        { id: 'theme-ocean', name: 'Ocean Depth', class: 'bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]' },
+                      ].map((theme) => (
+                        <div 
+                          key={theme.id}
+                          onClick={() => updateSettings({ theme: theme.id })}
+                          className={cn(
+                            "cursor-pointer rounded-xl overflow-hidden border-2 transition-all",
+                            settings.theme === theme.id ? "border-primary scale-105 shadow-lg shadow-primary/20" : "border-transparent hover:border-border"
+                          )}
+                        >
+                          <div className={cn("h-24 w-full", theme.class)}></div>
+                          <div className="p-2 text-center bg-surface">
+                            <span className="text-[10px] font-bold">{theme.name}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </motion.div>

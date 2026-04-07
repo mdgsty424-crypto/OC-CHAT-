@@ -6,6 +6,7 @@ import { Phone, CheckCircle2 } from 'lucide-react';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
+import { useGlobalSettings } from '../../hooks/useGlobalSettings';
 
 interface UserChatListItemProps {
   user: User;
@@ -15,6 +16,7 @@ interface UserChatListItemProps {
 export default function UserChatListItem({ user }: UserChatListItemProps) {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { settings: globalSettings } = useGlobalSettings();
 
   const handleStartChat = async () => {
     if (!currentUser) return;
@@ -67,11 +69,11 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
         >
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="p-[2px] bg-background rounded-full transition-all group-hover:scale-105">
+            <div className={cn(globalSettings.profileSize, "p-[2px] bg-background rounded-full transition-all group-hover:scale-105")}>
               <img
                 src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`}
                 alt={user.displayName}
-                className="w-12 h-12 rounded-full object-cover"
+                className="w-full h-full rounded-full object-cover"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -83,7 +85,7 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-0.5">
-              <h3 className="text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center">
+              <h3 className={cn("text-lg font-semibold text-text truncate group-hover:text-primary transition-colors flex items-center", globalSettings.userNameSize, globalSettings.fontWeight, globalSettings.fontFamily)}>
                 <span className="truncate">{user.displayName}</span>
                 {user.verified && (
                   <CheckCircle2 className="text-blue-500 fill-blue-500 ml-1 flex-shrink-0" size={16} />
@@ -103,7 +105,7 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
               </div>
             </div>
             <div className="flex justify-between items-center">
-              <p className="text-sm text-muted truncate">
+              <p className={cn("text-sm text-muted truncate", globalSettings.fontFamily)}>
                 Tap to start a conversation
               </p>
             </div>

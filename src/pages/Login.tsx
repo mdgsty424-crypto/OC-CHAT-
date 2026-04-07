@@ -26,8 +26,14 @@ export default function Login() {
   };
 
   return (
-    <div className="h-screen w-screen gradient-wave flex flex-col items-center justify-center p-8 overflow-hidden">
-      <div className="backdrop-blur-[15px] bg-white/10 p-8 rounded-[20px] w-full max-w-[320px] shadow-[0_10px_40px_rgba(0,0,0,0.2)] text-center">
+    <div className="h-screen w-screen gradient-wave flex flex-col items-center justify-center p-8 relative overflow-hidden">
+      {/* Top wave */}
+      <div className="absolute top-0 w-full h-[120px] bg-[#5f2c82] rounded-b-[80px]" />
+      
+      {/* Bottom blob */}
+      <div className="absolute -bottom-[60px] -right-[60px] w-[220px] h-[220px] bg-[#ff4b8b] rounded-full blur-[10px]" />
+
+      <div className="backdrop-blur-[15px] bg-white/10 p-8 rounded-[20px] w-full max-w-[320px] shadow-[0_10px_40px_rgba(0,0,0,0.2)] text-center z-10">
         <h2 className="text-white text-2xl font-bold mb-6">Login</h2>
 
         {!showEmailForm ? (

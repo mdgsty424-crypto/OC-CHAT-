@@ -75,11 +75,14 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
 
 import { useNotifications } from './hooks/useNotifications';
 import PinLock from './components/common/PinLock';
+import { useGlobalSettings } from './hooks/useGlobalSettings';
+import { cn } from './lib/utils';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const { theme } = useSettings();
+  const { settings: globalSettings } = useGlobalSettings();
   const [isLocked, setIsLocked] = useState(false);
   const { setIsAudioUnlocked, setAudioContext } = useZegoStore();
   const assets = useAppAssets();
@@ -240,10 +243,21 @@ function AppRoutes() {
     return <PinLock onUnlock={() => setIsLocked(false)} />;
   }
 
+  // Determine the background class based on the global theme
+  const getThemeClass = () => {
+    switch (globalSettings.theme) {
+      case 'theme-gradient-waves': return 'bg-gradient-to-br from-[#5f2c82] via-[#49a09d] to-[#ff4b8b]';
+      case 'theme-glass': return 'bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900';
+      case 'theme-solid-dark': return 'bg-[#121212]';
+      case 'theme-ocean': return 'bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]';
+      default: return 'bg-background';
+    }
+  };
+
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className={cn("flex h-screen overflow-hidden", getThemeClass())}>
       <Sidebar />
-      <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-surface border-l border-border/50">
+      <div className={cn("flex-1 flex flex-col h-full relative overflow-hidden border-l border-border/50", globalSettings.theme !== 'theme-default' ? 'bg-transparent' : 'bg-surface')}>
         <NetworkStatus />
         <ZegoCallInvitation />
         <IncomingCall />

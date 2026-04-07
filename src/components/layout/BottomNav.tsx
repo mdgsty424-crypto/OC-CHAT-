@@ -4,9 +4,11 @@ import { MessageCircle, Phone, Sparkles, Users, User, Shield } from 'lucide-reac
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
 import { motion } from 'framer-motion';
+import { useGlobalSettings } from '../../hooks/useGlobalSettings';
 
 export default function BottomNav() {
   const { user } = useAuth();
+  const { settings: globalSettings } = useGlobalSettings();
   const items = [
     { icon: MessageCircle, label: 'Chats', path: '/' },
     { icon: Phone, label: 'Calls', path: '/calls' },
@@ -20,7 +22,7 @@ export default function BottomNav() {
   }
 
   return (
-    <nav className="md:hidden absolute bottom-0 left-0 right-0 w-full glass-3d border-t border-border flex justify-around items-center py-2 px-4 z-50">
+    <nav className={cn("md:hidden absolute bottom-0 left-0 right-0 w-full glass-3d border-t border-border flex justify-around items-center py-2 px-4 z-50", globalSettings.blurIntensity)}>
       {items.map((item) => (
         <NavLink
           key={item.path}
@@ -39,7 +41,7 @@ export default function BottomNav() {
               className="flex flex-col items-center"
             >
               <item.icon size={24} strokeWidth={isActive ? 2.5 : 2} className={isActive ? "drop-shadow-md" : ""} />
-              <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1">{item.label}</span>
+              <span className={cn("text-[10px] font-extrabold uppercase tracking-wider mt-1", globalSettings.fontFamily)}>{item.label}</span>
             </motion.div>
           )}
         </NavLink>
