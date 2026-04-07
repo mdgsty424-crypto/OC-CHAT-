@@ -28,6 +28,7 @@ import Login from './pages/Login';
 import MeetingRoom from './pages/MeetingRoom';
 import VoiceRoom from './pages/VoiceRoom';
 import AdminDashboard from './pages/AdminDashboard';
+import SplashScreen from './components/common/SplashScreen';
 
 function NetworkStatus() {
   const { isOnline, isReconnecting } = useNetwork();
@@ -76,12 +77,20 @@ import PinLock from './components/common/PinLock';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
   const { theme } = useSettings();
   const [isLocked, setIsLocked] = useState(false);
   const { setIsAudioUnlocked, setAudioContext } = useZegoStore();
   const assets = useAppAssets();
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   useNotifications(); // Initialize notification registration
+
+  useEffect(() => {
+    if (!loading) {
+      const timer = setTimeout(() => setShowSplash(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   useEffect(() => {
     // 1. User Gesture Logic for Audio Context & Vibration
@@ -212,6 +221,10 @@ function AppRoutes() {
       };
     }
   }, [user?.securitySettings?.privacyModeEnabled]);
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
 
   if (!user && !loading) {
     return <Login />;

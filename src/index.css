@@ -180,8 +180,16 @@ body {
   transform: translateY(-5px) translateZ(0) rotateX(2deg) rotateY(2deg);
 }
 
-.gradient-primary {
-  background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
+.gradient-wave {
+  background: linear-gradient(135deg, #5f2c82, #49a09d, #ff4b8b);
+  background-size: 400% 400%;
+  animation: gradient-wave 15s ease infinite;
+}
+
+@keyframes gradient-wave {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .gradient-text {
