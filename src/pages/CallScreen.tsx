@@ -43,32 +43,37 @@ export default function CallScreen() {
   const appID = 501273512;
   const serverSecret = '4faa5da6007626b30263079ee01729bb';
 
-  // 2. Camera Wake-up & Instant Local Preview
+  // 2. Force Hardware Permissions & Instant Local Preview
   useEffect(() => {
-    if (!isVideo) return;
-
-    let stream: MediaStream | null = null;
-    const startPreview = async () => {
+    const requestPermissions = async () => {
       try {
-        // Wake up camera hardware immediately
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user' }, 
+        // Explicitly request both video and audio to wake up hardware
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: isVideo ? { facingMode: 'user' } : false, 
           audio: true 
         });
-        setLocalStream(stream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+        
+        if (isVideo) {
+          setLocalStream(stream);
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
+        } else {
+          // For audio calls, we still want to wake up the mic
+          stream.getTracks().forEach(track => {
+            if (track.kind === 'video') track.stop();
+          });
         }
       } catch (err) {
-        console.error("Native camera access failed:", err);
+        console.error("Hardware access failed:", err);
       }
     };
 
-    startPreview();
+    requestPermissions();
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
       }
     };
   }, [isVideo]);
@@ -184,8 +189,11 @@ export default function CallScreen() {
         turnOnCameraWhenJoining: true,
         turnOnMicrophoneWhenJoining: true,
         showMyVideoView: true,
-        showMyCaptionInVideoView: true,
+        useFrontFacingCamera: true,
         showAudioVideoSettingsButtonInPreJoinView: false,
+        showLeaveRoomConfirmDialog: false,
+        screenSharingConfig: { resolution: (ZegoUIKitPrebuilt as any).VideoResolution_720P },
+        showMyCaptionInVideoView: true,
         enableVideoMirroring: true,
         layout: { mode: "PictureInPicture" },
         showMyCameraSelfViewInVideoCall: true,
