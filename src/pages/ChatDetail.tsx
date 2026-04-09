@@ -14,6 +14,7 @@ import MessageInput from '../components/chat/MessageInput';
 import { useZegoStore } from '../hooks/useZegoStore';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
+import ZIM from 'zego-zim-web';
 
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -28,7 +29,6 @@ export default function ChatDetail() {
   const assets = useAppAssets();
   const navigate = useNavigate();
   const { sendNotification } = useNotifications();
-  const { zp } = useZegoStore();
   const [chat, setChat] = useState<Chat | null>(null);
   
   // Audio pre-loading
@@ -204,82 +204,6 @@ export default function ChatDetail() {
     }
   }, [messages, chat?.typing]);
 
-  const handleCall = async (type: 'audio' | 'video') => {
-    console.log("handleCall called", { currentUser, otherUser });
-    if (!currentUser || !otherUser) {
-      console.error("Cannot start call: currentUser or otherUser is missing", { currentUser, otherUser });
-      return;
-    }
-    if (!otherUser.uid) {
-      console.error("Cannot start call: otherUser.uid is missing", { otherUser });
-      return;
-    }
-
-    // Navigate immediately to CallScreen
-    navigate(`/call/${otherUser.uid}?type=${type}`);
-
-    if (zp) {
-      const callType = type === 'video' 
-        ? ZegoUIKitPrebuilt.InvitationTypeVideoCall 
-        : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
-      
-      try {
-        console.log(`Sending ${type} call invitation to:`, otherUser.uid);
-        const result = await zp.sendCallInvitation({
-          callees: [{ userID: otherUser.uid, userName: otherUser.displayName || otherUser.uid }],
-          callType: callType,
-          timeout: 60,
-        });
-        console.log("Call invitation result:", result);
-        if (result.errorInvitees && result.errorInvitees.length > 0) {
-          console.error("Failed to invite some users:", result.errorInvitees);
-          alert("User is offline or not available");
-        }
-      } catch (error) {
-        console.error("Error sending call invitation:", error);
-        alert("Failed to start call via Zego");
-      }
-      return;
-    }
-
-    try {
-      const callRef = await addDoc(collection(db, 'calls'), {
-        type,
-        callerId: currentUser.uid,
-        receiverId: otherUser.uid,
-        status: 'calling',
-        timestamp: new Date().toISOString()
-      });
-
-      // Send VoIP Push Notification
-      sendNotification({
-        targetUserId: otherUser.uid,
-        title: `Incoming ${type === 'video' ? 'Video' : 'Audio'} Call from ${currentUser.displayName || 'Someone'}`,
-        message: "Tap the 'Answer' button to join the call.",
-        image: currentUser.photoURL || '',
-        priority: 'high',
-        requireInteraction: true,
-        sound: 'ringtone', // Custom ringtone file name (without extension)
-        actions: [
-          { 
-            title: "✅ Answer", 
-            action: "open_url", 
-            url: `${window.location.origin}/call/${currentUser.uid}?type=${type}&callId=${callRef.id}&chatId=${id}` 
-          },
-          { 
-            title: "❌ Decline", 
-            action: "dismiss" 
-          }
-        ]
-      });
-
-      navigate(`/call/${otherUser.uid}?type=${type}&callId=${callRef.id}&chatId=${id}`);
-    } catch (error) {
-      console.error("Error starting call:", error);
-      alert("Failed to start call");
-    }
-  };
-
   const handleForwardMessage = async (targetChatId: string) => {
     if (!forwardingMessage || !currentUser) return;
 
@@ -350,6 +274,20 @@ export default function ChatDetail() {
       case 'theme-ocean': return 'bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]';
       default: return 'bg-background';
     }
+  };
+
+  const handleCall = async (type: 'audio' | 'video') => {
+    if (!otherUser) return;
+    try {
+      // Request permissions immediately for instant feel
+      await navigator.mediaDevices.getUserMedia({ 
+        video: type === 'video', 
+        audio: true 
+      });
+    } catch (err) {
+      console.warn("Permission request failed or denied:", err);
+    }
+    navigate(`/call/${otherUser.uid}?type=${type}`);
   };
 
   return (
@@ -466,7 +404,7 @@ export default function ChatDetail() {
             isMe={msg.senderId === currentUser?.uid} 
             onReply={setReplyingTo}
             onForward={setForwardingMessage}
-            onCall={handleCall}
+            onCall={(type) => navigate(`/call/${otherUser?.uid}?type=${type}`)}
             otherUserPhoto={chat?.type === 'direct' ? (otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || id}`) : undefined}
             replyMessage={replyMessage}
           />

@@ -165,49 +165,17 @@ export default function Calls() {
 
   const handleCall = async (otherUser: User, type: 'audio' | 'video') => {
     if (!user || !otherUser) return;
-
-    // Navigate immediately to CallScreen
-    navigate(`/call/${otherUser.uid}?type=${type}`);
-
-    if (zp) {
-      const callType = type === 'video' 
-        ? ZegoUIKitPrebuilt.InvitationTypeVideoCall 
-        : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
-      
-      try {
-        console.log(`Sending ${type} call invitation to:`, otherUser.uid);
-        const result = await zp.sendCallInvitation({
-          callees: [{ userID: otherUser.uid, userName: otherUser.displayName || otherUser.uid }],
-          callType: callType,
-          timeout: 60,
-        });
-        console.log("Call invitation result:", result);
-        if (result.errorInvitees && result.errorInvitees.length > 0) {
-          console.error("Failed to invite some users:", result.errorInvitees);
-          alert("User is offline or not available");
-        }
-      } catch (error) {
-        console.error("Error sending call invitation:", error);
-        alert("Failed to start call via Zego");
-      }
-      return;
-    }
-
-    // Fallback to manual signaling if Zego is not ready
     try {
-      const callRef = await addDoc(collection(db, 'calls'), {
-        type,
-        callerId: user.uid,
-        receiverId: otherUser.uid,
-        status: 'calling',
-        timestamp: new Date().toISOString()
+      // Request permissions immediately
+      await navigator.mediaDevices.getUserMedia({ 
+        video: type === 'video', 
+        audio: true 
       });
-
-      navigate(`/call/${otherUser.uid}?type=${type}&callId=${callRef.id}`);
-    } catch (error) {
-      console.error("Error starting call:", error);
-      alert("Failed to start call");
+    } catch (err) {
+      console.warn("Permission request failed or denied:", err);
     }
+    // Navigate immediately to CallScreen - signaling happens there
+    navigate(`/call/${otherUser.uid}?type=${type}`);
   };
 
   return (

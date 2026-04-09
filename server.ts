@@ -26,8 +26,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ZegoCloud Configuration
-const ZEGO_APP_ID = Number(process.env.ZEGO_APP_ID) || 1698335343;
-const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET || "827755ef5ec4c06648bc783998a6d0c2";
+const ZEGO_APP_ID = Number(process.env.ZEGO_APP_ID) || 501273512;
+const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET || "4faa5da6007626b30263079ee01729bb";
 
 // webtoapp.design Configuration
 const WEBTOAPP_API_KEY = process.env.WEBTOAPP_API_KEY || "tFT_Zi9r8SEvbduQ3jRhMhRN73-raDOy2r-522NuXSc";
