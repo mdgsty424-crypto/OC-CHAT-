@@ -21,8 +21,9 @@ import CallScreen from './pages/CallScreen';
 import Sidebar from './components/layout/Sidebar';
 import BottomNav from './components/layout/BottomNav';
 import TopBar from './components/layout/TopBar';
-import IncomingCall from './components/common/IncomingCall';
-import OutgoingCall from './components/common/OutgoingCall';
+import ZIM from 'zego-zim-web';
+(window as any).ZIM = ZIM;
+
 import ZegoCallInvitation from './components/common/ZegoCallInvitation';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -265,8 +266,6 @@ function AppRoutes() {
       <div className={cn("flex-1 flex flex-col h-full relative overflow-hidden border-l border-border/50", globalSettings.theme !== 'theme-default' ? 'bg-transparent' : 'bg-surface')}>
         <NetworkStatus />
         <ZegoCallInvitation />
-        <IncomingCall />
-        <OutgoingCall />
         <Routes>
           <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
           <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />

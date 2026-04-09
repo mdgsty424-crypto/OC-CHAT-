@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
-import { ZIM } from 'zego-zim-web';
+import ZIM from 'zego-zim-web';
 import { useAuth } from '../../hooks/useAuth';
 import { useZegoStore } from '../../hooks/useZegoStore';
 import { useAppAssets } from '../../hooks/useAppAssets';
@@ -36,6 +36,7 @@ export default function ZegoCallInvitation() {
         const zp = ZegoUIKitPrebuilt.create(kitToken);
         
         // Add ZIM plugin for signaling
+        (window as any).ZIM = ZIM;
         zp.addPlugins({ ZIM });
 
         // Configure Call Invitation
@@ -55,32 +56,12 @@ export default function ZegoCallInvitation() {
           },
           onConfirmDialogWhenReceiving: (callType, caller, refuse, accept, data) => {
             console.log("Custom Incoming Call Dialog Triggered:", { callType, caller, data });
-            setIncomingCall({
-              callID: data, 
-              caller,
-              callType,
-              callees: [], 
-              refuse: () => {
-                refuse();
-                setIncomingCall(null);
-              },
-              accept: () => {
-                accept();
-                setIncomingCall(null);
-              }
-            });
+            // Instead of setIncomingCall, navigate to CallScreen
+            window.location.href = `/call/${caller.userID}?type=${callType === 1 ? 'video' : 'audio'}&callId=${data}`;
           },
           onConfirmDialogWhenSending: (callID, callees, callType, cancel) => {
             console.log("Custom Outgoing Call Dialog Triggered:", { callID, callees, callType });
-            setOutgoingCall({
-              callID,
-              callees,
-              callType,
-              cancel: () => {
-                cancel();
-                setOutgoingCall(null);
-              }
-            });
+            // Already handled by navigation in ChatDetail
           },
           onIncomingCallReceived: (callID, caller, callType, callees) => {
             console.log("Incoming call received:", { callID, caller, callType, callees });

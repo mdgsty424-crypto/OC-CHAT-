@@ -166,6 +166,9 @@ export default function Calls() {
   const handleCall = async (otherUser: User, type: 'audio' | 'video') => {
     if (!user || !otherUser) return;
 
+    // Navigate immediately to CallScreen
+    navigate(`/call/${otherUser.uid}?type=${type}`);
+
     if (zp) {
       const callType = type === 'video' 
         ? ZegoUIKitPrebuilt.InvitationTypeVideoCall 

@@ -215,6 +215,9 @@ export default function ChatDetail() {
       return;
     }
 
+    // Navigate immediately to CallScreen
+    navigate(`/call/${otherUser.uid}?type=${type}`);
+
     if (zp) {
       const callType = type === 'video' 
         ? ZegoUIKitPrebuilt.InvitationTypeVideoCall 
