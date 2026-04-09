@@ -232,11 +232,11 @@ function AppRoutes() {
     }
   }, [user?.securitySettings?.privacyModeEnabled]);
 
-  if (showSplash) {
+  if (loading || showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
-  if (!user && !loading) {
+  if (!user) {
     return (
       <Routes>
         <Route path="/signup" element={<Signup />} />

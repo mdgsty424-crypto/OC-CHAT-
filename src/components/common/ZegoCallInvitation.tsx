@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 import ZIM from 'zego-zim-web';
 import { useAuth } from '../../hooks/useAuth';
@@ -12,6 +13,7 @@ export default function ZegoCallInvitation() {
   const { user } = useAuth();
   const { setZp, setIncomingCall, setOutgoingCall } = useZegoStore();
   const assets = useAppAssets();
+  const navigate = useNavigate();
 
   const zegoInitialized = useRef(false);
 
@@ -57,7 +59,7 @@ export default function ZegoCallInvitation() {
           onConfirmDialogWhenReceiving: (callType, caller, refuse, accept, data) => {
             console.log("Custom Incoming Call Dialog Triggered:", { callType, caller, data });
             // Instead of setIncomingCall, navigate to CallScreen
-            window.location.href = `/call/${caller.userID}?type=${callType === 1 ? 'video' : 'audio'}&callId=${data}`;
+            navigate(`/call/${caller.userID}?type=${callType === 1 ? 'video' : 'audio'}&callId=${data}`);
           },
           onConfirmDialogWhenSending: (callID, callees, callType, cancel) => {
             console.log("Custom Outgoing Call Dialog Triggered:", { callID, callees, callType });

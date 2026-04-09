@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -9,6 +10,7 @@ import SwipeCard from '../components/dating/SwipeCard';
 
 export default function Dating() {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [profiles, setProfiles] = useState<User[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -123,7 +125,7 @@ export default function Dating() {
                 <button 
                   onClick={() => {
                     const matchId = [currentUser?.uid, matchProfile.uid].sort().join('_');
-                    window.location.href = `/chat/${matchId}`;
+                    navigate(`/chat/${matchId}`);
                   }}
                   className="w-full py-4 bg-primary text-white rounded-2xl font-bold text-lg shadow-xl shadow-primary/40 active:scale-95 transition-all"
                 >

@@ -6,7 +6,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { GlobalSettingsProvider } from './hooks/useGlobalSettings';
 
 // Register PWA service worker
-registerSW({ immediate: true });
+registerSW();
 
 // Register Firebase Messaging Service Worker
 if ('serviceWorker' in navigator) {

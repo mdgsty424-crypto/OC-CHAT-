@@ -47,45 +47,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (firebaseUser) {
-          const userRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userRef);
-          
-          const updateData: any = { 
+          // Offline-first: Set basic user immediately so app can render without waiting for Firestore
+          const basicUser: User = {
             uid: firebaseUser.uid,
-            displayName: firebaseUser.displayName || 'Anonymous',
-            online: true, 
-            lastSeen: new Date().toISOString() 
+            displayName: firebaseUser.displayName || 'User',
+            email: firebaseUser.email || undefined,
+            photoURL: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+            online: true,
+            lastSeen: new Date().toISOString()
           };
-          
-          if (!userDoc.exists() || !userDoc.data().photoURL) {
-            updateData.photoURL = firebaseUser.photoURL || '';
-          }
-          
-          if (firebaseUser.email === 'info@ocsthael.com') {
-            updateData.role = 'admin';
-          }
-          if (firebaseUser.email) {
-            updateData.email = firebaseUser.email;
-          }
+          setUser(basicUser);
+          setLoading(false);
+          clearTimeout(timeoutId);
 
-          // Fire and forget the update so it syncs when online
-          setDoc(userRef, updateData, { merge: true }).catch(e => console.log("Offline update pending", e));
-
-          // Listen for real-time updates to the current user's document
-          userUnsubscribe = onSnapshot(userRef, (snapshot) => {
-            if (snapshot.exists()) {
-              setUser(snapshot.data() as User);
-            } else {
-              setUser(updateData as User);
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          
+          try {
+            const userDoc = await getDoc(userRef);
+            
+            const updateData: any = { 
+              uid: firebaseUser.uid,
+              displayName: firebaseUser.displayName || 'Anonymous',
+              online: true, 
+              lastSeen: new Date().toISOString() 
+            };
+            
+            if (!userDoc.exists() || !userDoc.data().photoURL) {
+              updateData.photoURL = firebaseUser.photoURL || '';
             }
-            setLoading(false);
-            clearTimeout(timeoutId);
-          }, (error) => {
-            console.error("Auth snapshot error:", error);
-            setUser(updateData as User);
-            setLoading(false);
-            clearTimeout(timeoutId);
-          });
+            
+            if (firebaseUser.email === 'info@ocsthael.com') {
+              updateData.role = 'admin';
+            }
+            if (firebaseUser.email) {
+              updateData.email = firebaseUser.email;
+            }
+
+            // Fire and forget the update so it syncs when online
+            setDoc(userRef, updateData, { merge: true }).catch(e => console.log("Offline update pending", e));
+
+            // Listen for real-time updates to the current user's document
+            userUnsubscribe = onSnapshot(userRef, (snapshot) => {
+              if (snapshot.exists()) {
+                setUser(snapshot.data() as User);
+              } else {
+                setUser({ ...basicUser, ...updateData } as User);
+              }
+            }, (error) => {
+              console.error("Auth snapshot error:", error);
+            });
+          } catch (err) {
+            console.error("Error fetching user doc, using basic user:", err);
+          }
 
           // Register user with OneSignal
           if (window.OneSignal) {
