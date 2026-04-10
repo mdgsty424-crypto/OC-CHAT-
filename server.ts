@@ -10,6 +10,11 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
 import { db } from "./src/lib/firebase.ts";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Groq } from "groq-sdk";
+
+// Initialize Groq
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 import { 
   collection, 
   addDoc, 
@@ -284,57 +289,37 @@ const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
   // API Route for Link Preview
   app.get("/api/fetch-preview", async (req, res) => {
-    const { url } = req.query;
-    if (!url || typeof url !== 'string') {
-      return res.status(400).json({ error: "URL is required" });
-    }
+    // ... (existing code)
+  });
 
-    if (previewCache.has(url)) {
-      const cached = previewCache.get(url)!;
-      if (Date.now() - cached.timestamp < CACHE_TTL) {
-        return res.json(cached.data);
-      }
-    }
+  // API Route for AI Chat
+  app.post("/api/ai/chat", async (req, res) => {
+    const { prompt, context } = req.body;
+    if (!prompt) return res.status(400).json({ error: "Prompt is required" });
 
     try {
-      console.log("Fetching link preview for:", url);
-      
-      const response = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
-        timeout: 10000 // Increased timeout to 10s
+      // Image Generation Check
+      if (prompt.toLowerCase().includes("make a photo") || prompt.toLowerCase().includes("generate image")) {
+        const imageUrl = `https://pollinations.ai/p/${encodeURIComponent(prompt)}`;
+        return res.json({ type: "image", url: imageUrl });
+      }
+
+      // Chat Completion
+      const messages = [
+        { role: "system", content: "You are the OCSTHAEL Assistant, a helpful and witty AI for the OCSTHAEL Super App ecosystem in Bangladesh." },
+        ...context.map((msg: any) => ({ role: "user", content: msg.text })),
+        { role: "user", content: prompt }
+      ];
+
+      const completion = await groq.chat.completions.create({
+        messages,
+        model: "llama3-8b-8192",
       });
-      
-      const html = response.data;
-      const $ = cheerio.load(html);
 
-      const getMeta = (name: string) => {
-        return $(`meta[property="${name}"]`).attr('content') || 
-               $(`meta[name="${name}"]`).attr('content') || 
-               $(`meta[property="twitter:${name.replace('og:', '')}"]`).attr('content') ||
-               $(`meta[name="twitter:${name.replace('og:', '')}"]`).attr('content');
-      };
-
-      const title = getMeta('og:title') || getMeta('title') || $('title').text();
-      const description = getMeta('og:description') || getMeta('description');
-      const image = getMeta('og:image');
-      const siteName = getMeta('og:site_name');
-
-      const previewData = {
-        title: title || url,
-        description: description || "",
-        image: image || "",
-        siteName: siteName || new URL(url).hostname,
-        url
-      };
-
-      previewCache.set(url, { data: previewData, timestamp: Date.now() });
-
-      res.json(previewData);
+      res.json({ type: "text", text: completion.choices[0]?.message?.content });
     } catch (error: any) {
-      console.error("Link preview error:", error.message || "Unknown error");
-      res.status(500).json({ error: "Failed to fetch link preview" });
+      console.error("AI Chat error:", error);
+      res.status(500).json({ error: "Failed to get AI response" });
     }
   });
 

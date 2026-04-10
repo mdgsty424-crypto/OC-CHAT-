@@ -119,7 +119,6 @@ export default function CallScreen() {
         turnOnCameraWhenJoining: true,
         turnOnMicrophoneWhenJoining: true,
         useFrontFacingCamera: true,
-        showMyVideoView: true,
         showPreJoinView: false,
         showAudioVideoSettingsButtonInPreJoinView: false,
         onJoinRoom: () => setCallStatus('connected'),

@@ -187,6 +187,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const [showMediaViewer, setShowMediaViewer] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const themeToUse = user?.preferences?.chatTheme || globalSettings.theme;
@@ -548,9 +550,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <img 
                 src={message.fileUrl || message.mediaUrl} 
                 alt="Sent image" 
-                className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                className={cn("w-full h-full object-cover hover:opacity-90 transition-opacity", !isImageLoaded && "hidden")}
                 referrerPolicy="no-referrer"
+                onLoad={() => setIsImageLoaded(true)}
               />
+            )}
+            {!isImageLoaded && message.status !== 'uploading' && message.status !== 'failed' && (
+              <div className="w-full h-full animate-pulse bg-surface" />
             )}
           </div>
         )}
@@ -717,11 +723,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             {message.location ? (
               <>
                 <div className="rounded-[12px] overflow-hidden border border-border shadow-sm bg-surface">
+                  {!isMapLoaded && <div className="w-full h-[200px] animate-pulse bg-surface" />}
                   <iframe
                     width="100%"
                     height="200"
-                    style={{ border: 0, borderRadius: '12px' }}
+                    style={{ border: 0, borderRadius: '12px', display: isMapLoaded ? 'block' : 'none' }}
                     loading="lazy"
+                    onLoad={() => setIsMapLoaded(true)}
                     src={`https://maps.google.com/maps?q=${message.location.latitude},${message.location.longitude}&z=15&output=embed`}
                   ></iframe>
                 </div>

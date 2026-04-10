@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, where, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Message, Chat, User } from '../types';
@@ -151,11 +151,12 @@ export default function ChatDetail() {
     // Fetch Messages
     const q = query(
       collection(db, 'chats', id, 'messages'),
-      orderBy('timestamp', 'asc')
+      orderBy('timestamp', 'desc'),
+      limit(50)
     );
 
-    const messagesUnsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+    const messagesUnsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)).reverse();
       
       // Check for new messages from others
       if (msgs.length > messages.length) {
@@ -198,9 +199,16 @@ export default function ChatDetail() {
     };
   }, [id, currentUser]);
 
+  const isFirstLoad = useRef(true);
+
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      if (isFirstLoad.current && messages.length >= 10) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        isFirstLoad.current = false;
+      } else if (!isFirstLoad.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
     }
   }, [messages, chat?.typing]);
 
@@ -429,6 +437,8 @@ export default function ChatDetail() {
           participants={chat.participants} 
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
+          onSendOptimistic={(msg) => setMessages(prev => [...prev, msg])}
+          onSend={(context) => handleSend(context)}
         />
       )}
     </div>

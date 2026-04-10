@@ -18,13 +18,15 @@ interface MessageInputProps {
   participants: string[];
   replyingTo?: Message | null;
   onCancelReply?: () => void;
+  onSendOptimistic?: (msg: Message) => void;
+  onSend: (context: Message[]) => void;
 }
 
 import { useNotifications } from '../../hooks/useNotifications';
 
 import { useAppAssets } from '../../hooks/useAppAssets';
 
-export default function MessageInput({ chatId, participants, replyingTo, onCancelReply }: MessageInputProps) {
+export default function MessageInput({ chatId, participants, replyingTo, onCancelReply, onSendOptimistic }: MessageInputProps) {
   const { user } = useAuth();
   const { isOnline } = useNetwork();
   const { isMuted } = useSettings();
@@ -166,22 +168,33 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     typingTimeoutRef.current = setTimeout(() => updateTypingStatus(false), 3000);
   };
 
-  const handleAIResponse = async (prompt: string) => {
-    if (!process.env.GEMINI_API_KEY) return;
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const aiRes = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-    });
-    const messageData = {
-      chatId,
-      senderId: 'ai-bot',
-      text: aiRes.text || "I couldn't generate a response.",
-      type: 'text',
-      timestamp: new Date().toISOString(),
-      status: 'sent'
-    };
-    await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+  const handleAIResponse = async (prompt: string, context: Message[]) => {
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, context }),
+      });
+      const data = await response.json();
+      
+      const messageData = {
+        chatId,
+        senderId: 'ai-bot',
+        text: data.type === 'image' ? '' : data.text,
+        type: data.type === 'image' ? 'image' : 'text',
+        fileUrl: data.type === 'image' ? data.url : undefined,
+        timestamp: new Date().toISOString(),
+        status: 'sent'
+      };
+      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+    } catch (error) {
+      console.error("AI Chat error:", error);
+    } finally {
+      // Set typing status to false
+      updateDoc(doc(db, 'chats', chatId), {
+        [`typing.ai-bot`]: false
+      });
+    }
   };
 
   // Voice Recording Logic
@@ -521,7 +534,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     }
   };
 
-  const handleSend = async () => {
+  const handleSend = async (context: Message[]) => {
     if (!text.trim() || !user) return;
 
     const isAICommand = text.startsWith('@ai ');
@@ -554,6 +567,10 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     if (replyingTo) {
       messageData.replyTo = replyingTo.id;
       onCancelReply?.();
+    }
+
+    if (onSendOptimistic) {
+      onSendOptimistic({ id: 'temp-' + Date.now(), ...messageData });
     }
 
     setText('');
@@ -590,7 +607,11 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       updateDoc(doc(db, 'chats', chatId), unreadUpdates).catch(e => console.error("Error updating chat:", e));
 
       if (isAICommand && prompt && isOnline) {
-        handleAIResponse(prompt);
+        // Set typing status to true
+        updateDoc(doc(db, 'chats', chatId), {
+          [`typing.ai-bot`]: true
+        });
+        handleAIResponse(prompt, context.slice(-5));
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -846,7 +867,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSend();
+                    handleSend(messages); // Pass messages here
                   }
                 }}
                 placeholder={text.startsWith('@ai') ? "Ask AI anything..." : "Type a message..."}
