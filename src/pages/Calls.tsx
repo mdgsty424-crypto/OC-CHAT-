@@ -8,8 +8,6 @@ import { collection, query, where, onSnapshot, orderBy, getDoc, doc, setDoc, add
 import { db } from '../lib/firebase';
 import { CallSession, User } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { useZegoStore } from '../hooks/useZegoStore';
-import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 
 interface CallWithUser extends CallSession {
   otherUser?: User;
@@ -160,8 +158,6 @@ export default function Calls() {
       const name = c.otherUser?.displayName || '';
       return name.toLowerCase().includes(searchQuery.toLowerCase());
     });
-
-  const { zp } = useZegoStore();
 
   const handleCall = async (otherUser: User, type: 'audio' | 'video') => {
     if (!user || !otherUser) return;

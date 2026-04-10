@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
-import ZIM from 'zego-zim-web';
+import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
 import { useAuth } from '../hooks/useAuth';
 import { doc, getDoc, addDoc, collection, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -20,8 +19,9 @@ export default function CallScreen() {
   const { user: currentUser } = useAuth();
   const { settings: globalSettings } = useGlobalSettings();
   
-  const containerRef = useRef<HTMLDivElement>(null);
-  const zpRef = useRef<any>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const zgRef = useRef<ZegoExpressEngine | null>(null);
   const isJoined = useRef(false);
   const signalingStarted = useRef(false);
   
@@ -38,8 +38,9 @@ export default function CallScreen() {
   const isVideo = type === 'video';
 
   // NEW CREDENTIALS
-  const appID = 501273512;
-  const serverSecret = '4faa5da6007626b30263079ee01729bb';
+  const appID = 49448835;
+  const serverSecret = '1157428b791418c79233134d1764bcd8';
+  const serverURL = 'wss://webliveroom49448835-api.coolzcloud.com/ws';
 
   // 3. Fetch other user details (Instant UI)
   useEffect(() => {
@@ -122,7 +123,7 @@ export default function CallScreen() {
 
   // 4. Zego Background Connect
   const initZego = useCallback(async () => {
-    if (!currentUser || !containerRef.current || isJoined.current || !id || !otherUser || !callSession) return;
+    if (!currentUser || isJoined.current || !id || !otherUser || !callSession) return;
     
     // Only join if connected (for receiver) or if we are the caller
     const isCaller = callSession.callerId === currentUser.uid;
@@ -130,7 +131,7 @@ export default function CallScreen() {
     // If we are the receiver and not connected yet, wait.
     if (!isCaller && callStatus !== 'connected') return;
 
-    console.log("Initializing Zego with NEW CREDENTIALS. Session:", callSession.id);
+    console.log("Initializing ZegoExpressEngine. Session:", callSession.id);
 
     const roomID = callSession.id;
     const userID = currentUser.uid;
@@ -138,51 +139,38 @@ export default function CallScreen() {
 
     try {
       isJoined.current = true; // Set early to prevent race conditions
-      const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
-      const zp = ZegoUIKitPrebuilt.create(kitToken);
       
-      (window as any).ZIM = ZIM;
-      zp.addPlugins({ ZIM });
-      
-      zpRef.current = zp;
+      const zg = new ZegoExpressEngine(appID, serverURL);
+      zgRef.current = zg;
 
-      setTimeout(() => {
-        zp.joinRoom({
-          container: containerRef.current,
-          showPreJoinView: false,
-          showAudioVideoSettingsButtonInPreJoinView: false,
-          turnOnCameraWhenJoining: true,
-          turnOnMicrophoneWhenJoining: true,
-          showMyVideoView: true,
-          useFrontFacingCamera: true,
-          showLeaveRoomConfirmDialog: false,
-          screenSharingConfig: { resolution: (ZegoUIKitPrebuilt as any).VideoResolution_720P },
-          showMyCaptionInVideoView: true,
-          enableVideoMirroring: true,
-          layout: { mode: "PictureInPicture" },
-          showMyCameraSelfViewInVideoCall: true,
-          showMySelfTimer: true,
-          useFrontCameraDevice: true,
-          showMyCameraToggleButton: true,
-          showMyMicrophoneToggleButton: true,
-          showAudioVideoSettingsButton: true,
-          scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
-          onJoinRoom: () => {
-            console.log("Joined Zego room successfully");
-            setIsLoading(false);
-          },
-          onLeaveRoom: () => {
-            console.log("Local user left Zego room");
-          },
-          onError: (error: any) => {
-            console.error("Zego error:", error);
-            // Only hang up on critical disconnection errors
-            if (error?.code === 1002 || error?.code === 1005) {
-              handleHangUp();
+      // Setup event listeners
+      zg.on('roomStreamUpdate', (roomID, updateType, streamList) => {
+        if (updateType === 'ADD') {
+          // New stream added, play it
+          streamList.forEach(async (stream) => {
+            const remoteStream = await zg.startPlayingStream(stream.streamID);
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = remoteStream;
             }
-          }
-        } as any);
-      }, 100);
+          });
+        }
+      });
+
+      // Login to room
+      // ZegoExpressEngine loginRoom signature: loginRoom(roomID: string, token: string, user: ZegoUser)
+      await zg.loginRoom(roomID, "dummy-token", { userID, userName });
+
+      // Create and publish local stream
+      const localStream = await zg.createStream({ camera: { video: isVideo, audio: true } });
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+      }
+      
+      const streamID = `stream_${userID}`;
+      zg.startPublishingStream(streamID, localStream);
+      
+      setIsLoading(false);
+      
     } catch (error) {
       console.error("Failed to init Zego:", error);
       isJoined.current = false;
@@ -196,9 +184,10 @@ export default function CallScreen() {
         status: 'ended'
       });
     }
-    if (zpRef.current) {
-      zpRef.current.destroy();
-      zpRef.current = null;
+    if (zgRef.current) {
+      zgRef.current.logoutRoom(callSession?.id || '');
+      zgRef.current.destroyEngine();
+      zgRef.current = null;
     }
     navigate(-1);
   };
@@ -214,13 +203,14 @@ export default function CallScreen() {
   // Final cleanup on unmount
   useEffect(() => {
     return () => {
-      if (zpRef.current) {
-        zpRef.current.destroy();
-        zpRef.current = null;
+      if (zgRef.current) {
+        zgRef.current.logoutRoom(callSession?.id || '');
+        zgRef.current.destroyEngine();
+        zgRef.current = null;
       }
       isJoined.current = false;
     };
-  }, []);
+  }, [callSession?.id]);
 
   return (
     <div className="w-screen h-screen relative overflow-hidden bg-[#0b141a]">
@@ -238,13 +228,16 @@ export default function CallScreen() {
 
       {/* Video Container Wrapper */}
       <div className="absolute inset-0 z-[1] video-container bg-transparent">
-        <div ref={containerRef} className={cn("w-full h-full transition-opacity duration-500", (callStatus !== 'connected' || isLoading) ? "opacity-0 pointer-events-none" : "opacity-100")} id="call-container" />
+        {/* Remote Video */}
+        <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+        {/* Local Video */}
+        <video id="local-video" ref={localVideoRef} autoPlay playsInline muted className="absolute bottom-6 right-6 w-32 h-48 object-cover rounded-2xl border-2 border-white/20" />
       </div>
 
       {/* Top Action Icons */}
       <div className="absolute top-8 left-6 right-6 flex justify-between text-white z-[10]">
         <button className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors" onClick={handleHangUp}><X size={20} /></button>
-        <button className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors" onClick={() => zpRef.current?.useFrontFacingCamera(!zpRef.current?.isFrontFacingCamera())}><RefreshCw size={20} /></button>
+        <button className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors" onClick={() => zgRef.current?.useFrontFacingCamera(!isCameraOn)}><RefreshCw size={20} /></button>
       </div>
 
       {/* Center Profile UI (Instant UI) */}

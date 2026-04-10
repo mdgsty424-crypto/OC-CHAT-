@@ -21,11 +21,9 @@ import CallScreen from './pages/CallScreen';
 import Sidebar from './components/layout/Sidebar';
 import BottomNav from './components/layout/BottomNav';
 import TopBar from './components/layout/TopBar';
-import ZIM from 'zego-zim-web';
 import { User, CallSession } from './types';
 import IncomingCallOverlay from './components/common/IncomingCallOverlay';
 import { AnimatePresence } from 'motion/react';
-(window as any).ZIM = ZIM;
 
 import Login from './pages/Login';
 import Signup from './pages/Signup';
