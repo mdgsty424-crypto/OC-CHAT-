@@ -281,7 +281,9 @@ function AppRoutes() {
           if (!ringtoneRef.current) {
             const ringtone = new Audio(assets.ringtone);
             ringtone.loop = true;
-            ringtone.play().catch(e => console.error("Ringtone failed:", e));
+            ringtone.play().catch(e => {
+              console.warn("Ringtone autoplay blocked, user interaction required:", e);
+            });
             ringtoneRef.current = ringtone;
           }
         }

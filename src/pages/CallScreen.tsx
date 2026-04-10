@@ -21,7 +21,6 @@ export default function CallScreen() {
   const { settings: globalSettings } = useGlobalSettings();
   
   const containerRef = useRef<HTMLDivElement>(null);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
   const zpRef = useRef<any>(null);
   const isJoined = useRef(false);
   const signalingStarted = useRef(false);
@@ -31,7 +30,6 @@ export default function CallScreen() {
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [callSession, setCallSession] = useState<CallSession | null>(null);
   const [callStatus, setCallStatus] = useState<'ringing' | 'connected' | 'ended'>('ringing');
 
@@ -42,41 +40,6 @@ export default function CallScreen() {
   // NEW CREDENTIALS
   const appID = 501273512;
   const serverSecret = '4faa5da6007626b30263079ee01729bb';
-
-  // 2. Force Hardware Permissions & Instant Local Preview
-  useEffect(() => {
-    const requestPermissions = async () => {
-      try {
-        // Explicitly request both video and audio to wake up hardware
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: isVideo ? { facingMode: 'user' } : false, 
-          audio: true 
-        });
-        
-        if (isVideo) {
-          setLocalStream(stream);
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-          }
-        } else {
-          // For audio calls, we still want to wake up the mic
-          stream.getTracks().forEach(track => {
-            if (track.kind === 'video') track.stop();
-          });
-        }
-      } catch (err) {
-        console.error("Hardware access failed:", err);
-      }
-    };
-
-    requestPermissions();
-
-    return () => {
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [isVideo]);
 
   // 3. Fetch other user details (Instant UI)
   useEffect(() => {
@@ -183,47 +146,43 @@ export default function CallScreen() {
       
       zpRef.current = zp;
 
-      zp.joinRoom({
-        container: containerRef.current,
-        showPreJoinView: false,
-        turnOnCameraWhenJoining: true,
-        turnOnMicrophoneWhenJoining: true,
-        showMyVideoView: true,
-        useFrontFacingCamera: true,
-        showAudioVideoSettingsButtonInPreJoinView: false,
-        showLeaveRoomConfirmDialog: false,
-        screenSharingConfig: { resolution: (ZegoUIKitPrebuilt as any).VideoResolution_720P },
-        showMyCaptionInVideoView: true,
-        enableVideoMirroring: true,
-        layout: { mode: "PictureInPicture" },
-        showMyCameraSelfViewInVideoCall: true,
-        showMySelfTimer: true,
-        useFrontCameraDevice: true,
-        showMyCameraToggleButton: true,
-        showMyMicrophoneToggleButton: true,
-        showAudioVideoSettingsButton: true,
-        scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
-        onJoinRoom: () => {
-          console.log("Joined Zego room successfully");
-          setIsLoading(false);
-          // Stop native preview to let Zego take over
-          if (localVideoRef.current?.srcObject) {
-            const stream = localVideoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach(track => track.stop());
-            setLocalStream(null);
+      setTimeout(() => {
+        zp.joinRoom({
+          container: containerRef.current,
+          showPreJoinView: false,
+          showAudioVideoSettingsButtonInPreJoinView: false,
+          turnOnCameraWhenJoining: true,
+          turnOnMicrophoneWhenJoining: true,
+          showMyVideoView: true,
+          useFrontFacingCamera: true,
+          showLeaveRoomConfirmDialog: false,
+          screenSharingConfig: { resolution: (ZegoUIKitPrebuilt as any).VideoResolution_720P },
+          showMyCaptionInVideoView: true,
+          enableVideoMirroring: true,
+          layout: { mode: "PictureInPicture" },
+          showMyCameraSelfViewInVideoCall: true,
+          showMySelfTimer: true,
+          useFrontCameraDevice: true,
+          showMyCameraToggleButton: true,
+          showMyMicrophoneToggleButton: true,
+          showAudioVideoSettingsButton: true,
+          scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
+          onJoinRoom: () => {
+            console.log("Joined Zego room successfully");
+            setIsLoading(false);
+          },
+          onLeaveRoom: () => {
+            console.log("Local user left Zego room");
+          },
+          onError: (error: any) => {
+            console.error("Zego error:", error);
+            // Only hang up on critical disconnection errors
+            if (error?.code === 1002 || error?.code === 1005) {
+              handleHangUp();
+            }
           }
-        },
-        onLeaveRoom: () => {
-          console.log("Local user left Zego room");
-        },
-        onError: (error: any) => {
-          console.error("Zego error:", error);
-          // Only hang up on critical disconnection errors
-          if (error?.code === 1002 || error?.code === 1005) {
-            handleHangUp();
-          }
-        }
-      } as any);
+        } as any);
+      }, 100);
     } catch (error) {
       console.error("Failed to init Zego:", error);
       isJoined.current = false;
@@ -278,33 +237,19 @@ export default function CallScreen() {
       </div>
 
       {/* Video Container Wrapper */}
-      <div className="absolute inset-0 z-50 position-relative video-container">
+      <div className="absolute inset-0 z-[1] video-container bg-transparent">
         <div ref={containerRef} className={cn("w-full h-full transition-opacity duration-500", (callStatus !== 'connected' || isLoading) ? "opacity-0 pointer-events-none" : "opacity-100")} id="call-container" />
       </div>
 
-      {/* Instant Local Preview (Native) */}
-      {isVideo && isLoading && (
-        <div className="absolute inset-0 z-[5] bg-black">
-          <video 
-            ref={localVideoRef} 
-            autoPlay 
-            playsInline 
-            muted 
-            className="w-full h-full object-cover mirror"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
-        </div>
-      )}
-
       {/* Top Action Icons */}
-      <div className="absolute top-8 left-6 right-6 flex justify-between text-white z-[60]">
+      <div className="absolute top-8 left-6 right-6 flex justify-between text-white z-[10]">
         <button className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors" onClick={handleHangUp}><X size={20} /></button>
         <button className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors" onClick={() => zpRef.current?.useFrontFacingCamera(!zpRef.current?.isFrontFacingCamera())}><RefreshCw size={20} /></button>
       </div>
 
       {/* Center Profile UI (Instant UI) */}
       <div className={cn(
-        "absolute inset-0 z-[60] flex flex-col items-center transition-all duration-700",
+        "absolute inset-0 z-[10] flex flex-col items-center transition-all duration-700",
         (callStatus === 'connected' && !isLoading) ? "pt-12" : "justify-center gap-8"
       )}>
         <div className={cn(
@@ -341,7 +286,7 @@ export default function CallScreen() {
       </div>
 
       {/* Control Bar */}
-      <div className="absolute bottom-12 left-6 right-6 z-[70] flex justify-center">
+      <div className="absolute bottom-12 left-6 right-6 z-[20] flex justify-center">
         <div className="bg-[#1f2c34]/95 backdrop-blur-2xl rounded-[2.5rem] p-4 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10">
           <button className="p-4 rounded-2xl bg-white/5 text-white hover:bg-white/10 transition-all"><MoreVertical size={22} /></button>
           <button className="p-4 rounded-2xl bg-white/5 text-white hover:bg-white/10 transition-all" onClick={() => { 
