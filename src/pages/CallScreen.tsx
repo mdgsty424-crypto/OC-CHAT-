@@ -157,8 +157,13 @@ export default function CallScreen() {
       });
 
       // Login to room
-      // ZegoExpressEngine loginRoom signature: loginRoom(roomID: string, token: string, user: ZegoUser)
-      await zg.loginRoom(roomID, "dummy-token", { userID, userName });
+      const tokenResponse = await fetch('/api/zego/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userID, roomId: roomID })
+      });
+      const { token } = await tokenResponse.json();
+      await zg.loginRoom(roomID, token, { userID, userName });
 
       // Create and publish local stream
       const localStream = await zg.createStream({ camera: { video: isVideo, audio: true } });

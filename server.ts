@@ -142,34 +142,41 @@ async function startServer() {
     const { userId, roomId } = req.body;
     if (!userId) return res.status(400).json({ error: "userId is required" });
 
-    // Zego Token Generation (Simplified but more realistic)
-    const nonce = crypto.randomBytes(16).toString('hex');
+    const nonce = crypto.randomBytes(8).readBigUInt64BE(0);
     const expired = Math.floor(Date.now() / 1000) + 3600; // 1 hour
     
-    // In a real app, use Zego's official Server Assistant SDK
-    // This is a placeholder that simulates the structure
-    const tokenPayload = {
+    const payload = JSON.stringify({
       app_id: ZEGO_APP_ID,
       user_id: userId,
-      nonce: nonce,
+      nonce: nonce.toString(),
       expired: expired,
       room_id: roomId || "",
       privilege: {
         1: 1, // login
         2: 1  // publish
       }
-    };
+    });
 
-    // For the prototype, we'll return a base64 encoded JSON string
-    // Note: The real Zego SDK expects a specific binary format signed with HMAC-SHA256
-    // If the Zego SDK fails with this token, we might need to use a simpler "test" token
-    // or the user might need to provide a real token generation service.
-    const token = Buffer.from(JSON.stringify(tokenPayload)).toString('base64');
+    const hmac = crypto.createHmac('sha256', ZEGO_SERVER_SECRET);
+    hmac.update(payload);
+    const signature = hmac.digest();
+
+    const buffer = Buffer.alloc(2 + signature.length + 2 + payload.length);
+    buffer.writeUInt16BE(signature.length, 0);
+    signature.copy(buffer, 2);
+    buffer.writeUInt16BE(payload.length, 2 + signature.length);
+    buffer.write(payload, 2 + signature.length + 2);
+
+    const token = '04' + buffer.toString('base64');
     
     res.json({ token });
   });
 
-  // --- Push Notification Endpoints ---
+  // --- Link Preview Cache ---
+const previewCache = new Map<string, { data: any, timestamp: number }>();
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
+// --- Push Notification Endpoints ---
 
   // 2. Send Push Notification
   app.post("/api/notifications/send", async (req, res) => {
@@ -282,6 +289,13 @@ async function startServer() {
       return res.status(400).json({ error: "URL is required" });
     }
 
+    if (previewCache.has(url)) {
+      const cached = previewCache.get(url)!;
+      if (Date.now() - cached.timestamp < CACHE_TTL) {
+        return res.json(cached.data);
+      }
+    }
+
     try {
       console.log("Fetching link preview for:", url);
       
@@ -289,7 +303,7 @@ async function startServer() {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
-        timeout: 5000
+        timeout: 10000 // Increased timeout to 10s
       });
       
       const html = response.data;
@@ -307,13 +321,17 @@ async function startServer() {
       const image = getMeta('og:image');
       const siteName = getMeta('og:site_name');
 
-      res.json({
+      const previewData = {
         title: title || url,
         description: description || "",
         image: image || "",
         siteName: siteName || new URL(url).hostname,
         url
-      });
+      };
+
+      previewCache.set(url, { data: previewData, timestamp: Date.now() });
+
+      res.json(previewData);
     } catch (error: any) {
       console.error("Link preview error:", error.message || "Unknown error");
       res.status(500).json({ error: "Failed to fetch link preview" });
