@@ -27,8 +27,8 @@ export default function MeetingRoom() {
       if (snapshot.exists()) {
         const data = snapshot.data();
         if (!zp) {
-          const appID = 501273512;
-          const serverSecret = '4faa5da6007626b30263079ee01729bb';
+          const appID = 49448835;
+          const serverSecret = 'YOUR_NEW_APP_SIGN_OR_SECRET';
           const roomID = id;
           const userID = user.uid;
           const userName = user.displayName || `User_${userID.slice(0, 4)}`;

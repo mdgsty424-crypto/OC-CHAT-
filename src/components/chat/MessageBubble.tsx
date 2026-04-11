@@ -113,7 +113,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
     <div 
       className={cn(
         "mt-2 rounded-3xl overflow-hidden border shadow-2xl transition-all hover:bg-opacity-95 cursor-pointer max-w-[300px] group backdrop-blur-md",
-        isMe ? "bg-white/10 border-white/20 text-white" : "bg-black/5 border-current/10 text-inherit"
+        isMe ? "bg-white/10 border-white/20 text-white" : "bg-surface/80 border-white/10 text-text"
       )} 
       onClick={() => {
         if (isYouTube || isFacebook) {
@@ -187,27 +187,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const [showMediaViewer, setShowMediaViewer] = useState(false);
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const [isMapLoaded, setIsMapLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const themeToUse = user?.preferences?.chatTheme || globalSettings.theme;
-  const isDarkTheme = themeToUse === 'theme-gradient-waves' || themeToUse === 'theme-solid-dark' || themeToUse === 'theme-ocean';
-
-  const getBubbleStyles = () => {
-    if (message.type === 'voice' || message.messageType === 'voice') return "bg-transparent p-0";
-    
-    if (isMe) {
-      return "bg-primary/90 backdrop-blur-md border border-white/20 text-white rounded-tr-[4px] bubble-3d-lifted shadow-lg";
-    } else {
-      return cn(
-        "backdrop-blur-md rounded-tl-[4px] bubble-3d shadow-lg",
-        isDarkTheme 
-          ? "bg-white/10 border border-white/10 text-white" 
-          : "bg-white/80 border border-black/5 text-black"
-      );
-    }
-  };
 
   const timestamp = new Date(message.timestamp);
   const timeStr = !isNaN(timestamp.getTime()) ? format(timestamp, 'HH:mm') : '';
@@ -350,14 +330,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
+  const renderText = (text: string) => {
+    const parts = text.split(/(@ai)/g);
+    return parts.map((part, i) => 
+      part === '@ai' ? <span key={i} className="text-yellow-400 font-bold">@ai</span> : part
+    );
+  };
+
   const handleCopy = () => {
     if (message.text) {
       navigator.clipboard.writeText(message.text);
     }
     setShowActionMenu(false);
   };
-
-  // 1. Call History Rendering (Messenger Style)
   if (message.type === 'call_history' || message.messageType === 'call_history') {
     return (
       <div className="flex flex-col items-center w-full my-6">
@@ -367,21 +352,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </span>
         
         {/* Pill Bubble */}
-        <div className={cn(
-          "px-6 py-2 rounded-full border flex items-center gap-3 shadow-sm hover:opacity-80 transition-colors cursor-pointer active:scale-95 backdrop-blur-md",
-          isDarkTheme ? "bg-white/10 border-white/20 text-white" : "bg-white/80 border-black/5 text-black"
-        )}>
-          <div className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center",
-            isDarkTheme ? "bg-white/20 text-white" : "bg-black/5 text-black"
-          )}>
+        <div className="bg-surface px-6 py-2 rounded-full border border-border flex items-center gap-3 shadow-sm hover:opacity-80 transition-colors cursor-pointer active:scale-95">
+          <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center text-text">
             {message.callType === 'video' ? <Video size={18} /> : <Phone size={18} />}
           </div>
           <div className="flex flex-col">
-            <span className="text-xs font-semibold">
+            <span className="text-xs font-semibold text-text">
               {message.callType === 'video' ? 'Video chat' : 'Audio call'}
             </span>
-            <span className="text-[10px] font-medium opacity-70">
+            <span className="text-[10px] text-muted font-medium">
               {formatDuration(message.duration)}
             </span>
           </div>
@@ -437,10 +416,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             onTouchEnd={handlePressEnd}
             onContextMenu={handleContextMenu}
             className={cn(
-              "relative transition-all cursor-pointer select-none active:scale-[0.98]",
+              "relative transition-all cursor-pointer select-none active:scale-[0.98] backdrop-blur-sm",
               globalSettings.borderRadius,
               globalSettings.blurIntensity,
-              getBubbleStyles(),
+              message.type === 'voice' || message.messageType === 'voice' ? "bg-transparent p-0" : (
+                isMe 
+                  ? "gradient-primary text-white rounded-tr-[4px] bubble-3d-lifted" 
+                  : "bg-surface/80 text-text rounded-tl-[4px] bubble-3d"
+              ),
               (message.type === 'text' || message.type === 'contact') && "px-4 py-2.5"
             )}
           >
@@ -471,7 +454,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {message.forwardedFrom && (
           <div className={cn(
             "flex items-center gap-1.5 mb-1 opacity-80",
-            isMe ? "text-white/90" : "text-inherit"
+            isMe ? "text-white/90" : "text-black/70"
           )}>
             <Forward size={12} />
             <span className="text-[10px] italic">Forwarded from</span>
@@ -486,11 +469,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {message.replyTo && (
           <div className={cn(
             "mb-2 p-2.5 rounded-xl text-[10px] border-l-2 relative overflow-hidden",
-            isMe 
-              ? "bg-white/10 border-white/40" 
-              : isDarkTheme 
-                ? "bg-white/10 border-primary/40" 
-                : "bg-black/5 border-primary/40"
+            isMe ? "bg-white/10 border-white/40" : "bg-black/5 border-primary/40"
           )}>
             <div className="absolute inset-0 bg-current opacity-[0.03]" />
             <p className="font-black opacity-60 uppercase tracking-tighter mb-0.5">
@@ -506,7 +485,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.type === 'text' && (
                 <div className="space-y-1">
                   <p className={cn("leading-tight", globalSettings.fontSize, globalSettings.fontWeight, globalSettings.fontFamily)}>
-                    {showTranslation ? message.translatedText : message.text}
+                    {renderText(showTranslation ? message.translatedText || '' : message.text)}
                   </p>
                   {/* Link Previews */}
                   {!showTranslation && message.text.match(/(https?:\/\/[^\s]+)/g)?.map((url, idx) => (
@@ -550,13 +529,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <img 
                 src={message.fileUrl || message.mediaUrl} 
                 alt="Sent image" 
-                className={cn("w-full h-full object-cover hover:opacity-90 transition-opacity", !isImageLoaded && "hidden")}
+                className="w-full h-full object-cover hover:opacity-90 transition-opacity"
                 referrerPolicy="no-referrer"
-                onLoad={() => setIsImageLoaded(true)}
               />
-            )}
-            {!isImageLoaded && message.status !== 'uploading' && message.status !== 'failed' && (
-              <div className="w-full h-full animate-pulse bg-surface" />
             )}
           </div>
         )}
@@ -611,12 +586,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Voice Message */}
         {(message.type === 'voice' || message.messageType === 'voice') && (
           <div className={cn(
-            "w-[240px] p-3 rounded-[24px] shadow-sm backdrop-blur-md",
-            isMe 
-              ? "bg-primary/90 text-white border border-white/20" 
-              : isDarkTheme 
-                ? "bg-white/10 text-white border border-white/10" 
-                : "bg-white/80 text-black border border-black/5"
+            "w-[240px] p-3 rounded-[24px] shadow-sm",
+            isMe ? "bg-primary text-white" : "bg-surface text-text"
           )}>
             {message.status === 'uploading' ? (
               <div className="flex items-center justify-center h-10">
@@ -723,13 +694,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             {message.location ? (
               <>
                 <div className="rounded-[12px] overflow-hidden border border-border shadow-sm bg-surface">
-                  {!isMapLoaded && <div className="w-full h-[200px] animate-pulse bg-surface" />}
                   <iframe
                     width="100%"
                     height="200"
-                    style={{ border: 0, borderRadius: '12px', display: isMapLoaded ? 'block' : 'none' }}
+                    style={{ border: 0, borderRadius: '12px' }}
                     loading="lazy"
-                    onLoad={() => setIsMapLoaded(true)}
                     src={`https://maps.google.com/maps?q=${message.location.latitude},${message.location.longitude}&z=15&output=embed`}
                   ></iframe>
                 </div>
@@ -773,11 +742,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     onClick={() => handleVote(i)}
                     className={cn(
                       "w-full text-left relative p-2 rounded-xl transition-all overflow-hidden border",
-                      isMe 
-                        ? "bg-white/10 border-white/20" 
-                        : isDarkTheme 
-                          ? "bg-white/10 border-white/20" 
-                          : "bg-black/5 border-black/10"
+                      isMe ? "bg-white/10 border-white/20" : "bg-black/5 border-black/10"
                     )}
                   >
                     <div 
@@ -817,11 +782,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             rel="noopener noreferrer"
             className={cn(
               "flex items-center gap-3 p-3 rounded-xl transition-colors min-w-[200px] max-w-[280px]",
-              isMe 
-                ? "bg-white/10 hover:bg-white/20" 
-                : isDarkTheme 
-                  ? "bg-white/10 hover:bg-white/20" 
-                  : "bg-black/5 hover:bg-black/10"
+              isMe ? "bg-white/10 hover:bg-white/20" : "bg-black/5 hover:bg-black/10"
             )}
             onClick={(e) => {
               // Force download if possible

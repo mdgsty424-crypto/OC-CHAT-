@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Message, Chat, User } from '../types';
@@ -14,7 +14,6 @@ import MessageInput from '../components/chat/MessageInput';
 import { useZegoStore } from '../hooks/useZegoStore';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
-import ZIM from 'zego-zim-web';
 
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -29,11 +28,13 @@ export default function ChatDetail() {
   const assets = useAppAssets();
   const navigate = useNavigate();
   const { sendNotification } = useNotifications();
+  const { zp } = useZegoStore();
   const [chat, setChat] = useState<Chat | null>(null);
   
   // Audio pre-loading
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   const prevTypingRef = useRef<{ [key: string]: boolean }>({});
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Pre-load sounds using local assets for zero delay
@@ -151,12 +152,11 @@ export default function ChatDetail() {
     // Fetch Messages
     const q = query(
       collection(db, 'chats', id, 'messages'),
-      orderBy('timestamp', 'desc'),
-      limit(50)
+      orderBy('timestamp', 'asc')
     );
 
-    const messagesUnsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)).reverse();
+    const messagesUnsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       
       // Check for new messages from others
       if (msgs.length > messages.length) {
@@ -199,18 +199,98 @@ export default function ChatDetail() {
     };
   }, [id, currentUser]);
 
-  const isFirstLoad = useRef(true);
-
   useEffect(() => {
     if (scrollRef.current) {
-      if (isFirstLoad.current && messages.length >= 10) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        isFirstLoad.current = false;
-      } else if (!isFirstLoad.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, chat?.typing]);
+
+  // Typing logic: Trigger, Timeout, and Cleanup
+  useEffect(() => {
+    if (!id || !currentUser) return;
+
+    const setTypingStatus = async (isTyping: boolean) => {
+      try {
+        await updateDoc(doc(db, 'chats', id), {
+          [`typing.${currentUser.uid}`]: isTyping
+        });
+      } catch (error) {
+        // Silent fail for typing status
+      }
+    };
+
+    const handleInput = (e: Event) => {
+      const target = e.target as HTMLElement;
+      // Detect typing in any textarea or text input (like the MessageInput)
+      if (target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'text')) {
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        setTypingStatus(true);
+        typingTimeoutRef.current = setTimeout(() => setTypingStatus(false), 2000);
+      }
+    };
+
+    window.addEventListener('input', handleInput);
+
+    return () => {
+      window.removeEventListener('input', handleInput);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      // Cleanup on page leave
+      setTypingStatus(false);
+    };
+  }, [id, currentUser?.uid]);
+
+  // Cleanup typing status on message send
+  useEffect(() => {
+    if (messages.length > 0 && currentUser && id) {
+      const lastMsg = messages[messages.length - 1];
+      // If the last message was sent by me, clear my typing status immediately
+      if (lastMsg.senderId === currentUser.uid) {
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        updateDoc(doc(db, 'chats', id), {
+          [`typing.${currentUser.uid}`]: false
+        }).catch(() => {});
+      }
+    }
+  }, [messages.length, currentUser?.uid, id]);
+
+  const handleCall = async (type: 'audio' | 'video') => {
+    console.log("handleCall called", { currentUser, otherUser });
+    if (!currentUser || !otherUser || !otherUser.uid) {
+      console.error("Cannot start call: missing user data");
+      return;
+    }
+
+    // 1. Direct Navigation Priority
+    const roomID = [currentUser.uid, otherUser.uid].sort().join('_');
+    const callUrl = `/call-screen/${otherUser.uid}?type=${type}&roomID=${roomID}&name=${encodeURIComponent(otherUser.displayName || '')}&photo=${encodeURIComponent(otherUser.photoURL || '')}`;
+    navigate(callUrl);
+
+    // 2. Instant Zego Handshake
+    if (zp) {
+      const callType = type === 'video' 
+        ? ZegoUIKitPrebuilt.InvitationTypeVideoCall 
+        : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
+      
+      try {
+        console.log(`Sending ${type} call invitation to:`, otherUser.uid);
+        const result = await zp.sendCallInvitation({
+          callees: [{ userID: otherUser.uid, userName: otherUser.displayName || otherUser.uid }],
+          callType: callType,
+          timeout: 60,
+          data: JSON.stringify({ roomID }) // Pass roomID in data
+        });
+        console.log("Call invitation result:", result);
+        if (result.errorInvitees && result.errorInvitees.length > 0) {
+          console.error("Failed to invite some users:", result.errorInvitees);
+          // Optional: handle error if needed, but we already navigated
+        }
+      } catch (error) {
+        console.error("Error sending call invitation:", error);
+      }
+    } else {
+      console.warn("Zego SDK not ready, but navigated anyway.");
+    }
+  };
 
   const handleForwardMessage = async (targetChatId: string) => {
     if (!forwardingMessage || !currentUser) return;
@@ -282,20 +362,6 @@ export default function ChatDetail() {
       case 'theme-ocean': return 'bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]';
       default: return 'bg-background';
     }
-  };
-
-  const handleCall = async (type: 'audio' | 'video') => {
-    if (!otherUser) return;
-    try {
-      // Request permissions immediately for instant feel
-      await navigator.mediaDevices.getUserMedia({ 
-        video: type === 'video', 
-        audio: true 
-      });
-    } catch (err) {
-      console.warn("Permission request failed or denied:", err);
-    }
-    navigate(`/call/${otherUser.uid}?type=${type}`);
   };
 
   return (
@@ -412,7 +478,7 @@ export default function ChatDetail() {
             isMe={msg.senderId === currentUser?.uid} 
             onReply={setReplyingTo}
             onForward={setForwardingMessage}
-            onCall={(type) => navigate(`/call/${otherUser?.uid}?type=${type}`)}
+            onCall={handleCall}
             otherUserPhoto={chat?.type === 'direct' ? (otherUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.uid || id}`) : undefined}
             replyMessage={replyMessage}
           />
@@ -437,8 +503,6 @@ export default function ChatDetail() {
           participants={chat.participants} 
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
-          onSendOptimistic={(msg) => setMessages(prev => [...prev, msg])}
-          onSend={(context) => handleSend(context)}
         />
       )}
     </div>

@@ -8,6 +8,8 @@ import { collection, query, where, onSnapshot, orderBy, getDoc, doc, setDoc, add
 import { db } from '../lib/firebase';
 import { CallSession, User } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { useZegoStore } from '../hooks/useZegoStore';
+import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 
 interface CallWithUser extends CallSession {
   otherUser?: User;
@@ -159,19 +161,40 @@ export default function Calls() {
       return name.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
+  const { zp } = useZegoStore();
+
   const handleCall = async (otherUser: User, type: 'audio' | 'video') => {
-    if (!user || !otherUser) return;
-    try {
-      // Request permissions immediately
-      await navigator.mediaDevices.getUserMedia({ 
-        video: type === 'video', 
-        audio: true 
-      });
-    } catch (err) {
-      console.warn("Permission request failed or denied:", err);
+    if (!user || !otherUser || !otherUser.uid) return;
+
+    // 1. Direct Navigation Priority
+    const roomID = [user.uid, otherUser.uid].sort().join('_');
+    const callUrl = `/call-screen/${otherUser.uid}?type=${type}&roomID=${roomID}&name=${encodeURIComponent(otherUser.displayName || '')}&photo=${encodeURIComponent(otherUser.photoURL || '')}`;
+    navigate(callUrl);
+
+    // 2. Instant Zego Handshake
+    if (zp) {
+      const callType = type === 'video' 
+        ? ZegoUIKitPrebuilt.InvitationTypeVideoCall 
+        : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
+      
+      try {
+        console.log(`Sending ${type} call invitation to:`, otherUser.uid);
+        const result = await zp.sendCallInvitation({
+          callees: [{ userID: otherUser.uid, userName: otherUser.displayName || otherUser.uid }],
+          callType: callType,
+          timeout: 60,
+          data: JSON.stringify({ roomID })
+        });
+        console.log("Call invitation result:", result);
+        if (result.errorInvitees && result.errorInvitees.length > 0) {
+          console.error("Failed to invite some users:", result.errorInvitees);
+        }
+      } catch (error) {
+        console.error("Error sending call invitation:", error);
+      }
+    } else {
+      console.warn("Zego SDK not ready, but navigated anyway.");
     }
-    // Navigate immediately to CallScreen - signaling happens there
-    navigate(`/call/${otherUser.uid}?type=${type}`);
   };
 
   return (

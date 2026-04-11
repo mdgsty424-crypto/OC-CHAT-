@@ -2,8 +2,8 @@ import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
 import { ZIM } from 'zego-zim-web';
 
 // ZegoCloud Configuration from User
-const appID = 501273512;
-const server = 'wss://webliveroom501273512-api.coolzcloud.com/ws';
+const appID = 1698335343;
+const server = 'wss://webliveroom1698335343-api.coolzcloud.com/ws';
 
 let engine: ZegoExpressEngine | null = null;
 let zimInstance: any | null = null;

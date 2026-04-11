@@ -8,7 +8,6 @@ import { cn } from '../../lib/utils';
 import { useNetwork } from '../../hooks/useNetwork';
 import { addToQueue, saveMessage } from '../../lib/db';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI } from "@google/genai";
 import { loginZIM } from '../../lib/callService';
 import { ZIM } from 'zego-zim-web';
 import { useSettings } from '../../hooks/useSettings';
@@ -18,15 +17,13 @@ interface MessageInputProps {
   participants: string[];
   replyingTo?: Message | null;
   onCancelReply?: () => void;
-  onSendOptimistic?: (msg: Message) => void;
-  onSend: (context: Message[]) => void;
 }
 
 import { useNotifications } from '../../hooks/useNotifications';
 
 import { useAppAssets } from '../../hooks/useAppAssets';
 
-export default function MessageInput({ chatId, participants, replyingTo, onCancelReply, onSendOptimistic }: MessageInputProps) {
+export default function MessageInput({ chatId, participants, replyingTo, onCancelReply }: MessageInputProps) {
   const { user } = useAuth();
   const { isOnline } = useNetwork();
   const { isMuted } = useSettings();
@@ -166,35 +163,6 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     updateTypingStatus(true);
     // playSound('typing'); // REMOVED: Sender should not hear typing sound
     typingTimeoutRef.current = setTimeout(() => updateTypingStatus(false), 3000);
-  };
-
-  const handleAIResponse = async (prompt: string, context: Message[]) => {
-    try {
-      const response = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, context }),
-      });
-      const data = await response.json();
-      
-      const messageData = {
-        chatId,
-        senderId: 'ai-bot',
-        text: data.type === 'image' ? '' : data.text,
-        type: data.type === 'image' ? 'image' : 'text',
-        fileUrl: data.type === 'image' ? data.url : undefined,
-        timestamp: new Date().toISOString(),
-        status: 'sent'
-      };
-      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
-    } catch (error) {
-      console.error("AI Chat error:", error);
-    } finally {
-      // Set typing status to false
-      updateDoc(doc(db, 'chats', chatId), {
-        [`typing.ai-bot`]: false
-      });
-    }
   };
 
   // Voice Recording Logic
@@ -534,7 +502,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     }
   };
 
-  const handleSend = async (context: Message[]) => {
+  const handleSend = async () => {
     if (!text.trim() || !user) return;
 
     const isAICommand = text.startsWith('@ai ');
@@ -543,13 +511,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     // Simulated Translation using Gemini
     let translated = "";
     if (isTranslationEnabled && process.env.GEMINI_API_KEY) {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const aiRes = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Translate this to Bengali: ${text}`,
-        config: { systemInstruction: "Translate only. No extra text." }
-      });
-      translated = aiRes.text || "";
+      // Translation logic removed as requested
+      translated = text;
     }
 
     const messageData: any = {
@@ -567,10 +530,6 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     if (replyingTo) {
       messageData.replyTo = replyingTo.id;
       onCancelReply?.();
-    }
-
-    if (onSendOptimistic) {
-      onSendOptimistic({ id: 'temp-' + Date.now(), ...messageData });
     }
 
     setText('');
@@ -607,11 +566,26 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       updateDoc(doc(db, 'chats', chatId), unreadUpdates).catch(e => console.error("Error updating chat:", e));
 
       if (isAICommand && prompt && isOnline) {
-        // Set typing status to true
-        updateDoc(doc(db, 'chats', chatId), {
-          [`typing.ai-bot`]: true
-        });
-        handleAIResponse(prompt, context.slice(-5));
+        try {
+          const response = await fetch('/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId, prompt })
+          });
+          const data = await response.json();
+          if (data.response) {
+            await addDoc(collection(db, 'chats', chatId, 'messages'), {
+              chatId,
+              senderId: 'ocsthael-ai-bot',
+              text: data.response,
+              type: 'text',
+              timestamp: new Date().toISOString(),
+              status: 'sent'
+            });
+          }
+        } catch (error) {
+          console.error("AI Chat error:", error);
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -867,7 +841,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSend(messages); // Pass messages here
+                    handleSend();
                   }
                 }}
                 placeholder={text.startsWith('@ai') ? "Ask AI anything..." : "Type a message..."}

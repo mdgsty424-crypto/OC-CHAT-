@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { NetworkProvider, useNetwork } from './hooks/useNetwork';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
@@ -7,7 +7,7 @@ import { useAppAssets } from './hooks/useAppAssets';
 import { useZegoStore } from './hooks/useZegoStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
-import { doc, updateDoc, collection, query, where, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import Home from './pages/Home';
 import Community from './pages/Community';
@@ -21,10 +21,7 @@ import CallScreen from './pages/CallScreen';
 import Sidebar from './components/layout/Sidebar';
 import BottomNav from './components/layout/BottomNav';
 import TopBar from './components/layout/TopBar';
-import { User, CallSession } from './types';
-import IncomingCallOverlay from './components/common/IncomingCallOverlay';
-import { AnimatePresence } from 'motion/react';
-
+import ZegoCallInvitation from './components/common/ZegoCallInvitation';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import MeetingRoom from './pages/MeetingRoom';
@@ -81,34 +78,14 @@ import { cn } from './lib/utils';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
   const [showSplash, setShowSplash] = useState(true);
   const { theme } = useSettings();
   const { settings: globalSettings } = useGlobalSettings();
   const [isLocked, setIsLocked] = useState(false);
-  const [incomingCall, setIncomingCall] = useState<{ session: CallSession; caller: User } | null>(null);
   const { setIsAudioUnlocked, setAudioContext } = useZegoStore();
   const assets = useAppAssets();
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
-  const ringtoneRef = useRef<HTMLAudioElement | null>(null);
-  const isCallScreen = location.pathname.startsWith('/call/');
-  const isChatScreen = location.pathname.startsWith('/chat/');
-  
   useNotifications(); // Initialize notification registration
-
-  useEffect(() => {
-    // Navigation Guard: Stop automatic redirect to Profile if in call or chat
-    if (user && !loading) {
-      const isProfileIncomplete = !user.displayName || user.displayName === 'User' || !user.photoURL;
-      const isOnProfilePage = location.pathname === '/profile';
-      
-      if (isProfileIncomplete && !isOnProfilePage && !isCallScreen && !isChatScreen) {
-        // Only redirect if profile is incomplete AND not on profile page AND not in call/chat
-        navigate('/profile');
-      }
-    }
-  }, [user, loading, location.pathname, isCallScreen, isChatScreen, navigate]);
 
   useEffect(() => {
     if (!loading) {
@@ -118,6 +95,22 @@ function AppRoutes() {
   }, [loading]);
 
   useEffect(() => {
+    // Initialize AI User
+    const initAIUser = async () => {
+      try {
+        await setDoc(doc(db, 'users', 'ocsthael-ai-bot'), {
+          displayName: 'OCSTHAEL AI',
+          photoURL: 'https://cdn-icons-png.flaticon.com/512/4712/4712038.png',
+          verified: true,
+          online: true,
+          role: 'bot'
+        }, { merge: true });
+      } catch (error) {
+        console.error('Error initializing AI user:', error);
+      }
+    };
+    initAIUser();
+
     // 1. User Gesture Logic for Audio Context & Vibration
     const handleFirstInteraction = () => {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -252,110 +245,11 @@ function AppRoutes() {
     }
   }, [user?.securitySettings?.privacyModeEnabled]);
 
-  // Real-time Incoming Call Listener
-  useEffect(() => {
-    if (!user?.uid) return;
-
-    const q = query(
-      collection(db, 'calls'),
-      where('receiverId', '==', user.uid),
-      where('status', '==', 'ringing')
-    );
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (!snapshot.empty) {
-        const callDoc = snapshot.docs[0];
-        const callData = { id: callDoc.id, ...callDoc.data() } as CallSession;
-        
-        // Fetch caller details
-        const callerDoc = await getDoc(doc(db, 'users', callData.callerId));
-        if (callerDoc.exists()) {
-          setIncomingCall({
-            session: callData,
-            caller: { ...callerDoc.data(), uid: callerDoc.id } as User
-          });
-          
-          // Play ringtone
-          if (!ringtoneRef.current) {
-            const ringtone = new Audio(assets.ringtone);
-            ringtone.loop = true;
-            ringtone.play().catch(e => {
-              console.warn("Ringtone autoplay blocked, user interaction required:", e);
-            });
-            ringtoneRef.current = ringtone;
-          }
-        }
-      } else {
-        setIncomingCall(null);
-        if (ringtoneRef.current) {
-          ringtoneRef.current.pause();
-          ringtoneRef.current = null;
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user?.uid, assets.ringtone]);
-
-  const handleAcceptCall = async () => {
-    if (!incomingCall) return;
-    
-    const { session } = incomingCall;
-    try {
-      // Request permissions immediately
-      await navigator.mediaDevices.getUserMedia({ 
-        video: session.type === 'video', 
-        audio: true 
-      });
-    } catch (err) {
-      console.warn("Permission request failed or denied:", err);
-    }
-
-    await updateDoc(doc(db, 'calls', session.id), {
-      status: 'connected',
-      startTime: new Date().toISOString()
-    });
-    
-    if (ringtoneRef.current) {
-      ringtoneRef.current.pause();
-      ringtoneRef.current = null;
-    }
-    
-    setIncomingCall(null);
-    navigate(`/call/${session.callerId}?type=${session.type}&callId=${session.id}`);
-  };
-
-  const handleDeclineCall = async () => {
-    if (!incomingCall) return;
-    
-    const { session } = incomingCall;
-    await updateDoc(doc(db, 'calls', session.id), {
-      status: 'ended'
-    });
-    
-    if (ringtoneRef.current) {
-      ringtoneRef.current.pause();
-      ringtoneRef.current = null;
-    }
-    
-    setIncomingCall(null);
-  };
-
-  const getThemeClass = () => {
-    switch (globalSettings.theme) {
-      case 'theme-gradient-waves': return 'bg-gradient-to-br from-[#5f2c82] via-[#49a09d] to-[#ff4b8b]';
-      case 'theme-glass': return 'bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900';
-      case 'theme-solid-dark': return 'bg-[#121212]';
-      case 'theme-ocean': return 'bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]';
-      default: return 'bg-background';
-    }
-  };
-
-  if (loading || showSplash) {
+  if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
-  if (!user) {
+  if (!user && !loading) {
     return (
       <Routes>
         <Route path="/signup" element={<Signup />} />
@@ -368,21 +262,23 @@ function AppRoutes() {
     return <PinLock onUnlock={() => setIsLocked(false)} />;
   }
 
+  // Determine the background class based on the global theme
+  const getThemeClass = () => {
+    switch (globalSettings.theme) {
+      case 'theme-gradient-waves': return 'bg-gradient-to-br from-[#5f2c82] via-[#49a09d] to-[#ff4b8b]';
+      case 'theme-glass': return 'bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900';
+      case 'theme-solid-dark': return 'bg-[#121212]';
+      case 'theme-ocean': return 'bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]';
+      default: return 'bg-background';
+    }
+  };
+
   return (
     <div className={cn("flex h-screen overflow-hidden", getThemeClass())}>
       <Sidebar />
       <div className={cn("flex-1 flex flex-col h-full relative overflow-hidden border-l border-border/50", globalSettings.theme !== 'theme-default' ? 'bg-transparent' : 'bg-surface')}>
         <NetworkStatus />
-        <AnimatePresence>
-          {incomingCall && (
-            <IncomingCallOverlay
-              caller={incomingCall.caller}
-              type={incomingCall.session.type}
-              onAccept={handleAcceptCall}
-              onDecline={handleDeclineCall}
-            />
-          )}
-        </AnimatePresence>
+        <ZegoCallInvitation />
         <Routes>
           <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
           <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />
@@ -393,7 +289,7 @@ function AppRoutes() {
           <Route path="/profile/:id" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
           <Route path="/search" element={<SearchScreen />} />
           <Route path="/chat/:id" element={<ChatDetail />} />
-          <Route path="/call/:id" element={<CallScreen />} />
+          <Route path="/call-screen/:id" element={<CallScreen />} />
           <Route path="/meeting/:id" element={<MeetingRoom />} />
           <Route path="/voice/:id" element={<VoiceRoom />} />
           <Route path="/admin" element={<AdminDashboard />} />

@@ -39,21 +39,11 @@ export default function Discovery() {
     if (!currentUser || !matchedUser) return;
 
     try {
-      // Request permissions immediately
-      await navigator.mediaDevices.getUserMedia({ 
-        video: type === 'video', 
-        audio: true 
-      });
-    } catch (err) {
-      console.warn("Permission request failed or denied:", err);
-    }
-
-    try {
       const callRef = await addDoc(collection(db, 'calls'), {
         type,
         callerId: currentUser.uid,
         receiverId: matchedUser.uid,
-        status: 'ringing',
+        status: 'calling',
         timestamp: new Date().toISOString()
       });
 
