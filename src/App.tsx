@@ -75,6 +75,7 @@ import { useNotifications } from './hooks/useNotifications';
 import PinLock from './components/common/PinLock';
 import { useGlobalSettings } from './hooks/useGlobalSettings';
 import { cn } from './lib/utils';
+import { useLocation } from 'react-router-dom';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -85,7 +86,10 @@ function AppRoutes() {
   const { setIsAudioUnlocked, setAudioContext } = useZegoStore();
   const assets = useAppAssets();
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const location = useLocation();
   useNotifications(); // Initialize notification registration
+
+  const isCallScreen = location.pathname.startsWith('/call-screen');
 
   useEffect(() => {
     if (!loading) {
@@ -264,6 +268,7 @@ function AppRoutes() {
 
   // Determine the background class based on the global theme
   const getThemeClass = () => {
+    if (isCallScreen) return 'bg-black';
     switch (globalSettings.theme) {
       case 'theme-gradient-waves': return 'bg-gradient-to-br from-[#5f2c82] via-[#49a09d] to-[#ff4b8b]';
       case 'theme-glass': return 'bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900';
@@ -275,10 +280,14 @@ function AppRoutes() {
 
   return (
     <div className={cn("flex h-screen overflow-hidden", getThemeClass())}>
-      <Sidebar />
-      <div className={cn("flex-1 flex flex-col h-full relative overflow-hidden border-l border-border/50", globalSettings.theme !== 'theme-default' ? 'bg-transparent' : 'bg-surface')}>
+      {!isCallScreen && <Sidebar />}
+      <div className={cn(
+        "flex-1 flex flex-col h-full relative overflow-hidden",
+        !isCallScreen && "border-l border-border/50",
+        globalSettings.theme !== 'theme-default' ? 'bg-transparent' : 'bg-surface'
+      )}>
         <NetworkStatus />
-        <ZegoCallInvitation />
+        {!isCallScreen && <ZegoCallInvitation />}
         <Routes>
           <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
           <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />

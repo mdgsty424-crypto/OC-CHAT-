@@ -87,6 +87,7 @@ export default function CallScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [activeFilter, setActiveFilter] = useState('none');
   const [isNightMode, setIsNightMode] = useState(false);
+  const [hasPermissions, setHasPermissions] = useState(false);
 
   const type = searchParams.get('type') || 'audio';
   const roomIDFromParam = searchParams.get('roomID');
@@ -111,7 +112,21 @@ export default function CallScreen() {
   }, [id]);
 
   useEffect(() => {
-    if (!currentUser || !containerRef.current) return;
+    const requestPermissions = async () => {
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setHasPermissions(true);
+      } catch (err) {
+        console.error("Permission request failed:", err);
+        // Even if it fails, we try to join, but we log it
+        setHasPermissions(true); 
+      }
+    };
+    requestPermissions();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser || !containerRef.current || !hasPermissions) return;
 
     // Ensure roomID, userID, and userName are NOT empty
     const roomID = (roomIDFromParam || callId || id || 'default_room').trim();
@@ -144,11 +159,22 @@ export default function CallScreen() {
         // @ts-ignore
         showMyVideoView: true,
         // @ts-ignore
+        useFrontFacingCamera: true,
+        // @ts-ignore
+        videoMirror: true, // Mirror the local video
+        // @ts-ignore
+        enableVideoMirroring: true, // Mirror the local video (alternative key)
+        // @ts-ignore
         showBeautyControls: true,
         // @ts-ignore
         showUserNameOnVideo: false,
         // @ts-ignore
         showPinButton: false,
+        // @ts-ignore
+        lowerLeftNotification: {
+          showUserJoinAndLeave: false,
+          showTextChat: false,
+        },
         onLeaveRoom: () => navigate(-1),
       });
     } catch (error) {
@@ -161,7 +187,7 @@ export default function CallScreen() {
         zpRef.current = null;
       }
     };
-  }, [currentUser, id, roomIDFromParam, callId, navigate]);
+  }, [currentUser, id, roomIDFromParam, callId, navigate, hasPermissions]);
 
   const handleHangUp = () => {
     zpRef.current?.hangUp();
@@ -192,11 +218,11 @@ export default function CallScreen() {
   };
 
   return (
-    <div className="w-screen h-screen relative overflow-hidden bg-black font-sans">
+    <div className="w-screen h-screen relative overflow-hidden bg-transparent font-sans">
       {/* Video Background */}
       <div 
         ref={containerRef} 
-        className="absolute inset-0 w-full h-full z-0" 
+        className="absolute inset-0 w-full h-full z-0 bg-transparent" 
         style={{ filter: activeFilter }}
       />
 
