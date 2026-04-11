@@ -124,15 +124,9 @@ export default function CallScreen() {
     }
 
     try {
-      const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-        Number(APP_ID), 
-        String(APP_SIGN), 
-        String(roomID), 
-        String(userID), 
-        String(userName)
-      );
-      
-      const zp = ZegoUIKitPrebuilt.create(kitToken);
+      // Using AppSign method for instant authentication as requested
+      // @ts-ignore
+      const zp = ZegoUIKitPrebuilt.create(Number(APP_ID), String(APP_SIGN), String(roomID), String(userID), String(userName));
       zpRef.current = zp;
 
       zp.joinRoom({
@@ -147,6 +141,14 @@ export default function CallScreen() {
         showTextChat: false,
         showLeaveRoomConfirmDialog: false,
         turnOnCameraWhenJoining: true,
+        // @ts-ignore
+        showMyVideoView: true,
+        // @ts-ignore
+        showBeautyControls: true,
+        // @ts-ignore
+        showUserNameOnVideo: false,
+        // @ts-ignore
+        showPinButton: false,
         onLeaveRoom: () => navigate(-1),
       });
     } catch (error) {

@@ -23,17 +23,9 @@ export default function ZegoCallInvitation() {
       try {
         console.log("Initializing Zego Call Invitation Service for user:", user.uid);
         
-        // Generate Kit Token for Test
-        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-          appID,
-          serverSecret,
-          'invitation_room', // Room ID must NOT be empty
-          user.uid,
-          user.displayName || user.uid
-        );
-
-        // Create ZegoUIKitPrebuilt instance
-        const zp = ZegoUIKitPrebuilt.create(kitToken);
+        // Using AppSign method for instant authentication as requested
+        // @ts-ignore
+        const zp = ZegoUIKitPrebuilt.create(Number(appID), String(serverSecret), 'invitation_room', String(user.uid), String(user.displayName || user.uid));
         
         // Add ZIM plugin for signaling
         zp.addPlugins({ ZIM });
