@@ -27,7 +27,7 @@ export default function ZegoCallInvitation() {
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
           appID,
           serverSecret,
-          '', // Room ID is empty for invitation service
+          'invitation_room', // Room ID must NOT be empty
           user.uid,
           user.displayName || user.uid
         );
@@ -55,14 +55,18 @@ export default function ZegoCallInvitation() {
           },
           onConfirmDialogWhenReceiving: (callType, caller, refuse, accept, data) => {
             console.log("Custom Incoming Call Dialog Triggered:", { callType, caller, data });
-            let roomID = data;
+            let roomID = data || 'default_room';
             try {
               const parsed = JSON.parse(data);
               if (parsed.roomID) roomID = parsed.roomID;
-            } catch (e) {}
+            } catch (e) {
+              console.log("Data is not JSON, using as roomID:", data);
+            }
             
             // Instead of setIncomingCall, navigate to CallScreen
-            window.location.href = `/call-screen/${caller.userID}?type=${callType === 1 ? 'video' : 'audio'}&roomID=${roomID}`;
+            const targetUrl = `/call-screen/${caller.userID}?type=${callType === 1 ? 'video' : 'audio'}&roomID=${roomID}`;
+            console.log("Navigating to:", targetUrl);
+            window.location.href = targetUrl;
           },
           onConfirmDialogWhenSending: (callID, callees, callType, cancel) => {
             console.log("Custom Outgoing Call Dialog Triggered:", { callID, callees, callType });

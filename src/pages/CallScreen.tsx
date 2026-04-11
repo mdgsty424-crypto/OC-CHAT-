@@ -114,19 +114,22 @@ export default function CallScreen() {
     if (!currentUser || !containerRef.current) return;
 
     // Ensure roomID, userID, and userName are NOT empty
-    const roomID = roomIDFromParam || callId || id || 'default_room';
-    const userID = currentUser.uid || `user_${Math.floor(Math.random() * 1000)}`;
-    const userName = currentUser.displayName || currentUser.email?.split('@')[0] || 'User';
+    const roomID = (roomIDFromParam || callId || id || 'default_room').trim();
+    const userID = (currentUser.uid || `user_${Math.floor(Math.random() * 1000)}`).trim();
+    const userName = (currentUser.displayName || currentUser.email?.split('@')[0] || 'User').trim();
 
-    console.log("Generating Kit Token with:", { APP_ID, roomID, userID, userName });
+    if (!roomID || !userID || !userName) {
+      console.error("Critical error: Zego parameters are empty", { roomID, userID, userName });
+      return;
+    }
 
     try {
       const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-        APP_ID, 
-        APP_SIGN, 
-        roomID, 
-        userID, 
-        userName
+        Number(APP_ID), 
+        String(APP_SIGN), 
+        String(roomID), 
+        String(userID), 
+        String(userName)
       );
       
       const zp = ZegoUIKitPrebuilt.create(kitToken);
@@ -143,6 +146,7 @@ export default function CallScreen() {
         showUserList: false,
         showTextChat: false,
         showLeaveRoomConfirmDialog: false,
+        turnOnCameraWhenJoining: true,
         onLeaveRoom: () => navigate(-1),
       });
     } catch (error) {
@@ -207,30 +211,30 @@ export default function CallScreen() {
       </AnimatePresence>
 
       {/* Top Header (Identity) */}
-      <div className="absolute top-12 left-0 right-0 z-20 flex flex-col items-center gap-3">
+      <div className="absolute top-16 left-0 right-0 z-20 flex flex-col items-center gap-4">
         <div className="relative">
-          {/* Flush Light Animation */}
+          {/* Subtle LED Glow Ring (Imo Style) */}
           <motion.div 
             animate={{ 
-              scale: [1, 1.2, 1],
-              opacity: [0.3, 0.6, 0.3]
+              boxShadow: [
+                "0 0 0px rgba(255, 215, 0, 0)",
+                "0 0 15px rgba(255, 215, 0, 0.6)",
+                "0 0 0px rgba(255, 215, 0, 0)"
+              ]
             }}
             transition={{ 
-              duration: 2,
+              duration: 1.5,
               repeat: Infinity,
               ease: "easeInOut"
             }}
             className={cn(
-              "absolute inset-0 rounded-full blur-xl",
-              isNightMode ? "bg-white shadow-[0_0_30px_rgba(255,255,255,0.8)]" : "bg-primary"
+              "absolute -inset-1 rounded-full border-2",
+              isNightMode ? "border-white/80" : "border-yellow-400/50"
             )}
           />
           
           {/* Profile Image */}
-          <div className={cn(
-            "relative w-24 h-24 rounded-full overflow-hidden border-4 z-10",
-            isNightMode ? "border-white shadow-[0_0_20px_rgba(255,255,255,1)]" : "border-white/20"
-          )}>
+          <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-white/30 shadow-2xl">
             <img 
               src={otherUser?.photoURL || `https://ui-avatars.com/api/?name=${otherUser?.displayName}`} 
               alt={otherUser?.displayName}
@@ -240,22 +244,27 @@ export default function CallScreen() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10">
-          <h2 className="text-xl font-bold text-white">
-            {otherUser?.displayName || 'User'}
-          </h2>
-          {otherUser?.verified && <VerifiedBadge size="sm" className="text-yellow-400" />}
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-white drop-shadow-lg">
+              {otherUser?.displayName || 'User'}
+            </h2>
+            {otherUser?.verified && <VerifiedBadge size="sm" className="text-yellow-400" />}
+          </div>
+          <span className="text-white/80 text-sm font-medium tracking-wide drop-shadow-md animate-pulse">
+            Ya Nabi Salam Alaika
+          </span>
         </div>
 
         {/* Night Mode Toggle */}
         <button 
           onClick={() => setIsNightMode(!isNightMode)}
           className={cn(
-            "mt-2 p-2 rounded-full transition-all active:scale-95 flex items-center gap-2 text-xs font-bold uppercase tracking-widest",
-            isNightMode ? "bg-white text-black" : "bg-black/40 text-white border border-white/20"
+            "mt-2 px-4 py-1.5 rounded-full transition-all active:scale-95 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest backdrop-blur-md border",
+            isNightMode ? "bg-white text-black border-white" : "bg-black/20 text-white border-white/20"
           )}
         >
-          {isNightMode ? <Sun size={14} /> : <Moon size={14} />}
+          {isNightMode ? <Sun size={12} /> : <Moon size={12} />}
           {isNightMode ? "Light ON" : "Light OFF"}
         </button>
       </div>
@@ -265,34 +274,43 @@ export default function CallScreen() {
         <button 
           onClick={() => setShowFilters(!showFilters)}
           className={cn(
-            "p-4 rounded-full shadow-2xl transition-all active:scale-90",
-            showFilters ? "bg-primary text-white" : "bg-white/10 backdrop-blur-xl text-white border border-white/20"
+            "p-4 rounded-full shadow-2xl transition-all active:scale-90 border backdrop-blur-xl",
+            showFilters ? "bg-primary text-white border-primary" : "bg-white/10 text-white border-white/20"
           )}
         >
           <Wand2 size={24} />
         </button>
       </div>
 
-      {/* Filters List */}
+      {/* Filters List (Horizontal Messenger Style) */}
       <AnimatePresence>
         {showFilters && (
           <motion.div 
-            initial={{ x: 100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 100, opacity: 0 }}
-            className="absolute right-20 top-1/2 -translate-y-1/2 z-30 bg-black/60 backdrop-blur-2xl p-4 rounded-[2rem] border border-white/10 w-48 max-h-[60vh] overflow-y-auto no-scrollbar"
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 50, opacity: 0 }}
+            className="absolute bottom-40 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-xl"
           >
-            <div className="flex flex-col gap-3">
+            <div className="bg-black/40 backdrop-blur-3xl p-4 rounded-[2.5rem] border border-white/10 overflow-x-auto no-scrollbar flex gap-4">
               {FILTERS.map((f, i) => (
                 <button
                   key={i}
                   onClick={() => setActiveFilter(f.filter)}
                   className={cn(
-                    "w-full py-3 px-4 rounded-2xl text-xs font-bold transition-all text-left",
-                    activeFilter === f.filter ? "bg-primary text-white" : "text-white/70 hover:bg-white/10"
+                    "flex-shrink-0 w-16 h-16 rounded-full border-2 transition-all flex flex-col items-center justify-center overflow-hidden relative",
+                    activeFilter === f.filter ? "border-primary scale-110" : "border-white/20"
                   )}
                 >
-                  {f.name}
+                  <div 
+                    className="absolute inset-0 w-full h-full bg-cover bg-center"
+                    style={{ 
+                      backgroundImage: `url(${otherUser?.photoURL || 'https://picsum.photos/seed/face/100/100'})`,
+                      filter: f.filter 
+                    }}
+                  />
+                  <span className="absolute bottom-1 left-0 right-0 text-[8px] font-bold text-white text-center bg-black/40 py-0.5">
+                    {f.name}
+                  </span>
                 </button>
               ))}
             </div>

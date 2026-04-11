@@ -168,6 +168,7 @@ export default function Calls() {
 
     // 1. Direct Navigation Priority
     const roomID = [user.uid, otherUser.uid].sort().join('_');
+    console.log("Initiating call from Calls page with roomID:", roomID);
     const callUrl = `/call-screen/${otherUser.uid}?type=${type}&roomID=${roomID}&name=${encodeURIComponent(otherUser.displayName || '')}&photo=${encodeURIComponent(otherUser.photoURL || '')}`;
     navigate(callUrl);
 
@@ -178,7 +179,7 @@ export default function Calls() {
         : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
       
       try {
-        console.log(`Sending ${type} call invitation to:`, otherUser.uid);
+        console.log(`Sending ${type} call invitation to:`, otherUser.uid, "with roomID:", roomID);
         const result = await zp.sendCallInvitation({
           callees: [{ userID: otherUser.uid, userName: otherUser.displayName || otherUser.uid }],
           callType: callType,
