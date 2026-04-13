@@ -1,230 +1,248 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 import { useAuth } from '../hooks/useAuth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, updateDoc, collection, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { User } from '../types';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { cn } from '../lib/utils';
-import { useGlobalSettings } from '../hooks/useGlobalSettings';
-import { initDB } from '../lib/db';
+import { ICE_SERVERS, endCall } from '../lib/webrtc';
 import { 
   Phone, 
   Video, 
-  MoreVertical, 
   Mic, 
   MicOff, 
   CameraOff, 
-  UserPlus, 
   RefreshCw, 
-  Volume2, 
-  Wand2, 
   X, 
-  MessageSquare, 
-  ScreenShare, 
-  Users, 
-  Image as ImageIcon, 
-  Wind, 
-  Settings,
-  Sun,
-  Moon
+  Sun, 
+  Moon,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const APP_ID = 1698335343;
-const APP_SIGN = 'd1647c6b9802ed758e1bf148914b80758d5b35061f3e8f76261c6187d55ab9fe';
-
-const FILTERS = [
-  { name: 'Normal', filter: 'none' },
-  { name: 'Grayscale', filter: 'grayscale(100%)' },
-  { name: 'Sepia', filter: 'sepia(100%)' },
-  { name: 'Invert', filter: 'invert(100%)' },
-  { name: 'Blur', filter: 'blur(5px)' },
-  { name: 'Brightness', filter: 'brightness(150%)' },
-  { name: 'Contrast', filter: 'contrast(200%)' },
-  { name: 'Hue Rotate', filter: 'hue-rotate(90deg)' },
-  { name: 'Saturate', filter: 'saturate(300%)' },
-  { name: 'Vintage', filter: 'sepia(50%) contrast(120%) brightness(90%)' },
-  { name: 'Cold', filter: 'hue-rotate(180deg) saturate(150%)' },
-  { name: 'Warm', filter: 'sepia(30%) saturate(150%)' },
-  { name: 'Dramatic', filter: 'contrast(150%) brightness(80%)' },
-  { name: 'Noir', filter: 'grayscale(100%) contrast(150%)' },
-  { name: 'Faded', filter: 'opacity(80%) brightness(110%)' },
-  // Adding more to reach a large number as requested
-  ...Array.from({ length: 85 }).map((_, i) => ({
-    name: `Style ${i + 1}`,
-    filter: `hue-rotate(${i * 10}deg) saturate(${100 + i}%) contrast(${100 + (i % 50)}%)`
-  }))
-];
-
 export default function CallScreen() {
-  const { id } = useParams<{ id: string }>();
+  const { id: otherUserId } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
-  const { settings: globalSettings } = useGlobalSettings();
   
-  const containerRef = useRef<HTMLDivElement>(null);
-  const zpRef = useRef<any>(null);
-  const [otherUser, setOtherUser] = useState<User | null>(() => {
-    const paramName = searchParams.get('name');
-    const paramPhoto = searchParams.get('photo');
-    if (id && paramName) {
-      return {
-        uid: id,
-        displayName: paramName,
-        photoURL: paramPhoto || '',
-        verified: true
-      } as User;
-    }
-    return null;
-  });
-  const [isMicOn, setIsMicOn] = useState(true);
-  const [isCameraOn, setIsCameraOn] = useState(true);
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('none');
-  const [isNightMode, setIsNightMode] = useState(false);
-  const [hasPermissions, setHasPermissions] = useState(false);
-
-  const type = searchParams.get('type') || 'audio';
-  const roomIDFromParam = searchParams.get('roomID');
   const callId = searchParams.get('callId');
-  const isVideo = type === 'video';
+  const type = (searchParams.get('type') || 'video') as 'audio' | 'video';
+  const mode = searchParams.get('mode') || 'caller'; // 'caller' or 'receiver'
+  
+  const [otherUser, setOtherUser] = useState<User | null>(null);
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [isCameraOn, setIsCameraOn] = useState(type === 'video');
+  const [isMuted, setIsMuted] = useState(false);
+  const [isNightMode, setIsNightMode] = useState(false);
+  const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'active' | 'ended' | 'rejected'>('connecting');
 
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const pc = useRef<RTCPeerConnection | null>(null);
+  const localStream = useRef<MediaStream | null>(null);
+
+  // 1. Fetch Other User Info
   useEffect(() => {
-    if (!id) return;
+    if (!otherUserId) return;
     const fetchUser = async () => {
-      const dbInstance = await initDB();
-      const localUser = await dbInstance.get('users', id);
-      if (localUser) setOtherUser(localUser as User);
-
-      const userDoc = await getDoc(doc(db, 'users', id));
+      const userDoc = await getDoc(doc(db, 'users', otherUserId));
       if (userDoc.exists()) {
-        const userData = { ...userDoc.data(), uid: userDoc.id } as User;
-        setOtherUser(userData);
-        await dbInstance.put('users', userData);
+        setOtherUser({ ...userDoc.data(), uid: userDoc.id } as User);
       }
     };
     fetchUser();
-  }, [id]);
+  }, [otherUserId]);
 
+  // 2. WebRTC Logic
   useEffect(() => {
-    const requestPermissions = async () => {
+    if (!currentUser || !otherUserId || !callId) return;
+
+    const startWebRTC = async () => {
+      pc.current = new RTCPeerConnection(ICE_SERVERS);
+
+      // Get local stream
       try {
-        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setHasPermissions(true);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: type === 'video',
+          audio: true
+        });
+        localStream.current = stream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+        
+        stream.getTracks().forEach(track => {
+          pc.current?.addTrack(track, stream);
+        });
       } catch (err) {
-        console.error("Permission request failed:", err);
-        // Even if it fails, we try to join, but we log it
-        setHasPermissions(true); 
+        console.error("Error accessing media devices:", err);
+      }
+
+      // Handle remote stream
+      pc.current.ontrack = (event) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+        setCallStatus('active');
+      };
+
+      // Signaling
+      const callRef = doc(db, 'calls', callId);
+      const callerCandidatesCollection = collection(callRef, 'callerCandidates');
+      const receiverCandidatesCollection = collection(callRef, 'receiverCandidates');
+
+      // ICE Candidates handling
+      pc.current.onicecandidate = (event) => {
+        if (event.candidate) {
+          const candidatesCollection = mode === 'caller' ? callerCandidatesCollection : receiverCandidatesCollection;
+          addDoc(candidatesCollection, event.candidate.toJSON());
+        }
+      };
+
+      if (mode === 'caller') {
+        // Create Offer
+        const offerDescription = await pc.current.createOffer();
+        await pc.current.setLocalDescription(offerDescription);
+
+        const offer = {
+          sdp: offerDescription.sdp,
+          type: offerDescription.type,
+        };
+
+        await updateDoc(callRef, { offer });
+
+        // Listen for Answer
+        onSnapshot(callRef, (snapshot) => {
+          const data = snapshot.data();
+          if (!pc.current?.currentRemoteDescription && data?.answer) {
+            const answerDescription = new RTCSessionDescription(data.answer);
+            pc.current?.setRemoteDescription(answerDescription);
+          }
+          if (data?.status === 'rejected' || data?.status === 'ended') {
+            handleHangUp(false);
+          }
+        });
+
+        // Listen for Receiver ICE Candidates
+        onSnapshot(receiverCandidatesCollection, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const data = change.doc.data();
+              pc.current?.addIceCandidate(new RTCIceCandidate(data));
+            }
+          });
+        });
+
+      } else {
+        // Receiver: Join Call
+        const callDoc = await getDoc(callRef);
+        const callData = callDoc.data();
+
+        if (callData?.offer) {
+          const offerDescription = new RTCSessionDescription(callData.offer);
+          await pc.current.setRemoteDescription(offerDescription);
+
+          const answerDescription = await pc.current.createAnswer();
+          await pc.current.setLocalDescription(answerDescription);
+
+          const answer = {
+            type: answerDescription.type,
+            sdp: answerDescription.sdp,
+          };
+
+          await updateDoc(callRef, { answer, status: 'active' });
+        }
+
+        // Listen for Caller ICE Candidates
+        onSnapshot(callerCandidatesCollection, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const data = change.doc.data();
+              pc.current?.addIceCandidate(new RTCIceCandidate(data));
+            }
+          });
+        });
+
+        // Listen for call status changes
+        onSnapshot(callRef, (snapshot) => {
+          const data = snapshot.data();
+          if (data?.status === 'ended') {
+            handleHangUp(false);
+          }
+        });
       }
     };
-    requestPermissions();
-  }, []);
 
-  useEffect(() => {
-    if (!currentUser || !containerRef.current || !hasPermissions) return;
-
-    // Ensure roomID, userID, and userName are NOT empty
-    const roomID = (roomIDFromParam || callId || id || 'default_room').trim();
-    const userID = (currentUser.uid || `user_${Math.floor(Math.random() * 1000)}`).trim();
-    const userName = (currentUser.displayName || currentUser.email?.split('@')[0] || 'User').trim();
-
-    if (!roomID || !userID || !userName) {
-      console.error("Critical error: Zego parameters are empty", { roomID, userID, userName });
-      return;
-    }
-
-    try {
-      // Using AppSign method for instant authentication as requested
-      // @ts-ignore
-      const zp = ZegoUIKitPrebuilt.create(Number(APP_ID), String(APP_SIGN), String(roomID), String(userID), String(userName));
-      zpRef.current = zp;
-
-      zp.joinRoom({
-        container: containerRef.current,
-        showPreJoinView: false,
-        scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
-        showMyCameraToggleButton: false,
-        showMyMicrophoneToggleButton: false,
-        showAudioVideoSettingsButton: false,
-        showScreenSharingButton: false,
-        showUserList: false,
-        showTextChat: false,
-        showLeaveRoomConfirmDialog: false,
-        turnOnCameraWhenJoining: true,
-        // @ts-ignore
-        showMyVideoView: true,
-        // @ts-ignore
-        useFrontFacingCamera: true,
-        // @ts-ignore
-        videoMirror: true, // Mirror the local video
-        // @ts-ignore
-        enableVideoMirroring: true, // Mirror the local video (alternative key)
-        // @ts-ignore
-        showBeautyControls: true,
-        // @ts-ignore
-        showUserNameOnVideo: false,
-        // @ts-ignore
-        showPinButton: false,
-        // @ts-ignore
-        lowerLeftNotification: {
-          showUserJoinAndLeave: false,
-          showTextChat: false,
-        },
-        onLeaveRoom: () => navigate(-1),
-      });
-    } catch (error) {
-      console.error("Zego joinRoom error:", error);
-    }
+    startWebRTC();
 
     return () => {
-      if (zpRef.current) {
-        zpRef.current.destroy();
-        zpRef.current = null;
-      }
+      cleanup();
     };
-  }, [currentUser, id, roomIDFromParam, callId, navigate, hasPermissions]);
+  }, [currentUser, otherUserId, callId, mode, type]);
 
-  const handleHangUp = () => {
-    zpRef.current?.hangUp();
+  const cleanup = () => {
+    if (localStream.current) {
+      localStream.current.getTracks().forEach(track => track.stop());
+    }
+    if (pc.current) {
+      pc.current.close();
+    }
+  };
+
+  const handleHangUp = async (notify = true) => {
+    cleanup();
+    if (notify && callId) {
+      await endCall(callId, otherUserId);
+    }
     navigate(-1);
   };
 
   const toggleMic = () => {
-    const newState = !isMicOn;
-    setIsMicOn(newState);
-    zpRef.current?.muteMicrophone(!newState);
+    if (localStream.current) {
+      const audioTrack = localStream.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMicOn(audioTrack.enabled);
+      }
+    }
   };
 
   const toggleCamera = () => {
-    const newState = !isCameraOn;
-    setIsCameraOn(newState);
-    zpRef.current?.setCameraOn(newState);
-  };
-
-  const toggleSpeaker = () => {
-    const newState = !isSpeakerOn;
-    setIsSpeakerOn(newState);
-    // ZegoUIKitPrebuilt might not have a direct setSpeaker for web in all versions, 
-    // but we can try to find the audio element and mute it or use SDK methods if available
-  };
-
-  const flipCamera = () => {
-    zpRef.current?.useFrontFacingCamera(!zpRef.current?.isFrontFacingCamera());
+    if (localStream.current) {
+      const videoTrack = localStream.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsCameraOn(videoTrack.enabled);
+      }
+    }
   };
 
   return (
-    <div className="w-screen h-screen relative overflow-hidden bg-transparent font-sans">
-      {/* Video Background */}
-      <div 
-        ref={containerRef} 
-        className="absolute inset-0 w-full h-full z-0 bg-transparent" 
-        style={{ filter: activeFilter }}
+    <div className="w-screen h-screen relative overflow-hidden bg-black font-sans">
+      {/* Remote Video (Full Screen) */}
+      <video 
+        ref={remoteVideoRef}
+        autoPlay 
+        playsInline 
+        className="absolute inset-0 w-full h-full object-cover z-0"
       />
+
+      {/* Local Video (Floating) */}
+      <div className="absolute top-6 right-6 w-32 h-48 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl z-50 bg-gray-900">
+        <video 
+          ref={localVideoRef}
+          autoPlay 
+          playsInline 
+          muted 
+          className="w-full h-full object-cover"
+        />
+        {!isCameraOn && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+            <CameraOff className="text-white/40" size={24} />
+          </div>
+        )}
+      </div>
 
       {/* Night Mode Ring Light Overlay */}
       <AnimatePresence>
@@ -241,7 +259,6 @@ export default function CallScreen() {
       {/* Top Header (Identity) */}
       <div className="absolute top-16 left-0 right-0 z-20 flex flex-col items-center gap-4">
         <div className="relative">
-          {/* Subtle LED Glow Ring (Imo Style) */}
           <motion.div 
             animate={{ 
               boxShadow: [
@@ -250,18 +267,9 @@ export default function CallScreen() {
                 "0 0 0px rgba(255, 215, 0, 0)"
               ]
             }}
-            transition={{ 
-              duration: 1.5,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className={cn(
-              "absolute -inset-1 rounded-full border-2",
-              isNightMode ? "border-white/80" : "border-yellow-400/50"
-            )}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            className={cn("absolute -inset-1 rounded-full border-2", isNightMode ? "border-white/80" : "border-yellow-400/50")}
           />
-          
-          {/* Profile Image */}
           <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-white/30 shadow-2xl">
             <img 
               src={otherUser?.photoURL || `https://ui-avatars.com/api/?name=${otherUser?.displayName}`} 
@@ -280,11 +288,10 @@ export default function CallScreen() {
             {otherUser?.verified && <VerifiedBadge size="sm" className="text-yellow-400" />}
           </div>
           <span className="text-white/80 text-sm font-medium tracking-wide drop-shadow-md animate-pulse">
-            Ya Nabi Salam Alaika
+            {callStatus === 'connecting' ? 'Connecting...' : callStatus === 'ringing' ? 'Ringing...' : 'Active Call'}
           </span>
         </div>
 
-        {/* Night Mode Toggle */}
         <button 
           onClick={() => setIsNightMode(!isNightMode)}
           className={cn(
@@ -297,110 +304,22 @@ export default function CallScreen() {
         </button>
       </div>
 
-      {/* Floating Filter Icon (Middle Right) */}
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 z-30">
-        <button 
-          onClick={() => setShowFilters(!showFilters)}
-          className={cn(
-            "p-4 rounded-full shadow-2xl transition-all active:scale-90 border backdrop-blur-xl",
-            showFilters ? "bg-primary text-white border-primary" : "bg-white/10 text-white border-white/20"
-          )}
-        >
-          <Wand2 size={24} />
-        </button>
-      </div>
-
-      {/* Filters List (Horizontal Messenger Style) */}
-      <AnimatePresence>
-        {showFilters && (
-          <motion.div 
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 50, opacity: 0 }}
-            className="absolute bottom-40 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-xl"
-          >
-            <div className="bg-black/40 backdrop-blur-3xl p-4 rounded-[2.5rem] border border-white/10 overflow-x-auto no-scrollbar flex gap-4">
-              {FILTERS.map((f, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveFilter(f.filter)}
-                  className={cn(
-                    "flex-shrink-0 w-16 h-16 rounded-full border-2 transition-all flex flex-col items-center justify-center overflow-hidden relative",
-                    activeFilter === f.filter ? "border-primary scale-110" : "border-white/20"
-                  )}
-                >
-                  <div 
-                    className="absolute inset-0 w-full h-full bg-cover bg-center"
-                    style={{ 
-                      backgroundImage: `url(${otherUser?.photoURL || 'https://picsum.photos/seed/face/100/100'})`,
-                      filter: f.filter 
-                    }}
-                  />
-                  <span className="absolute bottom-1 left-0 right-0 text-[8px] font-bold text-white text-center bg-black/40 py-0.5">
-                    {f.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Bottom Navigation (WhatsApp Style) */}
+      {/* Main Control Bar */}
       <div className="absolute bottom-12 left-0 right-0 z-40 flex flex-col items-center gap-6">
-        {/* More Menu Pop-up */}
-        <AnimatePresence>
-          {showMoreMenu && (
-            <motion.div 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 20, opacity: 0 }}
-              className="bg-[#1f2c34]/95 backdrop-blur-2xl rounded-[2.5rem] p-6 grid grid-cols-3 gap-6 border border-white/10 shadow-2xl mb-4 w-[90%] max-w-sm"
-            >
-              {[
-                { icon: <MessageSquare size={20} />, label: 'Chat', action: () => zpRef.current?.showTextChat(true) },
-                { icon: <ScreenShare size={20} />, label: 'Share', action: () => zpRef.current?.showScreenSharingButton(true) },
-                { icon: <Users size={20} />, label: 'Members', action: () => zpRef.current?.showUserList(true) },
-                { icon: <ImageIcon size={20} />, label: 'Virtual BG', action: () => {} },
-                { icon: <Wind size={20} />, label: 'Noise', action: () => {} },
-                { icon: <Settings size={20} />, label: 'Settings', action: () => zpRef.current?.showAudioVideoSettingsButton(true) },
-              ].map((item, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => { item.action(); setShowMoreMenu(false); }}
-                  className="flex flex-col items-center gap-2 group"
-                >
-                  <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white group-hover:bg-primary transition-colors">
-                    {item.icon}
-                  </div>
-                  <span className="text-[10px] font-bold text-white/60 uppercase tracking-tighter">{item.label}</span>
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Main Control Bar */}
         <div className="bg-[#1f2c34]/90 backdrop-blur-2xl rounded-full p-3 flex items-center gap-4 shadow-2xl border border-white/10">
           <button 
             onClick={toggleMic}
-            className={cn(
-              "p-4 rounded-full transition-all active:scale-90",
-              isMicOn ? "bg-white/5 text-white" : "bg-red-500 text-white"
-            )}
+            className={cn("p-4 rounded-full transition-all active:scale-90", isMicOn ? "bg-white/5 text-white" : "bg-red-500 text-white")}
           >
             {isMicOn ? <Mic size={22} /> : <MicOff size={22} />}
           </button>
           
-          <button 
-            onClick={flipCamera}
-            className="p-4 rounded-full bg-white/5 text-white transition-all active:scale-90"
-          >
+          <button className="p-4 rounded-full bg-white/5 text-white transition-all active:scale-90">
             <RefreshCw size={22} />
           </button>
 
           <button 
-            onClick={handleHangUp}
+            onClick={() => handleHangUp()}
             className="p-5 rounded-full bg-red-600 text-white shadow-lg hover:bg-red-700 transition-all active:scale-90"
           >
             <Phone className="rotate-[135deg]" size={28} />
@@ -408,22 +327,16 @@ export default function CallScreen() {
 
           <button 
             onClick={toggleCamera}
-            className={cn(
-              "p-4 rounded-full transition-all active:scale-90",
-              isCameraOn ? "bg-white/5 text-white" : "bg-red-500 text-white"
-            )}
+            className={cn("p-4 rounded-full transition-all active:scale-90", isCameraOn ? "bg-white/5 text-white" : "bg-red-500 text-white")}
           >
             {isCameraOn ? <Video size={22} /> : <CameraOff size={22} />}
           </button>
 
           <button 
-            onClick={() => setShowMoreMenu(!showMoreMenu)}
-            className={cn(
-              "p-4 rounded-full transition-all active:scale-90",
-              showMoreMenu ? "bg-primary text-white" : "bg-white/5 text-white"
-            )}
+            onClick={() => setIsMuted(!isMuted)}
+            className={cn("p-4 rounded-full transition-all active:scale-90", !isMuted ? "bg-white/5 text-white" : "bg-red-500 text-white")}
           >
-            <MoreVertical size={22} />
+            {!isMuted ? <Volume2 size={22} /> : <VolumeX size={22} />}
           </button>
         </div>
       </div>

@@ -49,6 +49,12 @@ export interface User {
   // Public Identity Fields
   sex?: string;
   birthYear?: number;
+  isSeller?: boolean;
+  sellerInfo?: {
+    shopName: string;
+    phone: string;
+    address: string;
+  };
 }
 
 export interface Chat {

@@ -46,8 +46,9 @@ import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 export default function AdminDashboard() {
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'assets' | 'stats' | 'broadcast' | 'ui'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'assets' | 'stats' | 'broadcast' | 'ui' | 'groups'>('users');
   const [users, setUsers] = useState<User[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -69,7 +70,7 @@ export default function AdminDashboard() {
   const { settings, updateSettings } = useGlobalSettings();
 
   // Security Check
-  if (!currentUser || currentUser.email !== 'info@ocsthael.com') {
+  if (!currentUser || (currentUser.email !== 'info@ocsthael.com' && currentUser.role !== 'admin')) {
     return <Navigate to="/login" replace />;
   }
 
@@ -79,6 +80,12 @@ export default function AdminDashboard() {
       const usersList = snapshot.docs.map(doc => doc.data() as User);
       setUsers(usersList);
       setLoading(false);
+    });
+
+    // Fetch Posts
+    const unsubscribePosts = onSnapshot(collection(db, 'books_posts'), (snapshot) => {
+      const postsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setPosts(postsList);
     });
 
     // Fetch Stats
@@ -267,6 +274,18 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('ui')} 
             icon={<Palette size={20} />} 
             label="UI Settings" 
+          />
+          <TabButton 
+            active={activeTab === 'groups'} 
+            onClick={() => setActiveTab('groups')} 
+            icon={<Users size={20} />} 
+            label="Groups & Channels" 
+          />
+          <TabButton 
+            active={activeTab === 'posts'} 
+            onClick={() => setActiveTab('posts')} 
+            icon={<FileAudio size={20} />} 
+            label="Posts" 
           />
         </aside>
 
@@ -670,6 +689,129 @@ export default function AdminDashboard() {
                 </div>
               </motion.div>
             )}
+            {activeTab === 'groups' && (
+              <motion.div
+                key="groups"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-black tracking-tight">Groups & Channels Control</h2>
+                  <button className="px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm">
+                    Create New
+                  </button>
+                </div>
+                
+                <div className="bg-surface border border-border/50 rounded-2xl p-6 card-3d">
+                  <p className="text-muted-foreground text-sm mb-4">Manage all groups, channels, and voice clubs across the platform.</p>
+                  
+                  <div className="space-y-4">
+                    <div className="p-4 border border-border/50 rounded-xl flex items-center justify-between hover:bg-muted/10 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center font-black text-xl">
+                          G
+                        </div>
+                        <div>
+                          <h3 className="font-bold">Global Chat</h3>
+                          <p className="text-xs text-muted-foreground">1.2k Members • Public Group</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-xs font-bold">Delete</button>
+                        <button className="px-3 py-1 bg-muted text-foreground rounded-lg text-xs font-bold">Edit</button>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 border border-border/50 rounded-xl flex items-center justify-between hover:bg-muted/10 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center font-black text-xl">
+                          V
+                        </div>
+                        <div>
+                          <h3 className="font-bold">Music Voice Club</h3>
+                          <p className="text-xs text-muted-foreground">340 Members • Voice Channel</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-xs font-bold">Delete</button>
+                        <button className="px-3 py-1 bg-muted text-foreground rounded-lg text-xs font-bold">Edit</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            {activeTab === 'posts' && (
+              <motion.div
+                key="posts"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-black tracking-tight">Manage Posts</h2>
+                </div>
+
+                <div className="bg-surface border border-border/50 rounded-2xl overflow-hidden card-3d">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-muted/30 border-b border-border/50">
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Post</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Author</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Likes</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/50">
+                        {posts.map((post) => (
+                          <tr key={post.id} className="hover:bg-muted/10 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                {post.mediaType === 'video' ? (
+                                  <video src={post.mediaUrl} className="w-10 h-10 rounded-lg object-cover border border-border/50" />
+                                ) : (
+                                  <img src={post.mediaUrl} alt="" className="w-10 h-10 rounded-lg object-cover border border-border/50" />
+                                )}
+                                <div>
+                                  <p className="font-extrabold text-sm line-clamp-1">{post.title || post.description || 'Untitled'}</p>
+                                  <p className="text-[10px] text-muted-foreground font-mono">{post.id}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-bold">{post.authorName}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-bold">{(post.likes || []).length}</p>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button 
+                                  onClick={async () => {
+                                    if (window.confirm('Are you sure you want to delete this post?')) {
+                                      await deleteDoc(doc(db, 'books_posts', post.id));
+                                    }
+                                  }}
+                                  className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                  title="Delete Post"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
           </AnimatePresence>
         </main>
       </div>

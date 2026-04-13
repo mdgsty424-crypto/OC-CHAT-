@@ -8,8 +8,7 @@ import { collection, query, where, onSnapshot, orderBy, getDoc, doc, setDoc, add
 import { db } from '../lib/firebase';
 import { CallSession, User } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { useZegoStore } from '../hooks/useZegoStore';
-import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
+import { createCall } from '../lib/webrtc';
 
 interface CallWithUser extends CallSession {
   otherUser?: User;
@@ -161,40 +160,23 @@ export default function Calls() {
       return name.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
-  const { zp } = useZegoStore();
-
   const handleCall = async (otherUser: User, type: 'audio' | 'video') => {
     if (!user || !otherUser || !otherUser.uid) return;
 
-    // 1. Direct Navigation Priority
-    const roomID = [user.uid, otherUser.uid].sort().join('_');
-    console.log("Initiating call from Calls page with roomID:", roomID);
-    const callUrl = `/call-screen/${otherUser.uid}?type=${type}&roomID=${roomID}&name=${encodeURIComponent(otherUser.displayName || '')}&photo=${encodeURIComponent(otherUser.photoURL || '')}`;
-    navigate(callUrl);
-
-    // 2. Instant Zego Handshake
-    if (zp) {
-      const callType = type === 'video' 
-        ? ZegoUIKitPrebuilt.InvitationTypeVideoCall 
-        : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
+    try {
+      const callId = await createCall(
+        user.uid, 
+        otherUser.uid, 
+        type, 
+        user.displayName || 'User', 
+        user.photoURL || ''
+      );
       
-      try {
-        console.log(`Sending ${type} call invitation to:`, otherUser.uid, "with roomID:", roomID);
-        const result = await zp.sendCallInvitation({
-          callees: [{ userID: otherUser.uid, userName: otherUser.displayName || otherUser.uid }],
-          callType: callType,
-          timeout: 60,
-          data: JSON.stringify({ roomID })
-        });
-        console.log("Call invitation result:", result);
-        if (result.errorInvitees && result.errorInvitees.length > 0) {
-          console.error("Failed to invite some users:", result.errorInvitees);
-        }
-      } catch (error) {
-        console.error("Error sending call invitation:", error);
-      }
-    } else {
-      console.warn("Zego SDK not ready, but navigated anyway.");
+      const callUrl = `/call-screen/${otherUser.uid}?type=${type}&callId=${callId}&mode=caller`;
+      navigate(callUrl);
+    } catch (error) {
+      console.error("Error starting call:", error);
+      alert("Failed to start call. Please try again.");
     }
   };
 
@@ -231,13 +213,22 @@ export default function Calls() {
             <Video size={18} />
             START MEETING
           </button>
-          <button 
-            onClick={() => navigate('/discovery')}
-            className="flex-1 bg-secondary text-white py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
-          >
-            <Sparkles size={18} />
-            RANDOM CALL
-          </button>
+          <div className="flex-1 flex flex-col gap-2">
+            <button 
+              onClick={() => navigate('/discovery')}
+              className="w-full bg-secondary text-white py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              <Sparkles size={18} />
+              RANDOM CALL
+            </button>
+            <button 
+              onClick={() => navigate('/offline-call')}
+              className="w-full bg-blue-600 text-white py-2 rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              <Phone size={14} />
+              CALL MOBILE NO
+            </button>
+          </div>
         </div>
       </div>
 
@@ -390,6 +381,14 @@ export default function Calls() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Floating Action Button for Offline Dialer */}
+      <button
+        onClick={() => navigate('/offline-call')}
+        className="fixed bottom-24 right-6 w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 active:scale-95 transition-all z-40"
+      >
+        <Phone size={28} />
+      </button>
     </main>
   );
 }

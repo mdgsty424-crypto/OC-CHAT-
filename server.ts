@@ -390,6 +390,49 @@ async function startServer() {
     }
   });
 
+  // API Route for Offline Calling via Infobip
+  app.post("/api/make-call", async (req, res) => {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber is required" });
+
+    try {
+      const INFOBIP_API_KEY = "701772971eb6b9d02482ba463bcfee11-01637336-f610-4a65-9947-ee8ae793983b";
+      const INFOBIP_BASE_URL = "https://9jjgy3.api.infobip.com";
+
+      const payload = {
+        messages: [
+          {
+            from: "447491163443", // Example sender ID or number
+            destinations: [
+              {
+                to: phoneNumber
+              }
+            ],
+            text: "Hello! This is a call from OC-CHAT. Someone is trying to reach you.",
+            language: "en",
+            voice: {
+              name: "Joanna",
+              gender: "female"
+            }
+          }
+        ]
+      };
+
+      const response = await axios.post(`${INFOBIP_BASE_URL}/tts/3/advanced`, payload, {
+        headers: {
+          'Authorization': `App ${INFOBIP_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      res.json({ success: true, data: response.data });
+    } catch (error: any) {
+      console.error("Infobip API error:", error.response?.data || error.message);
+      res.status(500).json({ error: "Failed to initiate call", details: error.response?.data || error.message });
+    }
+  });
+
   app.post('*', (req, res) => {
     console.log("POST request to unknown route:", req.path);
     res.status(404).json({ error: "Not found" });

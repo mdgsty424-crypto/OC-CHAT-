@@ -11,8 +11,7 @@ import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { motion, AnimatePresence } from 'motion/react';
 import MessageBubble from '../components/chat/MessageBubble';
 import MessageInput from '../components/chat/MessageInput';
-import { useZegoStore } from '../hooks/useZegoStore';
-import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
+import { createCall } from '../lib/webrtc';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 import { useNotifications } from '../hooks/useNotifications';
@@ -28,7 +27,6 @@ export default function ChatDetail() {
   const assets = useAppAssets();
   const navigate = useNavigate();
   const { sendNotification } = useNotifications();
-  const { zp } = useZegoStore();
   const [chat, setChat] = useState<Chat | null>(null);
   
   // Audio pre-loading
@@ -254,42 +252,25 @@ export default function ChatDetail() {
   }, [messages.length, currentUser?.uid, id]);
 
   const handleCall = async (type: 'audio' | 'video') => {
-    console.log("handleCall called", { currentUser, otherUser });
     if (!currentUser || !otherUser || !otherUser.uid) {
       console.error("Cannot start call: missing user data");
       return;
     }
 
-    // 1. Direct Navigation Priority
-    const roomID = [currentUser.uid, otherUser.uid].sort().join('_');
-    console.log("Initiating call with roomID:", roomID);
-    const callUrl = `/call-screen/${otherUser.uid}?type=${type}&roomID=${roomID}&name=${encodeURIComponent(otherUser.displayName || '')}&photo=${encodeURIComponent(otherUser.photoURL || '')}`;
-    navigate(callUrl);
-
-    // 2. Instant Zego Handshake
-    if (zp) {
-      const callType = type === 'video' 
-        ? ZegoUIKitPrebuilt.InvitationTypeVideoCall 
-        : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
+    try {
+      const callId = await createCall(
+        currentUser.uid, 
+        otherUser.uid, 
+        type, 
+        currentUser.displayName || 'User', 
+        currentUser.photoURL || ''
+      );
       
-      try {
-        console.log(`Sending ${type} call invitation to:`, otherUser.uid, "with roomID:", roomID);
-        const result = await zp.sendCallInvitation({
-          callees: [{ userID: otherUser.uid, userName: otherUser.displayName || otherUser.uid }],
-          callType: callType,
-          timeout: 60,
-          data: JSON.stringify({ roomID }) // Pass roomID in data
-        });
-        console.log("Call invitation result:", result);
-        if (result.errorInvitees && result.errorInvitees.length > 0) {
-          console.error("Failed to invite some users:", result.errorInvitees);
-          // Optional: handle error if needed, but we already navigated
-        }
-      } catch (error) {
-        console.error("Error sending call invitation:", error);
-      }
-    } else {
-      console.warn("Zego SDK not ready, but navigated anyway.");
+      const callUrl = `/call-screen/${otherUser.uid}?type=${type}&callId=${callId}&mode=caller`;
+      navigate(callUrl);
+    } catch (error) {
+      console.error("Error starting call:", error);
+      alert("Failed to start call. Please try again.");
     }
   };
 

@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { NetworkProvider, useNetwork } from './hooks/useNetwork';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { useAppAssets } from './hooks/useAppAssets';
-import { useZegoStore } from './hooks/useZegoStore';
+import { useAudioStore } from './hooks/useAudioStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -21,13 +21,22 @@ import CallScreen from './pages/CallScreen';
 import Sidebar from './components/layout/Sidebar';
 import BottomNav from './components/layout/BottomNav';
 import TopBar from './components/layout/TopBar';
-import ZegoCallInvitation from './components/common/ZegoCallInvitation';
+import WebRTCCallInvitation from './components/common/WebRTCCallInvitation';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import MeetingRoom from './pages/MeetingRoom';
 import VoiceRoom from './pages/VoiceRoom';
 import AdminDashboard from './pages/AdminDashboard';
 import SplashScreen from './components/common/SplashScreen';
+import OfflineCall from './pages/OfflineCall';
+
+import Books from './pages/Books';
+import Story from './pages/Story';
+import Dashboard from './pages/Dashboard';
+import Ads from './pages/Ads';
+import Dhukan from './pages/Dhukan';
+import Notifications from './pages/Notifications';
+import SellerDashboard from './pages/SellerDashboard';
 
 function NetworkStatus() {
   const { isOnline, isReconnecting } = useNetwork();
@@ -83,7 +92,7 @@ function AppRoutes() {
   const { theme } = useSettings();
   const { settings: globalSettings } = useGlobalSettings();
   const [isLocked, setIsLocked] = useState(false);
-  const { setIsAudioUnlocked, setAudioContext } = useZegoStore();
+  const { setIsAudioUnlocked, setAudioContext } = useAudioStore();
   const assets = useAppAssets();
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   const location = useLocation();
@@ -287,16 +296,25 @@ function AppRoutes() {
         globalSettings.theme !== 'theme-default' ? 'bg-transparent' : 'bg-surface'
       )}>
         <NetworkStatus />
-        {!isCallScreen && <ZegoCallInvitation />}
+        {!isCallScreen && <WebRTCCallInvitation />}
         <Routes>
           <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
           <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />
           <Route path="/discovery" element={<><Discovery /><BottomNav /></>} />
           <Route path="/wallet" element={<><Wallet /><BottomNav /></>} />
           <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
+          <Route path="/offline-call" element={<OfflineCall />} />
           <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
           <Route path="/profile/:id" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
           <Route path="/search" element={<SearchScreen />} />
+          <Route path="/books" element={<Books />} />
+          <Route path="/story" element={<Story />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/ads" element={<Ads />} />
+          <Route path="/dhukan" element={<Dhukan />} />
+          <Route path="/seller-dashboard" element={<SellerDashboard />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/chat/:id" element={<ChatDetail />} />
           <Route path="/call-screen/:id" element={<CallScreen />} />
           <Route path="/meeting/:id" element={<MeetingRoom />} />

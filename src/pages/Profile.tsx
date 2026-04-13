@@ -39,10 +39,12 @@ import {
   QrCode,
   CheckCircle2,
   Users,
-  Palette
+  Palette,
+  ShoppingCart,
+  Plus
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { doc, updateDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDoc, setDoc, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import PinLock from '../components/common/PinLock';
 import { useSettings } from '../hooks/useSettings';
@@ -54,6 +56,37 @@ import StoryPlayer from '../components/stories/StoryPlayer';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 type SubView = 'main' | 'account' | 'security' | 'notifications' | 'language' | 'help' | 'set-pin' | 'settings';
+
+export type AboutEntry = {
+  id: string;
+  type: 'work' | 'school' | 'college' | 'university';
+  institution: string;
+  role: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+};
+
+function MenuButton({ icon, label, subLabel, onClick, isDestructive }: { icon: React.ReactNode, label: string, subLabel?: string, onClick: () => void, isDestructive?: boolean }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors text-left",
+        isDestructive ? "text-red-600" : "text-gray-900"
+      )}
+    >
+      <div className={cn("p-2 rounded-full", isDestructive ? "bg-red-50" : "bg-gray-100")}>
+        {icon}
+      </div>
+      <div className="flex-1">
+        <div className="font-bold text-lg">{label}</div>
+        {subLabel && <div className="text-sm text-gray-500">{subLabel}</div>}
+      </div>
+      <ChevronRight size={20} className="text-gray-400" />
+    </button>
+  );
+}
 
 export default function Profile() {
   const { id } = useParams();
@@ -67,11 +100,33 @@ export default function Profile() {
   const [subView, setSubView] = useState<SubView>('main');
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingIdentity, setIsEditingIdentity] = useState(false);
+  const [isBecomeSellerOpen, setIsBecomeSellerOpen] = useState(false);
+  const [sellerForm, setSellerForm] = useState({ shopName: '', phone: '', address: '' });
   
   // Basic Profile States
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   
+  // New States for Profile Screen
+  const [activeTab, setActiveTab] = useState<'about' | 'story' | 'books'>('about');
+  const [isEditingAbout, setIsEditingAbout] = useState(false);
+  const [aboutInfo, setAboutInfo] = useState({
+    status: '',
+    website: '',
+    entries: [] as AboutEntry[]
+  });
+  const [showAllAbout, setShowAllAbout] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<AboutEntry | null>(null);
+  const [isAddingEntry, setIsAddingEntry] = useState(false);
+  const [showBottomMenu, setShowBottomMenu] = useState(false);
+  const [showIdCard, setShowIdCard] = useState(false);
+
+  const [friendRequestStatus, setFriendRequestStatus] = useState<'none' | 'requested' | 'friends'>('none');
+  const [books, setBooks] = useState<any[]>([]);
+  const [isUploadingBook, setIsUploadingBook] = useState(false);
+  const [bookForm, setBookForm] = useState({ title: '', description: '', mentions: '', file: null as File | null });
+  const bookInputRef = useRef<HTMLInputElement>(null);
+
   // Identity States
   const [identity, setIdentity] = useState({
     nameBangla: '',
@@ -119,16 +174,35 @@ export default function Profile() {
 
       const unsub = onSnapshot(doc(db, 'users', currentUser.uid), (doc) => {
         if (doc.exists()) {
-          setProfileUser({ uid: doc.id, ...doc.data() } as User);
+          const data = doc.data();
+          setProfileUser({ uid: doc.id, ...data } as User);
+          if (data.aboutInfo) setAboutInfo(data.aboutInfo);
         }
       });
       return () => unsub();
     } else if (id) {
       const unsub = onSnapshot(doc(db, 'users', id), (doc) => {
         if (doc.exists()) {
-          setProfileUser({ uid: doc.id, ...doc.data() } as User);
+          const data = doc.data();
+          setProfileUser({ uid: doc.id, ...data } as User);
+          if (data.aboutInfo) setAboutInfo(data.aboutInfo);
         }
       });
+      
+      // Check friend request status
+      if (currentUser) {
+        const reqUnsub = onSnapshot(doc(db, 'users', id, 'friendRequests', currentUser.uid), (doc) => {
+          if (doc.exists()) {
+            setFriendRequestStatus('requested');
+          } else {
+            setFriendRequestStatus('none');
+          }
+        });
+        return () => {
+          unsub();
+          reqUnsub();
+        };
+      }
       return () => unsub();
     }
   }, [id, currentUser, isOwnProfile]);
@@ -149,10 +223,21 @@ export default function Profile() {
     const targetUid = isOwnProfile ? currentUser?.uid : id;
     if (!targetUid) return;
 
-    const q = query(collection(db, 'stories'), where('userId', '==', targetUid));
+    const q = query(collection(db, 'stories'), where('authorId', '==', targetUid), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snapshot) => {
-      const storyList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
-      setStories(storyList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+      setStories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story)));
+    });
+
+    return () => unsub();
+  }, [id, currentUser?.uid, isOwnProfile]);
+
+  useEffect(() => {
+    const targetUid = isOwnProfile ? currentUser?.uid : id;
+    if (!targetUid) return;
+
+    const q = query(collection(db, 'books_posts'), where('authorId', '==', targetUid), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setBooks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     return () => unsub();
@@ -256,6 +341,94 @@ export default function Profile() {
       alert("Failed to save identity data");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveAboutInfo = async () => {
+    if (!currentUser) return;
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        aboutInfo
+      });
+      setIsEditingAbout(false);
+    } catch (error) {
+      console.error("Error saving about info:", error);
+      alert("Failed to save about info");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveEntry = () => {
+    if (!editingEntry) return;
+    
+    setAboutInfo(prev => {
+      const newEntries = isAddingEntry 
+        ? [...(prev.entries || []), { ...editingEntry, id: Date.now().toString() }]
+        : (prev.entries || []).map(e => e.id === editingEntry.id ? editingEntry : e);
+      
+      return { ...prev, entries: newEntries };
+    });
+    
+    setEditingEntry(null);
+    setIsAddingEntry(false);
+  };
+
+  const handleDeleteEntry = (id: string) => {
+    setAboutInfo(prev => ({
+      ...prev,
+      entries: (prev.entries || []).filter(e => e.id !== id)
+    }));
+  };
+
+  const handleFriendRequest = async () => {
+    if (!currentUser || !id) return;
+    try {
+      await setDoc(doc(db, 'users', id, 'friendRequests', currentUser.uid), {
+        from: currentUser.uid,
+        timestamp: serverTimestamp()
+      });
+      setFriendRequestStatus('requested');
+    } catch (error) {
+      console.error("Error sending friend request:", error);
+      alert("Failed to send friend request");
+    }
+  };
+
+  const handleBookUpload = async () => {
+    if (!currentUser || !bookForm.file) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', bookForm.file);
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.url) {
+        const mentions = bookForm.mentions.split(' ').filter(m => m.startsWith('@')).map(m => m.slice(1));
+        await addDoc(collection(db, 'books_posts'), {
+          authorId: currentUser.uid,
+          authorName: currentUser.displayName,
+          authorPhoto: currentUser.photoURL,
+          isVerified: currentUser.role === 'admin' || currentUser.isVerified,
+          title: bookForm.title,
+          description: bookForm.description,
+          mediaUrl: data.url,
+          mediaType: bookForm.file.type.startsWith('video/') ? 'video' : 'image',
+          likes: [],
+          comments: [],
+          mentions,
+          type: 'books',
+          createdAt: serverTimestamp()
+        });
+        setIsUploadingBook(false);
+        setBookForm({ title: '', description: '', mentions: '', file: null });
+      }
+    } catch (error) {
+      console.error('Error uploading book:', error);
+      alert('Failed to upload book');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -705,7 +878,7 @@ export default function Profile() {
   }
 
   return (
-    <main className="flex-1 overflow-y-auto pb-24 bg-[#F0F2F5]">
+    <main className="flex-1 overflow-y-auto pb-24 bg-white">
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -737,297 +910,433 @@ export default function Profile() {
         accept="image/*"
       />
 
-      {/* Facebook Style Header */}
-      <div className="bg-white shadow-sm">
-        {/* Cover Photo */}
-        <div className="relative h-48 md:h-64 bg-gray-300 overflow-hidden group">
-          <img
-            src={profileUser?.coverURL || "https://picsum.photos/seed/cover/1200/400"}
-            alt="Cover"
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-          <button 
-            onClick={() => coverInputRef.current?.click()}
-            className="absolute bottom-4 right-4 p-2 bg-white/80 backdrop-blur-sm text-gray-800 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 text-xs font-bold"
-          >
-            <Camera size={16} />
-            Edit Cover
+      {/* Top Header & Banner */}
+      <div className="relative h-[280px] bg-gradient-to-br from-[#8A2BE2] via-[#4169E1] to-[#1E90FF] overflow-hidden">
+        {/* Back Arrow */}
+        <button onClick={() => navigate(-1)} className="absolute top-4 left-4 p-2 z-20">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        
+        {/* Settings Gear and ID Card */}
+        <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
+          <button onClick={() => setShowIdCard(true)} className="p-2">
+            <CreditCard className="text-white" size={32} />
           </button>
-          
-          {/* Settings Gear Icon */}
-          <button 
-            onClick={() => setSubView('settings')}
-            className="absolute top-4 right-4 p-2 bg-black/20 backdrop-blur-md text-white rounded-full hover:bg-black/40 transition-colors z-20"
-          >
-            <Settings size={24} />
+          <button onClick={() => setSubView('settings')} className="p-2">
+            <Settings className="text-white" size={32} />
           </button>
         </div>
 
-        {/* Profile Info Section */}
-        <div className="px-4 pb-4 relative">
-          <div className="flex flex-col md:flex-row md:items-end gap-4 -mt-12 md:-mt-16 mb-4">
-            {/* Profile Picture */}
-            <div className="relative inline-block">
-              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full p-1 bg-white shadow-xl overflow-hidden relative">
-                <img
-                  src={profileUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileUser?.uid}`}
-                  alt={profileUser?.displayName}
-                  className="w-full h-full rounded-full object-cover border-4 border-white"
-                />
-                {profileUser?.verified && (
-                  <div className="absolute bottom-2 left-2">
-                    <VerifiedBadge className="w-6 h-6" size={globalSettings.badgeSize} />
-                  </div>
-                )}
-                {isUploading && (
-                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
-                    <Loader2 className="text-white animate-spin" size={24} />
-                  </div>
-                )}
-              </div>
-              {isOwnProfile && (
-                <div className="absolute bottom-2 right-2 flex gap-2">
-                  <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="p-2 bg-gray-200 text-gray-800 rounded-full border-2 border-white hover:bg-gray-300 transition-colors shadow-md"
-                  >
-                    <Camera size={20} />
-                  </button>
-                  <button 
-                    onClick={() => setShowAvatarGallery(!showAvatarGallery)}
-                    className="p-2 bg-primary text-white rounded-full border-2 border-white hover:bg-primary/90 transition-colors shadow-md"
-                  >
-                    <Palette size={20} />
-                  </button>
-                </div>
-              )}
-            </div>
+        {/* Text */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full z-10">
+          <h1 className="text-5xl font-black text-white tracking-wider drop-shadow-md">OC-CHAT</h1>
+          <p className="text-white/90 text-lg font-bold mt-1">Connect · Chat · Share</p>
+        </div>
 
-            {showAvatarGallery && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                <div className="bg-background w-full max-w-sm rounded-2xl p-4">
-                  <h3 className="text-lg font-bold mb-4">Select Avatar</h3>
-                  <AvatarGallery 
-                    onSelect={async (url) => {
-                      await updateDoc(doc(db, 'users', currentUser!.uid), { photoURL: url });
-                      setShowAvatarGallery(false);
-                    }}
-                    selectedUrl={profileUser?.photoURL}
-                  />
-                  <button onClick={() => setShowAvatarGallery(false)} className="w-full mt-4 py-2 bg-surface rounded-xl font-bold">Close</button>
-                </div>
-              </div>
-            )}
+        {/* Small Profiles (Floating) */}
+        <div className="absolute top-12 left-12 w-10 h-10 rounded-full overflow-hidden border-2 border-white/50 opacity-80">
+          <img src="https://i.pravatar.cc/100?img=1" alt="user" className="w-full h-full object-cover" />
+        </div>
+        <div className="absolute top-24 right-16 w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 opacity-80">
+          <img src="https://i.pravatar.cc/100?img=2" alt="user" className="w-full h-full object-cover" />
+        </div>
+        <div className="absolute bottom-20 right-28 w-14 h-14 rounded-full overflow-hidden border-2 border-white/50 opacity-80">
+          <img src="https://i.pravatar.cc/100?img=3" alt="user" className="w-full h-full object-cover" />
+        </div>
+        <div className="absolute bottom-12 left-20 w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 opacity-80">
+          <img src="https://i.pravatar.cc/100?img=4" alt="user" className="w-full h-full object-cover" />
+        </div>
 
-            {/* Name & Bio */}
-            <div className="flex-1 pt-2">
-              <div className="flex items-center gap-2">
-                <h2 className={cn("text-2xl md:text-3xl font-extrabold text-gray-900", globalSettings.fontFamily, globalSettings.fontWeight)}>{profileUser?.displayName}</h2>
-                {profileUser?.verified && (
-                  <VerifiedBadge className="w-5 h-5" size={globalSettings.badgeSize} />
-                )}
-              </div>
-              {profileUser?.bio ? (
-                <p className={cn("text-gray-600 font-semibold mt-1", globalSettings.fontFamily)}>{profileUser.bio}</p>
-              ) : isOwnProfile && (
-                <button 
-                  onClick={() => setIsEditing(true)}
-                  className={cn("text-blue-600 font-bold text-sm hover:underline mt-1", globalSettings.fontFamily)}
-                >
-                  Add Bio
-                </button>
-              )}
-              {/* Public Identity Info */}
-              <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 font-medium">
-                {profileUser?.sex && (
-                  <span className="flex items-center gap-1">
-                    <Fingerprint size={12} /> {profileUser.sex}
-                  </span>
-                )}
-                {profileUser?.birthYear && (
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} /> Born {profileUser.birthYear}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-            {isOwnProfile ? (
-              <>
-                <button 
-                  onClick={() => storyInputRef.current?.click()}
-                  disabled={isUploadingStory}
-                  className="flex-1 md:flex-none px-6 py-2 bg-blue-600 text-white rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {isUploadingStory ? <Loader2 size={18} className="animate-spin" /> : <UserPlus size={18} />}
-                  Add to Story
-                </button>
-                <button 
-                  onClick={() => setIsEditing(true)}
-                  className="flex-1 md:flex-none px-6 py-2 bg-gray-200 text-gray-800 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-gray-300 transition-colors"
-                >
-                  <Edit3 size={18} />
-                  Edit Profile
-                </button>
-              </>
-            ) : (
-              <>
-                <button 
-                  onClick={() => navigate(`/chat/${profileUser?.uid}`)}
-                  className="flex-1 md:flex-none px-6 py-2 bg-blue-600 text-white rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
-                >
-                  <MessageCircle size={18} />
-                  Message
-                </button>
-                <button className="flex-1 md:flex-none px-6 py-2 bg-gray-200 text-gray-800 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-gray-300 transition-colors">
-                  <UserPlus size={18} />
-                  Add Friend
-                </button>
-              </>
-            )}
-            <button className="px-3 py-2 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 transition-colors">
-              <MoreHorizontal size={18} />
-            </button>
-          </div>
+        {/* Bottom white wave/curve */}
+        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none">
+          <svg className="relative block w-full h-[50px]" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+              <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V95.8C50.41,108.15,103.42,115.84,158.51,115.84,213.59,115.84,267.5,107.13,321.39,56.44Z" fill="#ffffff"></path>
+          </svg>
         </div>
       </div>
 
-      {/* About Section */}
-      <div className="px-4 py-4 space-y-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 card-3d">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-extrabold text-gray-900 flex items-center gap-2">
-              <UserIcon size={18} className="text-gray-500" />
-              About
-            </h3>
-            {(isOwnProfile || currentUser?.role === 'admin') && (
-              <button 
-                onClick={() => setIsEditingIdentity(true)}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-              >
-                Edit
-              </button>
-            )}
+      {/* Profile Identity */}
+      <div className="flex flex-col items-center px-4 -mt-24 relative z-10">
+        {/* Profile Picture */}
+        <div className="relative cursor-pointer" onClick={() => setShowIdCard(true)}>
+          <div className="w-44 h-44 rounded-full bg-white overflow-hidden relative border-4 border-blue-800">
+            <img
+              src={profileUser?.photoURL || "https://i.pravatar.cc/300"}
+              alt={profileUser?.displayName || "MENA AKTER"}
+              className="w-full h-full rounded-full object-cover"
+            />
           </div>
-          
-          <div className="space-y-1">
-            {/* Public Info */}
-            <InfoItem icon={<UserIcon size={16} />} label="Name (Bangla)" value={identity.nameBangla} />
-            <InfoItem icon={<UserIcon size={16} />} label="Name (English)" value={identity.nameEnglish} />
-            <InfoItem icon={<UserIcon size={16} />} label="Sex" value={identity.sex} />
-            <InfoItem icon={<Clock size={16} />} label="Birth Year" value={identity.birthYear?.toString()} />
-
-            {/* Private Info (Owner or Admin only) */}
-            {(isOwnProfile || currentUser?.role === 'admin') && (
-              <>
-                <InfoItem icon={<Users size={16} />} label="Father's Name" value={identity.fatherName} />
-                <InfoItem icon={<Users size={16} />} label="Mother's Name" value={identity.motherName} />
-                <InfoItem icon={<MapPin size={16} />} label="Address" value={identity.address} />
-                <InfoItem icon={<Fingerprint size={16} />} label="OC ID" value={identity.ocId} valueClass="text-blue-600 font-medium" />
-                <InfoItem icon={<CreditCard size={16} />} label="NID No" value={identity.nidNo} />
-                <InfoItem icon={<Droplets size={16} />} label="Blood Group" value={identity.bloodGroup} valueClass="text-red-600 font-medium" />
-                
-                {identity.signatureURL && (
-                  <div className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                    <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 flex-shrink-0">
-                      <Edit3 size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-gray-500">Signature</p>
-                      <div className="h-10 mt-1">
-                        <img src={identity.signatureURL} className="h-full object-contain" alt="Signature" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {identity.barcode && (
-                  <div className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                    <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 flex-shrink-0">
-                      <QrCode size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-gray-500">Barcode</p>
-                      <p className="text-sm font-mono text-gray-900">{identity.barcode}</p>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+          {/* Green Online Status Dot */}
+          <div className="absolute top-4 right-2 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
+          {/* Golden Badge */}
+          <div className="absolute bottom-2 right-2">
+            <VerifiedBadge className="w-10 h-10 text-yellow-400 animate-pulse" />
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-4 space-y-4 card-3d">
-          <h3 className="text-lg font-extrabold text-gray-900">Stats</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { label: 'Friends', value: '248', icon: UserPlus },
-              { label: 'Matches', value: '12', icon: Heart },
-              { label: 'Groups', value: '8', icon: MessageCircle },
-            ].map((stat) => (
-              <div key={stat.label} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
-                <div className="p-2 bg-gray-100 rounded-full text-gray-600">
-                  <stat.icon size={20} />
-                </div>
+        {/* Details */}
+        <div className="mt-4 flex flex-col items-center w-full">
+            <div className="flex items-center gap-1">
+              <h2 className="text-4xl font-black text-black tracking-tight">
+                {profileUser?.displayName || "MENA AKTER"}
+              </h2>
+              <VerifiedBadge className="w-8 h-8 text-yellow-400" />
+              {isOwnProfile && (
+                <button onClick={() => setIsEditing(true)} className="ml-2 p-1 bg-gray-100 rounded-full hover:bg-gray-200">
+                  <Edit3 size={20} className="text-gray-600" />
+                </button>
+              )}
+            </div>
+            <div className="text-2xl font-bold text-black mt-1 flex items-center gap-2">
+              Bio
+              {isOwnProfile && (
+                <button onClick={() => setIsEditing(true)} className="p-1 bg-gray-100 rounded-full hover:bg-gray-200">
+                  <Edit3 size={16} className="text-gray-600" />
+                </button>
+              )}
+            </div>
+            <div className="text-xl text-gray-800">{profileUser?.bio || "I am Mena akter"}</div>
+            
+            <div className="flex items-center gap-6 mt-2">
+              <div className="flex items-center gap-1">
+                <span className="text-2xl font-bold text-black">{profileUser?.sex || "Female"}</span>
+                <VerifiedBadge className="w-6 h-6 text-yellow-400" />
+              </div>
+              <span className="text-2xl font-bold text-black">Born {profileUser?.birthYear || ""}</span>
+            </div>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex items-center gap-4 px-4 mt-8">
+        <button 
+          onClick={() => navigate(`/chat/${profileUser?.uid}`)}
+          className="flex-1 bg-[#00008B] text-white text-4xl font-bold py-3 rounded-md active:scale-95 transition-transform"
+        >
+          Chat
+        </button>
+        <button 
+          onClick={handleFriendRequest}
+          disabled={friendRequestStatus !== 'none'}
+          className={cn(
+            "flex-1 text-white text-4xl font-bold py-3 rounded-md active:scale-95 transition-transform",
+            friendRequestStatus === 'none' ? "bg-[#5C7CFA]" : "bg-gray-400"
+          )}
+        >
+          {friendRequestStatus === 'requested' ? 'Requested' : friendRequestStatus === 'friends' ? 'Friends' : 'Friends'}
+        </button>
+        <button onClick={() => setShowBottomMenu(true)} className="p-2">
+          <MoreHorizontal size={40} className="text-black" />
+        </button>
+      </div>
+
+      {/* Green Line Separator */}
+      <div className="w-full h-1 bg-green-500 mt-6"></div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-6 px-4 mt-4 border-b border-gray-300">
+        <button 
+          onClick={() => setActiveTab('about')}
+          className={cn("text-2xl font-bold pb-2", activeTab === 'about' ? "text-[#00008B] border-b-4 border-[#00008B]" : "text-gray-500")}
+        >
+          About
+        </button>
+        <button 
+          onClick={() => setActiveTab('story')}
+          className={cn("text-2xl font-bold pb-2", activeTab === 'story' ? "text-[#00008B] border-b-4 border-[#00008B]" : "text-gray-500")}
+        >
+          Story
+        </button>
+        <button 
+          onClick={() => setActiveTab('books')}
+          className={cn("text-2xl font-bold pb-2", activeTab === 'books' ? "text-[#00008B] border-b-4 border-[#00008B]" : "text-gray-500")}
+        >
+          Books
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'about' && (
+        <div className="px-4 mt-4 flex flex-col gap-4 text-black pb-20">
+          {/* Status and Website */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded" onClick={() => isOwnProfile && setIsEditingAbout(true)}>
+              <span className="text-xl font-bold">{aboutInfo.status || "Add status"}</span>
+              {isOwnProfile && <Edit3 size={20} className="text-gray-400" />}
+            </div>
+            <div className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded" onClick={() => isOwnProfile && setIsEditingAbout(true)}>
+              <span className="text-xl font-bold">{aboutInfo.website || "Add social or website"}</span>
+              {isOwnProfile && <Edit3 size={20} className="text-gray-400" />}
+            </div>
+          </div>
+
+          {/* Entries */}
+          <div className="flex flex-col gap-2">
+            {(showAllAbout ? (aboutInfo.entries || []) : (aboutInfo.entries || []).slice(0, 2)).map(entry => (
+              <div key={entry.id} className="flex items-start justify-between p-2 hover:bg-gray-50 rounded">
                 <div>
-                  <span className="block text-sm font-bold text-gray-900">{stat.value} {stat.label}</span>
-                  <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">View All</span>
+                  <div className="text-xl font-bold">{entry.role}</div>
+                  <div className="text-gray-600">{entry.institution}</div>
+                  <div className="text-sm text-gray-500">{entry.startDate} - {entry.endDate} • {entry.location}</div>
                 </div>
+                {isOwnProfile && (
+                  <button onClick={() => { setEditingEntry(entry); setIsAddingEntry(false); }} className="p-2">
+                    <Edit3 size={20} className="text-gray-400" />
+                  </button>
+                )}
+              </div>
+            ))}
+            
+            {isOwnProfile && (
+              <button 
+                onClick={() => {
+                  setEditingEntry({ id: '', type: 'work', institution: '', role: '', startDate: '', endDate: '', location: '' });
+                  setIsAddingEntry(true);
+                }}
+                className="text-[#5C7CFA] p-2 font-bold text-left"
+              >
+                + Add Work/Education
+              </button>
+            )}
+            
+            {(aboutInfo.entries || []).length > 2 && !showAllAbout && (
+              <button onClick={() => setShowAllAbout(true)} className="text-[#5C7CFA] p-2 font-bold text-left">
+                .... more
+              </button>
+            )}
+            {showAllAbout && (
+              <button onClick={() => setShowAllAbout(false)} className="text-[#5C7CFA] p-2 font-bold text-left">
+                Show less
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'story' && (
+        <div className="p-4 pb-20">
+          <div className="grid grid-cols-3 gap-2">
+            {isOwnProfile && (
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="aspect-[9/16] bg-gray-100 rounded-xl flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:bg-gray-200 transition-colors"
+              >
+                {isUploadingStory ? <Loader2 className="animate-spin text-blue-600" /> : <Plus className="text-gray-400" size={32} />}
+                <span className="text-xs font-bold text-gray-500">Upload</span>
+              </button>
+            )}
+            {stories.map((story, index) => (
+              <div 
+                key={story.id} 
+                onClick={() => setSelectedStoryIndex(index)}
+                className="aspect-[9/16] bg-gray-200 rounded-xl overflow-hidden relative cursor-pointer group"
+              >
+                {story.mediaType === 'video' ? (
+                  <video src={story.mediaUrl} className="w-full h-full object-cover" />
+                ) : (
+                  <img src={story.mediaUrl} className="w-full h-full object-cover" alt="" />
+                )}
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
               </div>
             ))}
           </div>
         </div>
+      )}
 
-        {/* Reels Section */}
-        <div className="bg-white rounded-xl shadow-sm p-4 space-y-4 card-3d">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-extrabold text-gray-900">Reels</h3>
+      {activeTab === 'books' && (
+        <div className="p-4 pb-20 space-y-4">
+          {isOwnProfile && (
             <button 
-              onClick={() => storyInputRef.current?.click()}
-              className="text-blue-600 text-sm font-bold hover:underline"
+              onClick={() => setIsUploadingBook(true)}
+              className="w-full py-4 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center gap-2 font-bold border-2 border-dashed border-blue-200 hover:bg-blue-100 transition-colors"
             >
-              Create
+              <Plus size={24} />
+              Post to Books
             </button>
-          </div>
-          
-          {stories.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2">
-              {stories.map((story, index) => (
-                <button 
-                  key={story.id}
-                  onClick={() => setSelectedStoryIndex(index)}
-                  className="relative aspect-[9/16] bg-gray-200 rounded-lg overflow-hidden group"
-                >
-                  <video 
-                    src={story.videoUrl} 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                    <PlayIcon size={24} className="text-white opacity-80" fill="white" />
-                  </div>
-                  <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-[10px] font-bold">
-                    <PlayIcon size={10} fill="white" />
-                    {story.views}
-                  </div>
-                </button>
-              ))}
+          )}
+          {books.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <Plus size={48} className="mx-auto mb-4 opacity-20" />
+              <p className="font-bold">No posts in Books yet</p>
             </div>
           ) : (
-            <div className="py-12 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-100 rounded-xl">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3 text-gray-400">
-                <Video size={24} />
-              </div>
-              <p className="text-sm font-bold text-gray-900">No Reels Yet</p>
-              <p className="text-xs text-gray-500">Share your first short video</p>
+            <div className="grid grid-cols-1 gap-4">
+              {books.map(post => (
+                <div key={post.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                  <div className="aspect-video bg-gray-100">
+                    {post.mediaType === 'video' ? (
+                      <video src={post.mediaUrl} className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={post.mediaUrl} className="w-full h-full object-cover" alt="" />
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <h4 className="font-bold text-sm line-clamp-1">{post.title}</h4>
+                    <p className="text-xs text-gray-500 line-clamp-2 mt-1">{post.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* Book Upload Modal */}
+      <AnimatePresence>
+        {isUploadingBook && (
+          <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Post to Books</h2>
+                <button onClick={() => setIsUploadingBook(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <input 
+                  type="text" 
+                  placeholder="Title (Bold)" 
+                  value={bookForm.title} 
+                  onChange={e => setBookForm({...bookForm, title: e.target.value})} 
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-blue-500" 
+                />
+                <textarea 
+                  placeholder="Description" 
+                  value={bookForm.description} 
+                  onChange={e => setBookForm({...bookForm, description: e.target.value})} 
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 outline-none h-24 resize-none focus:ring-2 focus:ring-blue-500" 
+                />
+                <input 
+                  type="text" 
+                  placeholder="Mentions (e.g. @friend1)" 
+                  value={bookForm.mentions} 
+                  onChange={e => setBookForm({...bookForm, mentions: e.target.value})} 
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-blue-500" 
+                />
+                
+                <div 
+                  onClick={() => bookInputRef.current?.click()}
+                  className="w-full h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 hover:border-blue-500 transition-colors"
+                >
+                  {bookForm.file ? (
+                    <span className="font-medium text-blue-600">{bookForm.file.name}</span>
+                  ) : (
+                    <>
+                      <Plus size={32} className="mb-2" />
+                      <span>Select Photo or Video</span>
+                    </>
+                  )}
+                </div>
+                <input 
+                  type="file" 
+                  ref={bookInputRef} 
+                  onChange={e => setBookForm({...bookForm, file: e.target.files?.[0] || null})} 
+                  className="hidden" 
+                  accept="image/*,video/*"
+                />
+
+                <button 
+                  onClick={handleBookUpload} 
+                  disabled={isUploading || !bookForm.file || !bookForm.title}
+                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 disabled:opacity-50 shadow-lg shadow-blue-600/20"
+                >
+                  {isUploading ? <Loader2 className="animate-spin" size={20} /> : 'Publish Post'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {activeTab === 'story' && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between px-4 mb-4">
+            <h3 className="text-5xl font-black text-black">Story</h3>
+            {isOwnProfile && (
+              <button 
+                onClick={() => storyInputRef.current?.click()}
+                className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+              >
+                <Camera size={20} />
+                Upload
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-2 px-2">
+            {stories.map((story, index) => (
+              <div key={story.id} onClick={() => setSelectedStoryIndex(index)} className="w-full aspect-square bg-gray-200 relative overflow-hidden cursor-pointer">
+                <video src={story.videoUrl} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                  <PlayIcon size={24} className="text-white opacity-80" fill="white" />
+                </div>
+              </div>
+            ))}
+            {/* Placeholders if few stories */}
+            {Array.from({ length: Math.max(0, 4 - stories.length) }).map((_, i) => (
+              <div key={`placeholder-${i}`} className="w-full aspect-square bg-[#D9F0FF] relative overflow-hidden">
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-10 h-4 bg-white rounded-full"></div>
+                <div className="absolute top-3 left-1/3 w-6 h-3 bg-white rounded-full"></div>
+                <div className="absolute bottom-0 left-0 w-[150%] h-[60%] bg-[#8BC34A] rounded-t-[100%] origin-bottom-left -translate-x-1/4 translate-y-1/4"></div>
+                <div className="absolute bottom-0 right-0 w-[150%] h-[50%] bg-[#689F38] rounded-t-[100%] origin-bottom-right translate-x-1/4 translate-y-1/4"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'books' && (
+        <div className="mt-6 mb-8">
+          <div className="flex items-center justify-between px-4 mb-4">
+            <h3 className="text-5xl font-black text-black">Books</h3>
+            {isOwnProfile && (
+              <>
+                <input 
+                  type="file" 
+                  ref={bookInputRef} 
+                  onChange={handleBookUpload} 
+                  className="hidden" 
+                  accept="video/*,image/*"
+                />
+                <button 
+                  onClick={() => bookInputRef.current?.click()}
+                  className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+                >
+                  <Camera size={20} />
+                  Post
+                </button>
+              </>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-2 px-2">
+            {books.map((book) => (
+              <div key={book.id} className="w-full aspect-square bg-gray-200 relative overflow-hidden">
+                {book.mediaUrl.match(/\.(mp4|webm|ogg)$/i) ? (
+                  <video src={book.mediaUrl} className="w-full h-full object-cover" />
+                ) : (
+                  <img src={book.mediaUrl} className="w-full h-full object-cover" alt="Post" />
+                )}
+              </div>
+            ))}
+            {/* Placeholders if few books */}
+            {Array.from({ length: Math.max(0, 4 - books.length) }).map((_, i) => (
+              <div key={`placeholder-${i}`} className="w-full aspect-square bg-[#D9F0FF] relative overflow-hidden">
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-10 h-4 bg-white rounded-full"></div>
+                <div className="absolute top-3 left-1/3 w-6 h-3 bg-white rounded-full"></div>
+                <div className="absolute bottom-0 left-0 w-[150%] h-[60%] bg-[#8BC34A] rounded-t-[100%] origin-bottom-left -translate-x-1/4 translate-y-1/4"></div>
+                <div className="absolute bottom-0 right-0 w-[150%] h-[50%] bg-[#689F38] rounded-t-[100%] origin-bottom-right translate-x-1/4 translate-y-1/4"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Story Player Modal */}
       {selectedStoryIndex !== null && (
@@ -1037,6 +1346,211 @@ export default function Profile() {
           onClose={() => setSelectedStoryIndex(null)} 
         />
       )}
+
+      {/* Edit Profile Modal */}
+      <AnimatePresence>
+        {isEditing && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                <h3 className="text-lg font-extrabold">Edit Profile</h3>
+                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Name</label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Bio</label>
+                  <textarea
+                    value={editBio}
+                    onChange={(e) => setEditBio(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20 h-24 resize-none"
+                  />
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-100 bg-gray-50">
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit About Info Modal */}
+      <AnimatePresence>
+        {isEditingAbout && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                <h3 className="text-lg font-extrabold">Edit Status & Website</h3>
+                <button onClick={() => setIsEditingAbout(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Status</label>
+                  <input
+                    type="text"
+                    value={aboutInfo.status}
+                    onChange={(e) => setAboutInfo(prev => ({ ...prev, status: e.target.value }))}
+                    placeholder="Add status"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Social or Website</label>
+                  <input
+                    type="text"
+                    value={aboutInfo.website}
+                    onChange={(e) => setAboutInfo(prev => ({ ...prev, website: e.target.value }))}
+                    placeholder="Add social or website"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-100 bg-gray-50">
+                <button
+                  onClick={handleSaveAboutInfo}
+                  disabled={isSaving}
+                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit About Entry Modal */}
+      <AnimatePresence>
+        {editingEntry && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                <h3 className="text-lg font-extrabold">{isAddingEntry ? 'Add' : 'Edit'} Experience/Education</h3>
+                <button onClick={() => { setEditingEntry(null); setIsAddingEntry(false); }} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-6 space-y-4 overflow-y-auto no-scrollbar">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Type</label>
+                  <select
+                    value={editingEntry.type}
+                    onChange={(e) => setEditingEntry(prev => prev ? { ...prev, type: e.target.value as any } : null)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="work">Work</option>
+                    <option value="school">School</option>
+                    <option value="college">College</option>
+                    <option value="university">University</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Institution Name</label>
+                  <input
+                    type="text"
+                    value={editingEntry.institution}
+                    onChange={(e) => setEditingEntry(prev => prev ? { ...prev, institution: e.target.value } : null)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Degree/Role</label>
+                  <input
+                    type="text"
+                    value={editingEntry.role}
+                    onChange={(e) => setEditingEntry(prev => prev ? { ...prev, role: e.target.value } : null)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Start Date</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 2020"
+                      value={editingEntry.startDate}
+                      onChange={(e) => setEditingEntry(prev => prev ? { ...prev, startDate: e.target.value } : null)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">End Date</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Present"
+                      value={editingEntry.endDate}
+                      onChange={(e) => setEditingEntry(prev => prev ? { ...prev, endDate: e.target.value } : null)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Location</label>
+                  <input
+                    type="text"
+                    value={editingEntry.location}
+                    onChange={(e) => setEditingEntry(prev => prev ? { ...prev, location: e.target.value } : null)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2">
+                {!isAddingEntry && (
+                  <button
+                    onClick={() => { handleDeleteEntry(editingEntry.id); setEditingEntry(null); handleSaveAboutInfo(); }}
+                    className="py-3 px-4 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all active:scale-95"
+                  >
+                    Delete
+                  </button>
+                )}
+                <button
+                  onClick={() => { handleSaveEntry(); setTimeout(handleSaveAboutInfo, 100); }}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95"
+                >
+                  <Check size={20} />
+                  Save
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Identity Edit Modal */}
       <AnimatePresence>
@@ -1192,6 +1706,160 @@ export default function Profile() {
                 <p className="text-[10px] text-center text-gray-400 mt-4">
                   All fields must be filled to receive the Blue Verified Badge.
                 </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom Menu */}
+      <AnimatePresence>
+        {showBottomMenu && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowBottomMenu(false)}
+              className="fixed inset-0 bg-black/50 z-[1000] backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[1001] overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="p-4 border-b border-gray-100 flex justify-center sticky top-0 bg-white">
+                <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+              </div>
+              <div className="overflow-y-auto pb-8">
+                <div className="p-2">
+                  <MenuButton icon={<Settings size={24} />} label="Settings" subLabel="Account, Privacy, Notifications" onClick={() => { setShowBottomMenu(false); setSubView('settings'); }} />
+                  {currentUser?.isSeller ? (
+                    <MenuButton icon={<ShoppingCart size={24} />} label="Seller Dashboard" subLabel="Manage products and orders" onClick={() => { setShowBottomMenu(false); navigate('/seller-dashboard'); }} />
+                  ) : (
+                    <MenuButton icon={<ShoppingCart size={24} />} label="Become Seller" subLabel="Start selling on Dhukan" onClick={() => { setShowBottomMenu(false); setIsBecomeSellerOpen(true); }} />
+                  )}
+                  <MenuButton icon={<Edit3 size={24} />} label="Edit Profile" subLabel="Name, Bio, Username, Photo, Verified Badge Request" onClick={() => { setShowBottomMenu(false); setIsEditing(true); }} />
+                  <MenuButton icon={<Shield size={24} />} label="Privacy & Security" subLabel="Blocked Users, 2FA, Devices" onClick={() => { setShowBottomMenu(false); setSubView('security'); }} />
+                  <MenuButton icon={<MessageCircle size={24} />} label="Chat Settings" subLabel="Wallpaper, Font Size, Auto-delete" onClick={() => { setShowBottomMenu(false); }} />
+                  <MenuButton icon={<VerifiedBadge className="w-6 h-6 text-yellow-500" />} label="OC Pro" subLabel="Premium Badges, No Ads, Extra Storage" onClick={() => { setShowBottomMenu(false); }} />
+                  <MenuButton icon={<CreditCard size={24} />} label="Storage & Data" subLabel="Cache Clear, Media Manager" onClick={() => { setShowBottomMenu(false); }} />
+                  <MenuButton icon={<Globe size={24} />} label="Language" subLabel="Multi-language selector" onClick={() => { setShowBottomMenu(false); setSubView('language'); }} />
+                  <MenuButton icon={<HelpCircle size={24} />} label="Help & Support" subLabel="FAQ, Report, Contact" onClick={() => { setShowBottomMenu(false); setSubView('help'); }} />
+                  <MenuButton icon={<UserPlus size={24} />} label="Invite Friends" subLabel="Referral Link" onClick={() => { setShowBottomMenu(false); }} />
+                  <MenuButton icon={<AlertCircle size={24} />} label="Terms & Policies" onClick={() => { setShowBottomMenu(false); }} />
+                  <MenuButton icon={<LogOut size={24} />} label="Logout" onClick={() => { setShowBottomMenu(false); logout(); }} isDestructive />
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Become Seller Modal */}
+      <AnimatePresence>
+        {isBecomeSellerOpen && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                <h3 className="text-lg font-extrabold">Become a Seller</h3>
+                <button onClick={() => setIsBecomeSellerOpen(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Shop Name</label>
+                  <input
+                    type="text"
+                    value={sellerForm.shopName}
+                    onChange={(e) => setSellerForm(prev => ({ ...prev, shopName: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Phone Number</label>
+                  <input
+                    type="text"
+                    value={sellerForm.phone}
+                    onChange={(e) => setSellerForm(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Address</label>
+                  <textarea
+                    value={sellerForm.address}
+                    onChange={(e) => setSellerForm(prev => ({ ...prev, address: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none h-24"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-4 border-t border-gray-100 bg-gray-50">
+                <button
+                  onClick={async () => {
+                    if (currentUser) {
+                      await updateDoc(doc(db, 'users', currentUser.uid), {
+                        isSeller: true,
+                        sellerInfo: sellerForm
+                      });
+                      setIsBecomeSellerOpen(false);
+                      alert('You are now a seller!');
+                    }
+                  }}
+                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95"
+                >
+                  <Check size={20} />
+                  Register Shop
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Digital ID Card Modal */}
+      <AnimatePresence>
+        {showIdCard && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setShowIdCard(false)}>
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, rotateY: 90 }}
+              animate={{ scale: 1, opacity: 1, rotateY: 0 }}
+              exit={{ scale: 0.9, opacity: 0, rotateY: -90 }}
+              transition={{ type: 'spring', damping: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 rounded-2xl shadow-2xl overflow-hidden relative border border-white/20"
+            >
+              <div className="absolute top-0 left-0 w-full h-32 bg-white/10 skew-y-6 transform origin-top-left"></div>
+              <div className="p-6 relative z-10 flex flex-col items-center">
+                <h2 className="text-white font-black text-2xl tracking-widest mb-6">OC-CHAT ID</h2>
+                <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden mb-4 shadow-lg">
+                  <img src={profileUser?.photoURL || "https://i.pravatar.cc/300"} alt="Profile" className="w-full h-full object-cover" />
+                </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-white font-bold text-2xl">{profileUser?.displayName || "MENA AKTER"}</h3>
+                  <VerifiedBadge className="w-6 h-6 text-yellow-400" />
+                </div>
+                <p className="text-blue-200 font-medium mb-6">@{profileUser?.displayName?.toLowerCase().replace(/\s+/g, '') || "menaakter"}</p>
+                
+                <div className="w-full bg-white/10 rounded-xl p-4 flex justify-between items-center backdrop-blur-md border border-white/10">
+                  <div>
+                    <p className="text-blue-200 text-xs uppercase tracking-wider mb-1">Member Since</p>
+                    <p className="text-white font-bold">2026</p>
+                  </div>
+                  <div className="w-16 h-16 bg-white rounded-lg p-1">
+                    <QrCode className="w-full h-full text-black" />
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>
