@@ -22,6 +22,7 @@ import Sidebar from './components/layout/Sidebar';
 import BottomNav from './components/layout/BottomNav';
 import TopBar from './components/layout/TopBar';
 import WebRTCCallInvitation from './components/common/WebRTCCallInvitation';
+import { FloatingPiP } from './components/common/FloatingPiP';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import MeetingRoom from './pages/MeetingRoom';
@@ -297,6 +298,7 @@ function AppRoutes() {
       )}>
         <NetworkStatus />
         {!isCallScreen && <WebRTCCallInvitation />}
+        <FloatingPiP />
         <Routes>
           <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
           <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />

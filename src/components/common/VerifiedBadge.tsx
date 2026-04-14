@@ -7,7 +7,7 @@ interface VerifiedBadgeProps {
 }
 
 export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({ className, size = '16' }) => {
-  const badgeSize = `${size}px`;
+  const badgeSize = size === 'xs' ? '12px' : size === 'sm' ? '16px' : size === 'md' ? '24px' : size === 'lg' ? '32px' : `${size}px`;
   return (
     <div 
       className={cn("relative inline-flex items-center justify-center overflow-hidden rounded-full", className)}
