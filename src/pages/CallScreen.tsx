@@ -49,6 +49,7 @@ export default function CallScreen() {
   const [isNightMode, setIsNightMode] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'active' | 'ended' | 'rejected'>('connecting');
+  const [permissionError, setPermissionError] = useState<string | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -71,7 +72,13 @@ export default function CallScreen() {
   useEffect(() => {
     if (!currentUser || !otherUserId || !callId) return;
 
+    let isMounted = true;
+
     const startWebRTC = async () => {
+      // Cleanup any existing connection first
+      if (pc.current) {
+        pc.current.close();
+      }
       pc.current = new RTCPeerConnection(ICE_SERVERS);
 
       // Get local stream
@@ -80,6 +87,10 @@ export default function CallScreen() {
           video: type === 'video',
           audio: true
         });
+        if (!isMounted) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
         localStream.current = stream;
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
         
@@ -88,6 +99,10 @@ export default function CallScreen() {
         });
       } catch (err) {
         console.error("Error accessing media devices:", err);
+        if (isMounted) {
+          setPermissionError(err instanceof Error ? err.message : "Camera/Microphone access denied. Please check your browser settings.");
+        }
+        return;
       }
 
       // Handle remote stream
@@ -95,7 +110,7 @@ export default function CallScreen() {
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = event.streams[0];
         }
-        setCallStatus('active');
+        if (isMounted) setCallStatus('active');
       };
 
       // Signaling
@@ -105,7 +120,7 @@ export default function CallScreen() {
 
       // ICE Candidates handling
       pc.current.onicecandidate = (event) => {
-        if (event.candidate) {
+        if (event.candidate && pc.current) {
           const candidatesCollection = mode === 'caller' ? callerCandidatesCollection : receiverCandidatesCollection;
           addDoc(candidatesCollection, event.candidate.toJSON());
         }
@@ -124,11 +139,11 @@ export default function CallScreen() {
         await updateDoc(callRef, { offer });
 
         // Listen for Answer
-        onSnapshot(callRef, (snapshot) => {
+        const unsubCall = onSnapshot(callRef, (snapshot) => {
           const data = snapshot.data();
-          if (!pc.current?.currentRemoteDescription && data?.answer) {
+          if (pc.current && pc.current.signalingState !== 'stable' && data?.answer) {
             const answerDescription = new RTCSessionDescription(data.answer);
-            pc.current?.setRemoteDescription(answerDescription);
+            pc.current.setRemoteDescription(answerDescription).catch(e => console.error("Error setting remote description:", e));
           }
           if (data?.status === 'rejected' || data?.status === 'ended') {
             handleHangUp(false);
@@ -136,68 +151,84 @@ export default function CallScreen() {
         });
 
         // Listen for Receiver ICE Candidates
-        onSnapshot(receiverCandidatesCollection, (snapshot) => {
+        const unsubIce = onSnapshot(receiverCandidatesCollection, (snapshot) => {
           snapshot.docChanges().forEach((change) => {
-            if (change.type === 'added') {
+            if (change.type === 'added' && pc.current) {
               const data = change.doc.data();
-              pc.current?.addIceCandidate(new RTCIceCandidate(data));
+              pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.error("Error adding ICE candidate:", e));
             }
           });
         });
+
+        return () => {
+          unsubCall();
+          unsubIce();
+        };
 
       } else {
-        // Receiver: Join Call
-        const callDoc = await getDoc(callRef);
-        const callData = callDoc.data();
-
-        if (callData?.offer) {
-          const offerDescription = new RTCSessionDescription(callData.offer);
-          await pc.current.setRemoteDescription(offerDescription);
-
-          const answerDescription = await pc.current.createAnswer();
-          await pc.current.setLocalDescription(answerDescription);
-
-          const answer = {
-            type: answerDescription.type,
-            sdp: answerDescription.sdp,
-          };
-
-          await updateDoc(callRef, { answer, status: 'active' });
-        }
-
-        // Listen for Caller ICE Candidates
-        onSnapshot(callerCandidatesCollection, (snapshot) => {
-          snapshot.docChanges().forEach((change) => {
-            if (change.type === 'added') {
-              const data = change.doc.data();
-              pc.current?.addIceCandidate(new RTCIceCandidate(data));
-            }
-          });
-        });
-
-        // Listen for call status changes
-        onSnapshot(callRef, (snapshot) => {
+        // Receiver: Listen for Offer and status changes
+        const unsubCall = onSnapshot(callRef, async (snapshot) => {
           const data = snapshot.data();
-          if (data?.status === 'ended') {
+          if (!data) return;
+
+          // Handle Offer
+          if (pc.current && pc.current.signalingState === 'stable' && data.offer && !pc.current.remoteDescription) {
+            const offerDescription = new RTCSessionDescription(data.offer);
+            await pc.current.setRemoteDescription(offerDescription);
+
+            const answerDescription = await pc.current.createAnswer();
+            await pc.current.setLocalDescription(answerDescription);
+
+            const answer = {
+              type: answerDescription.type,
+              sdp: answerDescription.sdp,
+            };
+
+            await updateDoc(callRef, { answer, status: 'active' });
+          }
+
+          if (data.status === 'ended' || data.status === 'rejected') {
             handleHangUp(false);
           }
         });
+
+        // Listen for Caller ICE Candidates
+        const unsubIce = onSnapshot(callerCandidatesCollection, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added' && pc.current) {
+              const data = change.doc.data();
+              pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.error("Error adding ICE candidate:", e));
+            }
+          });
+        });
+
+        return () => {
+          unsubCall();
+          unsubIce();
+        };
       }
     };
 
-    startWebRTC();
+    let signalingCleanup: (() => void) | undefined;
+    startWebRTC().then(cleanupFn => {
+      signalingCleanup = cleanupFn;
+    });
 
     return () => {
+      isMounted = false;
+      if (signalingCleanup) signalingCleanup();
       cleanup();
     };
-  }, [currentUser, otherUserId, callId, mode, type]);
+  }, [currentUser?.uid, otherUserId, callId, mode, type]);
 
   const cleanup = () => {
     if (localStream.current) {
       localStream.current.getTracks().forEach(track => track.stop());
+      localStream.current = null;
     }
     if (pc.current) {
       pc.current.close();
+      pc.current = null;
     }
   };
 
@@ -228,6 +259,24 @@ export default function CallScreen() {
       }
     }
   };
+
+  if (permissionError) {
+    return (
+      <div className="w-screen h-screen bg-black flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-6">
+          <CameraOff className="text-red-500" size={40} />
+        </div>
+        <h2 className="text-2xl font-black text-white mb-2">Permission Denied</h2>
+        <p className="text-white/60 mb-8 max-w-xs">{permissionError}</p>
+        <button 
+          onClick={() => navigate(-1)}
+          className="px-8 py-3 bg-white text-black rounded-full font-bold hover:bg-white/90 transition-all"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-screen h-screen relative overflow-hidden bg-black font-sans">
