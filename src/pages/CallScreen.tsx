@@ -18,7 +18,17 @@ import {
   Sun, 
   Moon,
   Volume2,
-  VolumeX
+  VolumeX,
+  MoreVertical,
+  MessageSquare,
+  ScreenShare,
+  Users,
+  Image as ImageIcon,
+  Wind,
+  Settings,
+  Circle,
+  Wand2,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -37,6 +47,7 @@ export default function CallScreen() {
   const [isCameraOn, setIsCameraOn] = useState(type === 'video');
   const [isMuted, setIsMuted] = useState(false);
   const [isNightMode, setIsNightMode] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'active' | 'ended' | 'rejected'>('connecting');
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -220,16 +231,24 @@ export default function CallScreen() {
 
   return (
     <div className="w-screen h-screen relative overflow-hidden bg-black font-sans">
-      {/* Remote Video (Full Screen) */}
+      {/* Remote Video (Full Screen when active) */}
       <video 
         ref={remoteVideoRef}
         autoPlay 
         playsInline 
-        className="absolute inset-0 w-full h-full object-cover z-0"
+        className={cn(
+          "absolute inset-0 w-full h-full object-cover transition-opacity duration-700",
+          callStatus === 'active' ? "opacity-100 z-0" : "opacity-0 -z-10"
+        )}
       />
 
-      {/* Local Video (Floating) */}
-      <div className="absolute top-6 right-6 w-32 h-48 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl z-50 bg-gray-900">
+      {/* Local Video */}
+      <div className={cn(
+        "transition-all duration-700 overflow-hidden shadow-2xl bg-gray-900",
+        callStatus === 'active' 
+          ? "absolute top-6 right-6 w-32 h-48 rounded-2xl border-2 border-white/20 z-50" 
+          : "absolute inset-0 w-full h-full z-0"
+      )}>
         <video 
           ref={localVideoRef}
           autoPlay 
@@ -239,10 +258,13 @@ export default function CallScreen() {
         />
         {!isCameraOn && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-            <CameraOff className="text-white/40" size={24} />
+            <CameraOff className="text-white/40" size={callStatus === 'active' ? 24 : 48} />
           </div>
         )}
       </div>
+
+      {/* Bottom Gradient Overlay */}
+      <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-black/80 to-transparent z-30 pointer-events-none" />
 
       {/* Night Mode Ring Light Overlay */}
       <AnimatePresence>
@@ -270,24 +292,37 @@ export default function CallScreen() {
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
             className={cn("absolute -inset-1 rounded-full border-2", isNightMode ? "border-white/80" : "border-yellow-400/50")}
           />
-          <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-white/30 shadow-2xl">
+          <div className="relative w-24 h-24 rounded-full border-2 border-white/30 shadow-2xl">
             <img 
               src={otherUser?.photoURL || `https://ui-avatars.com/api/?name=${otherUser?.displayName}`} 
               alt={otherUser?.displayName}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover rounded-full"
               referrerPolicy="no-referrer"
             />
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-white drop-shadow-lg">
-              {otherUser?.displayName || 'User'}
+        <div className="flex flex-col items-center">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <h2 className="text-2xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+              {otherUser?.displayName || 'OCSTHAEL'}
             </h2>
-            {otherUser?.verified && <VerifiedBadge size="sm" className="text-yellow-400" />}
+            {otherUser?.verified && (
+              <motion.div
+                animate={{ 
+                  filter: [
+                    "drop-shadow(0 0 0px rgba(255,215,0,0))",
+                    "drop-shadow(0 0 8px rgba(255,215,0,0.8))",
+                    "drop-shadow(0 0 0px rgba(255,215,0,0))"
+                  ]
+                }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <VerifiedBadge size="xs" className="text-yellow-400 h-5 w-5" />
+              </motion.div>
+            )}
           </div>
-          <span className="text-white/80 text-sm font-medium tracking-wide drop-shadow-md animate-pulse">
+          <span className="text-white/90 text-xs font-bold tracking-[0.2em] uppercase drop-shadow-md animate-pulse">
             {callStatus === 'connecting' ? 'Connecting...' : callStatus === 'ringing' ? 'Ringing...' : 'Active Call'}
           </span>
         </div>
@@ -306,6 +341,41 @@ export default function CallScreen() {
 
       {/* Main Control Bar */}
       <div className="absolute bottom-12 left-0 right-0 z-40 flex flex-col items-center gap-6">
+        {/* More Options Menu (3x3 Grid) */}
+        <AnimatePresence>
+          {showMoreMenu && (
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              className="bg-black/80 backdrop-blur-2xl rounded-[2.5rem] p-8 grid grid-cols-3 gap-8 border border-white/10 shadow-2xl mb-4 w-[90%] max-w-md z-50"
+            >
+              {[
+                { icon: <MessageSquare size={24} />, label: 'Chat' },
+                { icon: <ScreenShare size={24} />, label: 'Share' },
+                { icon: <Users size={24} />, label: 'Members' },
+                { icon: <ImageIcon size={24} />, label: 'Virtual BG' },
+                { icon: <Wind size={24} />, label: 'Noise' },
+                { icon: <Settings size={24} />, label: 'Settings' },
+                { icon: <Circle size={24} className="text-red-500 fill-red-500" />, label: 'Record' },
+                { icon: <Wand2 size={24} />, label: 'Filter' },
+                { icon: <ExternalLink size={24} />, label: 'PiP Mode' },
+              ].map((item, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => setShowMoreMenu(false)}
+                  className="flex flex-col items-center gap-2 group"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-white group-hover:bg-white/10 transition-colors">
+                    {item.icon}
+                  </div>
+                  <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">{item.label}</span>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="bg-[#1f2c34]/90 backdrop-blur-2xl rounded-full p-3 flex items-center gap-4 shadow-2xl border border-white/10">
           <button 
             onClick={toggleMic}
@@ -333,10 +403,13 @@ export default function CallScreen() {
           </button>
 
           <button 
-            onClick={() => setIsMuted(!isMuted)}
-            className={cn("p-4 rounded-full transition-all active:scale-90", !isMuted ? "bg-white/5 text-white" : "bg-red-500 text-white")}
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            className={cn(
+              "p-4 rounded-full transition-all active:scale-90 z-[20]", 
+              showMoreMenu ? "bg-white/20 text-white" : "bg-white/5 text-white"
+            )}
           >
-            {!isMuted ? <Volume2 size={22} /> : <VolumeX size={22} />}
+            <MoreVertical size={22} />
           </button>
         </div>
       </div>
