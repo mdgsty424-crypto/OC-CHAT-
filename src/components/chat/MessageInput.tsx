@@ -447,6 +447,22 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         throw new Error("Invalid response from server");
       }
       
+      // If it's a video, also offer to post to story
+      if (isVideo && confirm('Would you like to post this video to your Story as well?')) {
+        await addDoc(collection(db, 'stories'), {
+          authorId: user.uid,
+          authorName: user.displayName,
+          authorPhoto: user.photoURL,
+          mediaUrl: data.url,
+          mediaType: 'video',
+          type: 'story',
+          description: `Shared from chat`,
+          likes: [],
+          comments: [],
+          createdAt: serverTimestamp()
+        });
+      }
+
       // 2. Update the pending message
       if (messageRef) {
         updateDoc(messageRef, {

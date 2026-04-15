@@ -316,7 +316,7 @@ export default function Home() {
         <div className="flex gap-5 overflow-x-auto no-scrollbar pb-2">
           {/* Your Story / Add Story */}
           <div 
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate('/story', { state: { openUpload: true } })}
             className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group"
           >
             <div className="relative">

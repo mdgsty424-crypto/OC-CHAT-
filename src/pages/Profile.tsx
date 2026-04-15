@@ -459,12 +459,16 @@ export default function Profile() {
       const data = await response.json();
       
       await addDoc(collection(db, 'stories'), {
-        userId: currentUser.uid,
-        videoUrl: data.url,
-        caption: `My new Reel!`,
+        authorId: currentUser.uid,
+        authorName: currentUser.displayName,
+        authorPhoto: currentUser.photoURL,
+        mediaUrl: data.url,
+        mediaType: 'video',
+        type: 'story',
+        description: `My new Reel!`,
         likes: [],
         views: 0,
-        timestamp: new Date().toISOString(),
+        createdAt: serverTimestamp(),
         comments: []
       });
     } catch (error) {
