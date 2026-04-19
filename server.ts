@@ -1,4 +1,5 @@
 import "./src/lib/sanitize-env.ts";
+import fs from "fs";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -23,7 +24,8 @@ import {
   deleteDoc,
   orderBy,
   limit,
-  updateDoc
+  updateDoc,
+  getDoc
 } from "firebase/firestore";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -57,6 +59,151 @@ const upload = multer({ storage: storage });
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Bot metadata injection middleware for social sharing
+  const injectBotMetadata = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const userAgent = req.headers['user-agent'] || '';
+    const isBot = /facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|Discordbot|TelegramBot|Slackbot/i.test(userAgent);
+    
+    // Paths we want to handle
+    const isPost = req.path.startsWith('/post/');
+    const isUser = req.path.startsWith('/u/');
+    const isReel = req.path.startsWith('/reel/');
+
+    if (!isBot || (!isPost && !isUser && !isReel)) {
+      return next();
+    }
+
+    console.log(`[BOT] User-Agent: ${userAgent} | URL: ${req.url}`);
+
+    let title = "OC Chat | Connect, Match, Call";
+    let description = "Universal super app for connecting with friends, matching, and high-quality calling.";
+    let image = "https://occhat.ocsthael.com/favicon.ico";
+    const defaultImage = "https://occhat.ocsthael.com/favicon.ico";
+    let url = `https://occhat.ocsthael.com${req.path}`;
+    let type = "website";
+    let videoUrl = "";
+    let thumbnailUrl = "";
+
+    const optimizeCloudinary = (mediaUrl: string | undefined): string => {
+      if (!mediaUrl) return defaultImage;
+      if (mediaUrl.includes('cloudinary.com') && mediaUrl.includes('/upload/')) {
+        return mediaUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill/');
+      }
+      return mediaUrl;
+    };
+
+    try {
+      if (isPost) {
+        const postId = req.path.split('/')[2];
+        if (postId) {
+          const snap = await getDoc(doc(db, 'books_posts', postId));
+          if (snap.exists()) {
+            const data = snap.data();
+            title = `${data.authorName || 'Someone'} on OC-CHAT`;
+            const caption = data.description || data.title || "Check out this post";
+            description = `"${caption}" — Check out this post on OC-CHAT, the ultimate super app.`;
+            
+            // Media detection logic
+            const img = data.imageUrl || (data.mediaType === 'image' ? data.mediaUrl : null);
+            const vid = data.videoUrl || (data.mediaType === 'video' ? data.mediaUrl : null);
+            const thumb = data.thumbnailUrl;
+
+            if (vid) {
+              videoUrl = vid;
+              thumbnailUrl = thumb || img || defaultImage;
+              image = thumbnailUrl;
+            } else if (img) {
+              image = img;
+            } else {
+              image = defaultImage;
+            }
+            type = "article";
+          }
+        }
+      } else if (isUser) {
+        const username = req.path.split('/')[2];
+        if (username) {
+          const q = query(collection(db, 'users'), where('username', '==', username));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const data = snap.docs[0].data();
+            title = `Connect with ${data.displayName || data.fullName || 'a user'} on OC-CHAT`;
+            description = `Join ${data.username || 'us'} and millions of others on OC-CHAT.`;
+            image = data.photoURL || defaultImage;
+            type = "profile";
+          }
+        }
+      } else if (isReel) {
+        const reelId = req.path.split('/')[2];
+        if (reelId) {
+          const snap = await getDoc(doc(db, 'stories', reelId));
+          if (snap.exists()) {
+            const data = snap.data();
+            title = `${data.authorName || 'Someone'} on OC-CHAT`;
+            const caption = data.description || "Watch this reel";
+            description = `"${caption}" — Watch this reel on OC-CHAT, the ultimate super app.`;
+            
+            if (data.mediaType === 'video') {
+              videoUrl = data.mediaUrl;
+              thumbnailUrl = data.thumbnailUrl || defaultImage;
+              image = thumbnailUrl;
+            } else {
+              image = data.mediaUrl || defaultImage;
+            }
+            type = "video.other";
+          }
+        }
+      }
+
+      const filePath = process.env.NODE_ENV === "production" 
+        ? path.join(process.cwd(), 'dist', 'index.html') 
+        : path.join(process.cwd(), 'index.html');
+      
+      const fileExists = await fs.promises.access(filePath).then(() => true).catch(() => false);
+      if (!fileExists) return next();
+
+      let html = await fs.promises.readFile(filePath, 'utf8');
+      
+      const cleanDesc = (description || '').replace(/"/g, '&quot;').replace(/\n/g, ' ');
+      const cleanTitle = (title || '').replace(/"/g, '&quot;');
+
+      let metaTags = [
+        `<title>${cleanTitle}</title>`,
+        `<meta name="description" content="${cleanDesc}" />`,
+        `<meta property="og:title" content="${cleanTitle}" />`,
+        `<meta property="og:description" content="${cleanDesc}" />`,
+        `<meta property="og:url" content="${url}" />`,
+        `<meta property="og:type" content="${type}" />`,
+        `<meta property="og:site_name" content="OC-CHAT" />`,
+        `<meta name="twitter:title" content="${cleanTitle}" />`,
+        `<meta name="twitter:description" content="${cleanDesc}" />`
+      ];
+
+      if (videoUrl) {
+        metaTags.push(`<meta property="og:video" content="${videoUrl}" />`);
+        metaTags.push(`<meta property="og:video:type" content="video/mp4" />`);
+        metaTags.push(`<meta property="og:image" content="${optimizeCloudinary(thumbnailUrl)}" />`);
+        metaTags.push(`<meta name="twitter:card" content="summary_large_image" />`);
+        metaTags.push(`<meta name="twitter:image" content="${optimizeCloudinary(thumbnailUrl)}" />`);
+      } else {
+        metaTags.push(`<meta property="og:image" content="${optimizeCloudinary(image)}" />`);
+        metaTags.push(`<meta name="twitter:card" content="summary_large_image" />`);
+        metaTags.push(`<meta name="twitter:image" content="${optimizeCloudinary(image)}" />`);
+      }
+
+      const tags = metaTags.join('\n');
+
+      html = html.replace('<head>', `<head>${tags}`);
+      res.setHeader('Content-Type', 'text/html');
+      return res.send(html);
+    } catch (err) {
+      console.error("Error generating bot metadata:", err);
+      return next();
+    }
+  };
+
+  app.use(injectBotMetadata);
 
   // Global request logger
   app.use((req, res, next) => {

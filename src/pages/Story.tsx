@@ -141,6 +141,28 @@ export default function Story() {
     }
   };
 
+  const handleShare = async () => {
+    const currentReel = feed[currentIndex];
+    if (!currentReel) return;
+    
+    const shareUrl = `${window.location.origin}/reel/${currentReel.id}`;
+    
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${currentReel.authorName}'s Reel on OC-CHAT`,
+          text: currentReel.description || 'Watch this reel on OC-CHAT',
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Link copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
   const handleAddComment = async () => {
     if (!user || !commentText.trim()) return;
     const currentReelId = feed[currentIndex]?.id;
@@ -251,6 +273,12 @@ export default function Story() {
       <Helmet>
         <title>{feed[currentIndex]?.authorName || 'Reel'} on OC-CHAT</title>
         <meta name="description" content={feed[currentIndex]?.description || 'Check out this reel on OC-CHAT'} />
+        <meta property="og:title" content={`${feed[currentIndex]?.authorName || 'User'}'s Reel on OC-CHAT`} />
+        <meta property="og:description" content={feed[currentIndex]?.description || 'Watch this reel on OC-CHAT'} />
+        <meta property="og:image" content={feed[currentIndex]?.mediaUrl} />
+        <meta property="og:url" content={`https://occhat.ocsthael.com/reel/${feed[currentIndex]?.id}`} />
+        <meta property="og:type" content="video.other" />
+        <meta name="twitter:card" content="summary_large_image" />
       </Helmet>
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-center">
@@ -424,7 +452,10 @@ export default function Story() {
                   </button>
 
                   {/* Forward Arrow */}
-                  <button className="p-2 text-white drop-shadow-lg active:scale-90 transition-transform">
+                  <button 
+                    onClick={handleShare}
+                    className="p-2 text-white drop-shadow-lg active:scale-90 transition-transform"
+                  >
                     <Share2 size={40} strokeWidth={2} />
                   </button>
 

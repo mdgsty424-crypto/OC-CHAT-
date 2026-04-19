@@ -14,6 +14,7 @@ import {
   Languages, Zap, Sparkles, Check, User, Users, FileText, HelpCircle, LogOut, Settings 
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { deleteDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
@@ -207,7 +208,7 @@ export default function Books() {
   const handleForward = async (chatId: string, post: Post) => {
     if (!user) return;
     try {
-      const postLink = `https://${generateShareLink('post', post.id)}`;
+      const postLink = generateShareLink('post', post.id);
       await addDoc(collection(db, 'chats', chatId, 'messages'), {
         senderId: user.uid,
         text: `Shared a post: ${post.title}\n${postLink}`,
@@ -239,7 +240,7 @@ export default function Books() {
   };
 
   const handleCopyLink = (postId: string) => {
-    const link = `https://${generateShareLink('post', postId)}`;
+    const link = generateShareLink('post', postId);
     navigator.clipboard.writeText(link).then(() => {
       setToast('Link copied to clipboard');
       setShowPostMenu(null);
@@ -331,18 +332,18 @@ export default function Books() {
   };
 
   const generateShareLink = (type: 'user' | 'post' | 'reel' | 'call', id: string) => {
-    const base = 'occhat.ocsthael.com';
+    const origin = window.location.origin;
     switch(type) {
-      case 'user': return `${base}/u/${id}`;
-      case 'post': return `${base}/post/${id}`;
-      case 'reel': return `${base}/reel/${id}`;
-      case 'call': return `${base}/call/${id}`;
-      default: return base;
+      case 'user': return `${origin}/u/${id}`;
+      case 'post': return `${origin}/post/${id}`;
+      case 'reel': return `${origin}/reel/${id}`;
+      case 'call': return `${origin}/call/${id}`;
+      default: return origin;
     }
   };
 
   const handleWebShare = async (post: Post) => {
-    const shareUrl = `https://${generateShareLink('post', post.id)}`;
+    const shareUrl = generateShareLink('post', post.id);
     try {
       if (navigator.share) {
         await navigator.share({
@@ -385,6 +386,14 @@ export default function Books() {
 
   return (
     <div className="flex flex-col min-h-screen w-full bg-white text-black font-sans overflow-x-hidden">
+      <Helmet>
+        <title>Books | OC-CHAT</title>
+        <meta name="description" content="Discover and share stories on OC-CHAT Books." />
+        <meta property="og:title" content="OC-CHAT Books" />
+        <meta property="og:description" content="Discover and share stories with friends on OC-CHAT." />
+        <meta property="og:image" content="https://occhat.ocsthael.com/favicon.ico" />
+        <meta property="og:url" content="https://occhat.ocsthael.com/books" />
+      </Helmet>
       {/* Horizontal Top Header - Single Navigation Source */}
       <header className="h-20 bg-white px-4 flex items-center justify-between sticky top-0 z-50 w-full border-b-[3px] border-black">
         {/* Left: User Profile Icon */}

@@ -4,7 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Helmet } from 'react-helmet-async';
-import { Loader2, ArrowLeft, Home } from 'lucide-react';
+import { Loader2, ArrowLeft, Home, Share2 } from 'lucide-react';
 import { motion } from 'motion/react';
 // We'll need BookCard from a separate component file if we want to reuse it, 
 // but for now I'll just copy the necessary logic or import it if possible.
@@ -69,6 +69,13 @@ export default function PostDetail() {
     <div className="min-h-screen bg-gray-50 pb-20">
       <Helmet>
         <title>{post.title || 'Post'} on OC-CHAT</title>
+        <meta name="description" content={post.description || 'Check out this post on OC-CHAT'} />
+        <meta property="og:title" content={post.title || 'Post on OC-CHAT'} />
+        <meta property="og:description" content={post.description || 'Check out this content on OC-CHAT'} />
+        <meta property="og:image" content={post.mediaUrl} />
+        <meta property="og:url" content={`https://occhat.ocsthael.com/post/${post.id}`} />
+        <meta property="og:type" content="article" />
+        <meta name="twitter:card" content="summary_large_image" />
       </Helmet>
       
       <header className="bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex items-center gap-4">
@@ -112,15 +119,32 @@ export default function PostDetail() {
            </div>
 
            <div className="flex items-center justify-between border-t-4 border-black pt-6">
-             <div className="flex items-center gap-2">
-               <span className="font-black text-2xl">{post.likes?.length || 0}</span>
-               <span className="font-bold text-black/40 uppercase text-sm tracking-widest">Likes</span>
+             <div className="flex items-center gap-6">
+               <div className="flex items-center gap-2">
+                 <span className="font-black text-2xl">{post.likes?.length || 0}</span>
+                 <span className="font-bold text-black/40 uppercase text-sm tracking-widest">Likes</span>
+               </div>
+               <button 
+                 onClick={async () => {
+                   const shareUrl = `${window.location.origin}/post/${post.id}`;
+                   if (navigator.share) {
+                     await navigator.share({ title: post.title, text: post.description, url: shareUrl });
+                   } else {
+                     await navigator.clipboard.writeText(shareUrl);
+                     alert('Link copied!');
+                   }
+                 }}
+                 className="flex items-center gap-2 font-black text-black uppercase tracking-tighter hover:bg-gray-100 px-3 py-1 rounded-xl transition-colors"
+               >
+                 <Share2 size={24} strokeWidth={3} />
+                 <span>Share</span>
+               </button>
              </div>
              <button 
                 onClick={() => navigate('/books')}
                 className="font-black text-[#4A90E2] uppercase tracking-tighter hover:underline"
              >
-               Join the conversation in Books
+               Go to Books
              </button>
            </div>
         </div>

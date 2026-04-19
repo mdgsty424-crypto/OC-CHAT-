@@ -968,6 +968,12 @@ export default function Profile() {
       <Helmet>
         <title>{profileUser?.displayName || 'Chat Profile'} on OC-CHAT</title>
         <meta name="description" content={profileUser?.bio || 'Check out my profile on OC-CHAT'} />
+        <meta property="og:title" content={`${profileUser?.displayName || 'User'}'s Profile on OC-CHAT`} />
+        <meta property="og:description" content={profileUser?.bio || 'Connect with me on OC-CHAT'} />
+        <meta property="og:image" content={profileUser?.photoURL || `https://ui-avatars.com/api/?name=${profileUser?.displayName}`} />
+        <meta property="og:url" content={`https://occhat.ocsthael.com/u/${profileUser?.username || profileUser?.uid}`} />
+        <meta property="og:type" content="profile" />
+        <meta name="twitter:card" content="summary" />
       </Helmet>
       <input 
         type="file" 
