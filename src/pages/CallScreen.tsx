@@ -32,15 +32,17 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { Helmet } from 'react-helmet-async';
+
 export default function CallScreen() {
-  const { id: otherUserId } = useParams<{ id: string }>();
+  const { id: otherUserId, roomId } = useParams<{ id?: string, roomId?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   
-  const callId = searchParams.get('callId');
+  const callId = searchParams.get('callId') || roomId;
   const type = (searchParams.get('type') || 'video') as 'audio' | 'video';
-  const mode = searchParams.get('mode') || 'caller'; // 'caller' or 'receiver'
+  const mode = searchParams.get('mode') || (roomId ? 'room' : 'caller'); // 'caller', 'receiver', or 'room'
   
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [isMicOn, setIsMicOn] = useState(true);

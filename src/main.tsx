@@ -19,10 +19,14 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+import { HelmetProvider } from 'react-helmet-async';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <GlobalSettingsProvider>
-      <App />
-    </GlobalSettingsProvider>
+    <HelmetProvider>
+      <GlobalSettingsProvider>
+        <App />
+      </GlobalSettingsProvider>
+    </HelmetProvider>
   </StrictMode>,
 );

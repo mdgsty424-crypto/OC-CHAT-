@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { Helmet } from 'react-helmet-async';
 import { 
   Volume2,
   VolumeX,
@@ -44,7 +45,7 @@ import {
   Plus
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { doc, updateDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDoc, setDoc, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDoc, setDoc, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import PinLock from '../components/common/PinLock';
 import { useSettings } from '../hooks/useSettings';
@@ -88,13 +89,32 @@ function MenuButton({ icon, label, subLabel, onClick, isDestructive }: { icon: R
   );
 }
 
+import NotFound from './NotFound';
+
 export default function Profile() {
-  const { id } = useParams();
+  const { id, username } = useParams();
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
   const [profileUser, setProfileUser] = useState<User | null>(null);
-  const isOwnProfile = !id || id === currentUser?.uid;
-  
+  const [profileUid, setProfileUid] = useState<string | null>(null);
+  const isOwnProfile = (!id && !username) || id === currentUser?.uid;
+
+  useEffect(() => {
+    if (username) {
+      const q = query(collection(db, 'users'), where('username', '==', username));
+      const unsub = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          setProfileUid(snapshot.docs[0].id);
+        } else {
+          setProfileUid('not-found');
+        }
+      });
+      return () => unsub();
+    } else {
+      setProfileUid(id || (isOwnProfile ? currentUser?.uid : null));
+    }
+  }, [username, id, isOwnProfile, currentUser?.uid]);
+
   const { theme, language, isMuted, toggleTheme, setLanguage, toggleMute, t } = useSettings();
   const { settings: globalSettings } = useGlobalSettings();
   const [subView, setSubView] = useState<SubView>('main');
@@ -106,6 +126,7 @@ export default function Profile() {
   // Basic Profile States
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
+  const [editUsername, setEditUsername] = useState('');
   
   // New States for Profile Screen
   const [activeTab, setActiveTab] = useState<'about' | 'story' | 'books'>('about');
@@ -125,6 +146,7 @@ export default function Profile() {
   const [books, setBooks] = useState<any[]>([]);
   const [isUploadingBook, setIsUploadingBook] = useState(false);
   const [bookForm, setBookForm] = useState({ title: '', description: '', mentions: '', file: null as File | null });
+  const [toast, setToast] = useState<string | null>(null);
   const bookInputRef = useRef<HTMLInputElement>(null);
 
   // Identity States
@@ -161,9 +183,12 @@ export default function Profile() {
   const [editPassword, setEditPassword] = useState('');
 
   useEffect(() => {
-    if (isOwnProfile && currentUser) {
+    if (!profileUid || profileUid === 'not-found') return;
+
+    if (isOwnProfile && currentUser && profileUid === currentUser.uid) {
       setEditName(currentUser.displayName || '');
       setEditBio(currentUser.bio || '');
+      setEditUsername(currentUser.username || '');
       setEditEmail(currentUser.email || '');
       setEditPhone(currentUser.phone || '');
       setIdentity(prev => ({
@@ -180,8 +205,8 @@ export default function Profile() {
         }
       });
       return () => unsub();
-    } else if (id) {
-      const unsub = onSnapshot(doc(db, 'users', id), (doc) => {
+    } else {
+      const unsub = onSnapshot(doc(db, 'users', profileUid), (doc) => {
         if (doc.exists()) {
           const data = doc.data();
           setProfileUser({ uid: doc.id, ...data } as User);
@@ -191,7 +216,7 @@ export default function Profile() {
       
       // Check friend request status
       if (currentUser) {
-        const reqUnsub = onSnapshot(doc(db, 'users', id, 'friendRequests', currentUser.uid), (doc) => {
+        const reqUnsub = onSnapshot(doc(db, 'users', profileUid, 'friendRequests', currentUser.uid), (doc) => {
           if (doc.exists()) {
             setFriendRequestStatus('requested');
           } else {
@@ -205,10 +230,11 @@ export default function Profile() {
       }
       return () => unsub();
     }
-  }, [id, currentUser, isOwnProfile]);
+  }, [profileUid, currentUser, isOwnProfile]);
 
   useEffect(() => {
-    const targetUid = isOwnProfile ? currentUser?.uid : id;
+    if (!profileUid || profileUid === 'not-found') return;
+    const targetUid = profileUid;
     if (targetUid && (isOwnProfile || currentUser?.role === 'admin')) {
       const unsub = onSnapshot(doc(db, 'users', targetUid, 'private', 'identity'), (doc) => {
         if (doc.exists()) {
@@ -217,10 +243,11 @@ export default function Profile() {
       });
       return () => unsub();
     }
-  }, [isOwnProfile, currentUser?.uid, id, currentUser?.role]);
+  }, [isOwnProfile, currentUser?.uid, profileUid, currentUser?.role]);
 
   useEffect(() => {
-    const targetUid = isOwnProfile ? currentUser?.uid : id;
+    if (!profileUid || profileUid === 'not-found') return;
+    const targetUid = profileUid;
     if (!targetUid) return;
 
     const q = query(collection(db, 'stories'), where('authorId', '==', targetUid), orderBy('createdAt', 'desc'));
@@ -229,10 +256,11 @@ export default function Profile() {
     });
 
     return () => unsub();
-  }, [id, currentUser?.uid, isOwnProfile]);
+  }, [profileUid, isOwnProfile]);
 
   useEffect(() => {
-    const targetUid = isOwnProfile ? currentUser?.uid : id;
+    if (!profileUid || profileUid === 'not-found') return;
+    const targetUid = profileUid;
     if (!targetUid) return;
 
     const q = query(collection(db, 'books_posts'), where('authorId', '==', targetUid), orderBy('createdAt', 'desc'));
@@ -241,7 +269,7 @@ export default function Profile() {
     });
 
     return () => unsub();
-  }, [id, currentUser?.uid, isOwnProfile]);
+  }, [profileUid, isOwnProfile]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -269,11 +297,30 @@ export default function Profile() {
     if (!currentUser) return;
     setIsSaving(true);
     try {
-      updateDoc(doc(db, 'users', currentUser.uid), {
+      if (editUsername && editUsername !== currentUser.username) {
+        // Simple check: format
+        if (!/^[a-z0-9_]{3,20}$/.test(editUsername)) {
+          alert("Username must be 3-20 characters long and contain only letters, numbers, and underscores.");
+          setIsSaving(false);
+          return;
+        }
+
+        const q = query(collection(db, 'users'), where('username', '==', editUsername));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          alert("Username is already taken. Please choose another one.");
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      await updateDoc(doc(db, 'users', currentUser.uid), {
         displayName: editName,
-        bio: editBio
-      }).catch(e => console.error("Error updating profile:", e));
+        bio: editBio,
+        username: editUsername
+      });
       setIsEditing(false);
+      setToast('Profile updated successfully!');
     } catch (error) {
       console.error("Error updating profile:", error);
       alert("Failed to update profile");
@@ -881,8 +928,47 @@ export default function Profile() {
     );
   }
 
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  if (profileUid === 'not-found') {
+    return <NotFound />;
+  }
+
+  if (!profileUid) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center">
+        <Loader2 className="animate-spin text-black mb-4" size={48} />
+        <p className="font-black text-xl tracking-tighter uppercase">Finding profile...</p>
+      </div>
+    );
+  }
+
   return (
-    <main className="flex-1 overflow-y-auto pb-24 bg-white">
+    <main className="flex-1 overflow-y-auto pb-24 bg-white relative">
+      <AnimatePresence>
+        {toast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 50, x: '-50%' }}
+            className="fixed bottom-24 left-1/2 z-[4000] bg-black text-white px-8 py-4 rounded-3xl font-black shadow-2xl flex items-center gap-3 border-2 border-white/10"
+          >
+            <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
+              <Check size={20} className="text-green-400" />
+            </div>
+            <span className="text-lg tracking-tight">{toast}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <Helmet>
+        <title>{profileUser?.displayName || 'Chat Profile'} on OC-CHAT</title>
+        <meta name="description" content={profileUser?.bio || 'Check out my profile on OC-CHAT'} />
+      </Helmet>
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -1376,6 +1462,20 @@ export default function Profile() {
                     onChange={(e) => setEditName(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Username</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">@</span>
+                    <input
+                      type="text"
+                      value={editUsername}
+                      onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 pl-9 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      placeholder="username"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-medium ml-1">Unique handle for your clean profile URL</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Bio</label>

@@ -37,6 +37,9 @@ import Ads from './pages/Ads';
 import Dhukan from './pages/Dhukan';
 import Notifications from './pages/Notifications';
 import SellerDashboard from './pages/SellerDashboard';
+import CreatePost from './pages/CreatePost';
+import NotFound from './pages/NotFound';
+import PostDetail from './pages/PostDetail';
 
 function NetworkStatus() {
   const { isOnline, isReconnecting } = useNetwork();
@@ -98,7 +101,8 @@ function AppRoutes() {
   const location = useLocation();
   useNotifications(); // Initialize notification registration
 
-  const isCallScreen = location.pathname.startsWith('/call-screen');
+  const isCallScreen = location.pathname.startsWith('/call-screen') || location.pathname.startsWith('/call');
+  const isBooksPage = location.pathname === '/books';
 
   useEffect(() => {
     if (!loading) {
@@ -289,11 +293,11 @@ function AppRoutes() {
 
   return (
     <div className={cn("flex h-screen overflow-hidden", getThemeClass())}>
-      {!isCallScreen && <Sidebar />}
+      {!isCallScreen && !isBooksPage && <Sidebar />}
       <div className={cn(
         "flex-1 flex flex-col h-full relative overflow-hidden",
-        !isCallScreen && "border-l border-border/50",
-        globalSettings.theme !== 'theme-default' ? 'bg-transparent' : 'bg-surface'
+        (!isCallScreen && !isBooksPage) && "border-l border-border/50",
+        (globalSettings.theme !== 'theme-default' && !isBooksPage) ? 'bg-transparent' : 'bg-surface'
       )}>
         <NetworkStatus />
         {!isCallScreen && <WebRTCCallInvitation />}
@@ -304,6 +308,13 @@ function AppRoutes() {
           <Route path="/wallet" element={<><Wallet /><BottomNav /></>} />
           <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
           <Route path="/offline-call" element={<OfflineCall />} />
+          
+          {/* New Clean Routes */}
+          <Route path="/u/:username" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
+          <Route path="/post/:postId" element={<PostDetail />} />
+          <Route path="/reel/:reelId" element={<Story />} />
+          <Route path="/call/:roomId" element={<CallScreen />} />
+
           <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
           <Route path="/profile/:id" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
           <Route path="/search" element={<SearchScreen />} />
@@ -315,12 +326,14 @@ function AppRoutes() {
           <Route path="/dhukan" element={<Dhukan />} />
           <Route path="/seller-dashboard" element={<SellerDashboard />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/create-post" element={<CreatePost />} />
           <Route path="/chat/:id" element={<ChatDetail />} />
           <Route path="/call-screen/:id" element={<CallScreen />} />
           <Route path="/meeting/:id" element={<MeetingRoom />} />
           <Route path="/voice/:id" element={<VoiceRoom />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="*" element={<Navigate to="/" />} />
+          
+          <Route path="/404" element={<NotFound />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
     </div>

@@ -19,7 +19,9 @@ import {
   Send,
   MessageCircle
 } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
+import NotFound from './NotFound';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
@@ -29,6 +31,7 @@ export default function Story() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { reelId } = useParams();
   const [reels, setReels] = useState<any[]>([]);
   const [ads, setAds] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -68,15 +71,18 @@ export default function Story() {
   }, []);
 
   // Merge reels and ads (1 ad every 5 reels)
-  const feed = [];
-  let adIndex = 0;
-  for (let i = 0; i < reels.length; i++) {
-    feed.push(reels[i]);
-    if ((i + 1) % 5 === 0 && ads.length > 0) {
-      feed.push(ads[adIndex % ads.length]);
-      adIndex++;
+  const feed = React.useMemo(() => {
+    const items = [];
+    let adIndex = 0;
+    for (let i = 0; i < reels.length; i++) {
+      items.push(reels[i]);
+      if ((i + 1) % 5 === 0 && ads.length > 0) {
+        items.push(ads[adIndex % ads.length]);
+        adIndex++;
+      }
     }
-  }
+    return items;
+  }, [reels, ads]);
 
   // Fetch comments for current reel
   useEffect(() => {
@@ -231,8 +237,21 @@ export default function Story() {
   // Moved above useEffect to avoid use-before-declaration error
 
 
+  useEffect(() => {
+    if (reelId && feed.length > 0) {
+      const index = feed.findIndex(r => r.id === reelId);
+      if (index !== -1) {
+        setCurrentIndex(index);
+      }
+    }
+  }, [reelId, feed]);
+
   return (
     <div className="relative h-screen bg-black overflow-hidden font-sans text-white">
+      <Helmet>
+        <title>{feed[currentIndex]?.authorName || 'Reel'} on OC-CHAT</title>
+        <meta name="description" content={feed[currentIndex]?.description || 'Check out this reel on OC-CHAT'} />
+      </Helmet>
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-center">
         {/* Left Side: Profile & Name */}

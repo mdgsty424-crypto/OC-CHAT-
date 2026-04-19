@@ -1,6 +1,6 @@
 {
   "name": "OC-CHAT",
-  "description": "A high-performance, offline-first PWA chat application for OCSTHAEL, optimized for unstable internet conditions in Bangladesh.",
+  "description": "A high-performance PWA chat and social media application for OCSTHAEL, featuring real-time books feed and a 4-screen advanced post creation flow with offline editing.",
   "requestFramePermissions": [
     "camera",
     "microphone",
