@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import OneSignal from 'react-onesignal';
 
 // Declare webtoapp functions for TypeScript
 declare global {
@@ -9,12 +10,51 @@ declare global {
     getNotificationToken?: () => Promise<{ token: string }>;
     executeWhenAppReady?: (callback: () => void) => void;
     receivePushNotificationToken?: (token: string) => void;
-    OneSignal?: any;
   }
 }
 
 export function useNotifications() {
   const { user } = useAuth();
+
+  useEffect(() => {
+    // Initialize OneSignal
+    const initOneSignal = async () => {
+      try {
+        await OneSignal.init({
+          appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa",
+          allowLocalhostAsSecureOrigin: true,
+          promptOptions: {
+            slidedown: {
+              prompts: [
+                {
+                  type: "push",
+                  autoPrompt: true,
+                  text: {
+                    actionMessage: "We'd like to show you notifications for the latest news and updates.",
+                    acceptButton: "Allow",
+                    cancelButton: "Cancel",
+                  },
+                  delay: {
+                    pageViews: 1,
+                    timeDelay: 20,
+                  }
+                }
+              ]
+            }
+          }
+        });
+        
+        if (user) {
+          await OneSignal.login(user.uid);
+          console.log('OneSignal: User logged in with UID:', user.uid);
+        }
+      } catch (error) {
+        console.error('OneSignal initialization failed:', error);
+      }
+    };
+
+    initOneSignal();
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user) return;

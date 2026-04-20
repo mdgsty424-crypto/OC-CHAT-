@@ -9,6 +9,7 @@ import { db } from '../lib/firebase';
 import { CallSession, User } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { createCall } from '../lib/webrtc';
+import { useNotifications } from '../hooks/useNotifications';
 
 interface CallWithUser extends CallSession {
   otherUser?: User;
@@ -17,6 +18,7 @@ interface CallWithUser extends CallSession {
 export default function Calls() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { sendNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState<'recent' | 'meetings'>('recent');
   const [calls, setCalls] = useState<CallWithUser[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -171,6 +173,21 @@ export default function Calls() {
         user.displayName || 'User', 
         user.photoURL || ''
       );
+
+      // Trigger High-Priority Push Notification for Call
+      sendNotification({
+        targetUserId: otherUser.uid,
+        title: `Incoming ${type === 'video' ? 'Video' : 'Audio'} Call`,
+        message: `${user.displayName || 'Someone'} is calling you...`,
+        image: user.photoURL || '',
+        link: `${window.location.origin}/call-screen/${user.uid}?type=${type}&callId=${callId}&mode=receiver`,
+        priority: 'high',
+        requireInteraction: true,
+        actions: [
+          { title: 'Accept', action: 'open_url', url: `${window.location.origin}/call-screen/${user.uid}?type=${type}&callId=${callId}&mode=receiver` },
+          { title: 'Decline', action: 'dismiss' }
+        ]
+      });
       
       const callUrl = `/call-screen/${otherUser.uid}?type=${type}&callId=${callId}&mode=caller`;
       navigate(callUrl);

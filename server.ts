@@ -372,9 +372,10 @@ async function startServer() {
       if (process.env.ONESIGNAL_REST_API_KEY) {
         const payload: any = {
           app_id: "77b000e4-b044-4010-ac1e-9e73704baefa",
-          target_channel: "push",
           headings: { en: title },
           contents: { en: message },
+          priority: priority === 'high' ? 10 : undefined,
+          ttl: priority === 'high' ? 0 : undefined,
         };
 
         if (targetUserId === 'all') {
@@ -383,6 +384,7 @@ async function startServer() {
           payload.include_aliases = {
             external_id: targetUserIds
           };
+          payload.target_channel = "push";
         }
 
         if (image) payload.big_picture = image;
@@ -395,7 +397,7 @@ async function startServer() {
           }));
         }
 
-        const response = await fetch("https://onesignal.com/api/v1/notifications", {
+        const response = await fetch("https://api.onesignal.com/notifications", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

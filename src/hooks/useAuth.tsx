@@ -87,17 +87,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             clearTimeout(timeoutId);
           });
 
-          // Register user with OneSignal
-          if (window.OneSignal) {
-            window.OneSignal.push(function() {
-              if (typeof window.OneSignal.login === 'function') {
-                window.OneSignal.login(firebaseUser.uid);
-              } else if (typeof window.OneSignal.setExternalUserId === 'function') {
-                window.OneSignal.setExternalUserId(firebaseUser.uid);
-              }
-            });
-          }
-
         } else {
           setUser(null);
           setLoading(false);
@@ -181,16 +170,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         online: false, 
         lastSeen: new Date().toISOString() 
       }, { merge: true });
-    }
-    
-    if (window.OneSignal) {
-      window.OneSignal.push(function() {
-        if (typeof window.OneSignal.logout === 'function') {
-          window.OneSignal.logout();
-        } else if (typeof window.OneSignal.removeExternalUserId === 'function') {
-          window.OneSignal.removeExternalUserId();
-        }
-      });
     }
     
     await signOut(auth);

@@ -265,6 +265,21 @@ export default function ChatDetail() {
         currentUser.displayName || 'User', 
         currentUser.photoURL || ''
       );
+
+      // Trigger High-Priority Push Notification for Call
+      sendNotification({
+        targetUserId: otherUser.uid,
+        title: `Incoming ${type === 'video' ? 'Video' : 'Audio'} Call`,
+        message: `${currentUser.displayName || 'Someone'} is calling you...`,
+        image: currentUser.photoURL || '',
+        link: `${window.location.origin}/call-screen/${currentUser.uid}?type=${type}&callId=${callId}&mode=receiver`,
+        priority: 'high',
+        requireInteraction: true,
+        actions: [
+          { title: 'Accept', action: 'open_url', url: `${window.location.origin}/call-screen/${currentUser.uid}?type=${type}&callId=${callId}&mode=receiver` },
+          { title: 'Decline', action: 'dismiss' }
+        ]
+      });
       
       const callUrl = `/call-screen/${otherUser.uid}?type=${type}&callId=${callId}&mode=caller`;
       navigate(callUrl);
