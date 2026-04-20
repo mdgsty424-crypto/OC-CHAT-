@@ -16,7 +16,10 @@ const app = firebaseConfig ? initializeApp(firebaseConfig) : null;
 const db = app ? getFirestore(app, firebaseConfig.firestoreDatabaseId || "(default)") : null;
 
 export default async function handler(req, res) {
-  const { type, id } = req.query;
+  let { type, id } = req.query;
+  // If type is missing, try to infer or default to post
+  if (!type) type = 'post';
+  
   const userAgent = req.headers['user-agent'] || '';
   const isBot = /facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|Discordbot|TelegramBot|Slackbot|bot|crawler|spider/i.test(userAgent);
 
