@@ -118,9 +118,15 @@ export default async function handler(req, res) {
       `<meta property="og:url" content="${url}" />`,
       `<meta property="og:type" content="${ogType}" />`,
       `<meta property="og:site_name" content="OC-CHAT" />`,
+      `<meta property="og:image:width" content="1200" />`,
+      `<meta property="og:image:height" content="630" />`,
       `<meta name="twitter:title" content="${cleanTitle}" />`,
       `<meta name="twitter:description" content="${cleanDesc}" />`
     ];
+
+    if (process.env.FB_APP_ID) {
+      metaTags.push(`<meta property="fb:app_id" content="${process.env.FB_APP_ID}" />`);
+    }
 
     if (videoUrl) {
       metaTags.push(`<meta property="og:video" content="${videoUrl}" />`);

@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/.well-known/assetlinks.json", "destination": "/.well-known/assetlinks.json" },
+    { "source": "/.well-known/(.*)", "destination": "/.well-known/$1" },
     { "source": "/post/:id", "destination": "/api/preview?type=post&id=:id" },
     { "source": "/u/:username", "destination": "/api/preview?type=u&id=:username" },
     { "source": "/reel/:id", "destination": "/api/preview?type=reel&id=:id" },
@@ -8,7 +8,7 @@
   ],
   "headers": [
     {
-      "source": "/.well-known/assetlinks.json",
+      "source": "/.well-known/(.*)",
       "headers": [
         { "key": "Content-Type", "value": "application/json" }
       ]
