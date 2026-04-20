@@ -28,12 +28,22 @@ import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { db } from '../lib/firebase';
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import localforage from 'localforage';
+import { getTransformedUrl, getFiltersTransformation, deleteCloudinaryMedia } from '../lib/cloudinary';
+
+// Configure localforage
+localforage.config({
+  name: 'oc-chat',
+  storeName: 'draft_media'
+});
 
 interface MediaItem {
   id: string;
-  file: File;
+  file?: File; // Optional if already uploaded
   preview: string;
+  publicId?: string; // Cloudinary ID
   type: 'image' | 'video';
+  isUploading?: boolean;
   filters: {
     grayscale: number;
     brightness: number;
@@ -42,6 +52,60 @@ interface MediaItem {
     blur: number;
   };
 }
+
+const MediaPreview: React.FC<{ item: MediaItem, large?: boolean }> = ({ item, large }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  return (
+    <div className="w-full h-full relative flex items-center justify-center">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+          <Loader2 className="animate-spin text-black/20" size={large ? 48 : 20} />
+        </div>
+      )}
+      {hasError ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 text-red-400 p-2 text-center">
+          <X size={large ? 48 : 20} />
+          {large && <span className="text-[10px] font-black uppercase mt-2">Failed to load media</span>}
+        </div>
+      ) : item.type === 'video' ? (
+        <video 
+          src={item.preview.includes('cloudinary.com') ? getTransformedUrl(item.preview, 'w_400,c_limit') : item.preview} 
+          className={cn("w-full h-full", large ? "object-contain" : "object-cover")} 
+          onLoadedData={() => setIsLoading(false)}
+          onError={() => { setIsLoading(false); setHasError(true); }}
+          muted
+          playsInline
+        />
+      ) : (
+        <img 
+          src={item.preview.includes('cloudinary.com') 
+            ? getTransformedUrl(item.preview, `${getFiltersTransformation(item.filters)}${!large ? ',w_200,h_200,c_fill' : ''}`) 
+            : item.preview} 
+          className={cn("w-full h-full", large ? "object-contain" : "object-cover")} 
+          onLoad={() => setIsLoading(false)}
+          style={!item.preview.includes('cloudinary.com') ? {
+            filter: `
+              grayscale(${item.filters.grayscale}%)
+              brightness(${item.filters.brightness}%)
+              contrast(${item.filters.contrast}%)
+              sepia(${item.filters.sepia}%)
+              blur(${item.filters.blur}px)
+            `
+          } : {}}
+          onError={() => { setIsLoading(false); setHasError(true); }}
+          alt="" 
+        />
+      )}
+      {item.isUploading && (
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-sm">
+          <Loader2 className="animate-spin text-white" size={20} />
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CreatePost: React.FC = () => {
   const navigate = useNavigate();
@@ -61,22 +125,97 @@ const CreatePost: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
+  // Persistence logic
+  const saveDraftToDB = async (items: MediaItem[], draftCaption: string) => {
+    try {
+      // Store only serializable data plus the blobs
+      const serializableItems = await Promise.all(items.map(async item => ({
+        id: item.id,
+        file: item.file, 
+        preview: item.preview,
+        publicId: item.publicId,
+        type: item.type,
+        filters: item.filters
+      })));
+      await localforage.setItem('draft_post', { items: serializableItems, caption: draftCaption });
+    } catch (e) {
+      console.error('Failed to save draft', e);
+    }
+  };
+
+  const loadDraft = async () => {
+    try {
+      const draft = await localforage.getItem<{ items: any[], caption: string }>('draft_post');
+      if (draft && draft.items.length > 0) {
+        const loadedItems: MediaItem[] = draft.items.map(item => {
+           // Create a new URL directly from the stored File/Blob
+           const freshPreview = URL.createObjectURL(item.file);
+           return {
+             ...item,
+             preview: freshPreview
+           };
+        });
+        setMediaItems(loadedItems);
+        setCaption(draft.caption || '');
+        setSelectedMediaId(loadedItems[0].id);
+      }
+    } catch (e) {
+      console.error('Failed to load draft', e);
+    }
+  };
+
+  useEffect(() => {
+    loadDraft();
+  }, []);
+
+  useEffect(() => {
+    if (mediaItems.length > 0 || caption) {
+      saveDraftToDB(mediaItems, caption);
+    }
+  }, [mediaItems, caption]);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
     const newItems: MediaItem[] = files.map(file => ({
       id: Math.random().toString(36).substr(2, 9),
       file,
       preview: URL.createObjectURL(file),
-      type,
+      type: file.type.startsWith('video') ? 'video' : 'image',
+      isUploading: true,
       filters: { grayscale: 0, brightness: 100, contrast: 100, sepia: 0, blur: 0 }
     }));
+    
     setMediaItems(prev => [...prev, ...newItems]);
     if (!selectedMediaId && newItems.length > 0) {
       setSelectedMediaId(newItems[0].id);
     }
+
+    // Start individual uploads
+    newItems.forEach(async (item) => {
+      try {
+        const formData = new FormData();
+        formData.append('file', item.file!);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        
+        setMediaItems(prev => prev.map(m => 
+          m.id === item.id ? { ...m, preview: data.url, publicId: data.public_id, isUploading: false } : m
+        ));
+      } catch (err) {
+        console.error('Upload failed for item:', item.id, err);
+        setMediaItems(prev => prev.map(m => 
+          m.id === item.id ? { ...m, isUploading: false } : m
+        ));
+      }
+    });
   };
 
-  const removeMedia = (id: string) => {
+  const removeMedia = async (id: string) => {
+    const itemToDelete = mediaItems.find(m => m.id === id);
+    if (itemToDelete?.publicId) {
+      deleteCloudinaryMedia(itemToDelete.publicId, itemToDelete.type);
+    }
+
     setMediaItems(prev => {
       const filtered = prev.filter(item => item.id !== id);
       if (selectedMediaId === id) {
@@ -94,33 +233,21 @@ const CreatePost: React.FC = () => {
 
   const handleUpload = async () => {
     if (!user || mediaItems.length === 0) return;
+    if (mediaItems.some(m => m.isUploading)) {
+      setError('Please wait for all media to finish uploading');
+      return;
+    }
     setIsUploading(true);
     setError(null);
     setUploadProgress(0);
 
     try {
-      const uploadPromises = mediaItems.map(async (item, index) => {
-        const formData = new FormData();
-        formData.append('file', item.file);
-        
-        // Simulating progress per file
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!response.ok) throw new Error(`Upload failed for file ${index + 1}`);
-        const data = await response.json();
-        
-        setUploadProgress(prev => prev + (100 / mediaItems.length));
-        return {
-          url: data.url,
-          type: item.type,
-          filters: item.filters
-        };
-      });
-
-      const uploadedMedia = await Promise.all(uploadPromises);
+      const uploadedMedia = mediaItems.map(item => ({
+        url: item.preview,
+        publicId: item.publicId,
+        type: item.type,
+        filters: item.filters
+      }));
 
       // Generate a 6-character shortcode for the post ID
       const shortCode = Math.random().toString(36).substring(2, 8);
@@ -141,6 +268,9 @@ const CreatePost: React.FC = () => {
         type: 'books',
         createdAt: serverTimestamp(),
       });
+
+      // Clear draft
+      await localforage.removeItem('draft_post');
 
       setUploadProgress(100);
       setTimeout(() => navigate('/books'), 1000);
@@ -168,18 +298,7 @@ const CreatePost: React.FC = () => {
                   <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <ImageIcon className="text-blue-600" size={24} />
                   </div>
-                  <span className="font-black text-sm uppercase">Add photos</span>
-                  <UploadCloud size={16} className="text-black/40" />
-                </button>
-
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="aspect-square border-2 border-black border-dashed rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors group"
-                >
-                  <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <VideoIcon className="text-purple-600" size={24} />
-                  </div>
-                  <span className="font-black text-sm uppercase">Add vedios</span>
+                  <span className="font-black text-sm uppercase">Add Photos/Videos</span>
                   <UploadCloud size={16} className="text-black/40" />
                 </button>
               </div>
@@ -187,15 +306,15 @@ const CreatePost: React.FC = () => {
               {mediaItems.length > 0 && (
                 <div className="grid grid-cols-3 gap-3">
                   {mediaItems.map(item => (
-                    <div key={item.id} className="relative aspect-square border-2 border-black rounded-xl overflow-hidden shadow-[2px_2px_0px_#000]">
-                      <img src={item.preview} className="w-full h-full object-cover" alt="" />
+                    <div key={item.id} className="relative aspect-square border-2 border-black rounded-xl overflow-hidden shadow-[2px_2px_0px_#000] bg-gray-100">
+                      <MediaPreview item={item} />
                       <button 
                         onClick={() => removeMedia(item.id)}
-                        className="absolute top-1 right-1 p-1 bg-white border border-black rounded-md shadow-sm"
+                        className="absolute top-1 right-1 p-1 bg-white border border-black rounded-md shadow-sm z-10"
                       >
                         <Trash2 size={12} className="text-red-500" />
                       </button>
-                      <div className="absolute bottom-1 right-1 p-1 bg-white border border-black rounded-md shadow-sm">
+                      <div className="absolute bottom-1 right-1 p-1 bg-white border border-black rounded-md shadow-sm z-10">
                         <Edit size={12} className="text-black" />
                       </div>
                     </div>
@@ -209,7 +328,7 @@ const CreatePost: React.FC = () => {
               className="hidden" 
               multiple 
               accept="image/*,video/*"
-              onChange={(e) => handleFileSelect(e, e.target.files?.[0]?.type.startsWith('video') ? 'video' : 'image')}
+              onChange={handleFileSelect}
             />
           </div>
         );
@@ -220,7 +339,7 @@ const CreatePost: React.FC = () => {
             <div className="flex-1 flex flex-col items-center justify-center p-4">
               {currentMedia && (
                 <div 
-                  className="max-w-full max-h-[60vh] border-4 border-black rounded-3xl overflow-hidden shadow-[8px_8px_0px_#000] relative"
+                  className="max-w-full max-h-[60vh] border-4 border-black rounded-3xl overflow-hidden shadow-[8px_8px_0px_#000] relative bg-black flex items-center justify-center"
                   style={{
                     filter: `
                       grayscale(${currentMedia.filters.grayscale}%)
@@ -231,7 +350,7 @@ const CreatePost: React.FC = () => {
                     `
                   }}
                 >
-                  <img src={currentMedia.preview} className="w-full h-full object-contain" alt="" />
+                  <MediaPreview item={currentMedia} large />
                 </div>
               )}
 
@@ -241,11 +360,11 @@ const CreatePost: React.FC = () => {
                     key={item.id}
                     onClick={() => setSelectedMediaId(item.id)}
                     className={cn(
-                      "w-16 h-16 border-2 border-black rounded-xl overflow-hidden flex-shrink-0 transition-transform active:scale-95",
+                      "w-16 h-16 border-2 border-black rounded-xl overflow-hidden flex-shrink-0 transition-transform active:scale-95 bg-gray-100 relative",
                       selectedMediaId === item.id ? "ring-4 ring-blue-500 scale-110" : "opacity-60"
                     )}
                   >
-                    <img src={item.preview} className="w-full h-full object-cover" alt="" />
+                    <MediaPreview item={item} />
                   </button>
                 ))}
               </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import imageCompression from 'browser-image-compression';
+import localforage from 'localforage';
 import { useAuth } from '../hooks/useAuth';
 import { db } from '../lib/firebase';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
@@ -14,6 +15,8 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAvatarGallery, setShowAvatarGallery] = useState(false);
+  const [tempProfilePic, setTempProfilePic] = useState('');
+  const [tempBgPic, setTempBgPic] = useState('');
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -52,6 +55,25 @@ export default function Signup() {
     }
   }, [step]);
 
+  useEffect(() => {
+    const loadDraft = async () => {
+      const draft = await localforage.getItem<any>('signup_draft');
+      if (draft) {
+        setFormData(prev => ({ ...prev, ...draft }));
+        if (draft.profilePic && !draft.profilePic.startsWith('http')) {
+           // If it's a blob URL it won't work, so we expect profilePic to be Cloudinary URL
+           // or we'd need to store the File too.
+           // For simplicity, we just persist the form data here.
+        }
+      }
+    };
+    loadDraft();
+  }, []);
+
+  useEffect(() => {
+    localforage.setItem('signup_draft', formData);
+  }, [formData]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -89,6 +111,11 @@ export default function Signup() {
       
       let fileToUpload = file;
       if (file.type.startsWith('image/')) {
+        // Set temporary preview immediately
+        const objectUrl = URL.createObjectURL(file);
+        if (type === 'profile') setTempProfilePic(objectUrl);
+        else setTempBgPic(objectUrl);
+
         fileToUpload = await imageCompression(file, options);
       }
 
@@ -150,6 +177,7 @@ export default function Signup() {
         }, { merge: true });
       }
       
+      await localforage.removeItem('signup_draft');
       // Navigate to home will happen automatically via App.tsx routing when user is authenticated
     } catch (err: any) {
       setError(err.message || 'Signup failed');
@@ -232,8 +260,8 @@ export default function Signup() {
             <div className="flex flex-col items-center gap-4 mb-6">
               <div className="relative">
                 <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border-2 border-white/50">
-                  {formData.profilePic ? (
-                    <img src={formData.profilePic} alt="Profile" className="w-full h-full object-cover" />
+                  {tempProfilePic || formData.profilePic ? (
+                    <img src={tempProfilePic || formData.profilePic} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
                     <Camera className="text-white/70" size={32} />
                   )}
@@ -267,8 +295,8 @@ export default function Signup() {
               )}
 
               <div className="relative w-full h-24 rounded-xl bg-white/20 flex items-center justify-center overflow-hidden border-2 border-white/50">
-                {formData.bgPic ? (
-                  <img src={formData.bgPic} alt="Background" className="w-full h-full object-cover" />
+                {tempBgPic || formData.bgPic ? (
+                  <img src={tempBgPic || formData.bgPic} alt="Background" className="w-full h-full object-cover" />
                 ) : (
                   <div className="flex flex-col items-center text-white/70">
                     <ImageIcon size={24} />

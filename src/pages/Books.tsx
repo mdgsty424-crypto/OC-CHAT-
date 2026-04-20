@@ -15,11 +15,12 @@ import {
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { deleteDoc } from 'firebase/firestore';
+import { deleteDoc, getDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { formatDistanceToNow } from 'date-fns';
+import { getTransformedUrl, getFiltersTransformation, deleteCloudinaryMedia } from '../lib/cloudinary';
 
 interface Post {
   id: string;
@@ -34,6 +35,7 @@ interface Post {
   mediaItems?: { 
     url: string; 
     type: 'image' | 'video';
+    publicId?: string;
     filters?: {
       grayscale: number;
       brightness: number;
@@ -229,7 +231,30 @@ export default function Books() {
 
   const handleDeletePost = async (postId: string) => {
     try {
-      await deleteDoc(doc(db, 'books_posts', postId));
+      // Fetch post to get publicIds for media
+      const postRef = doc(db, 'books_posts', postId);
+      const postSnap = await getDoc(postRef);
+      
+      if (postSnap.exists()) {
+        const postData = postSnap.data() as Post;
+        const mediaItems = postData.mediaItems || [];
+        
+        // Delete all media from Cloudinary
+        const deletePromises = mediaItems.map(item => {
+          if (item.publicId) {
+            return deleteCloudinaryMedia(item.publicId, item.type);
+          }
+          return Promise.resolve();
+        });
+        
+        // Also handle the legacy single mediaUrl if it has a publicId logic (though newer posts will use mediaItems)
+        // If we don't have publicId in the single field, we can't easily delete it without regex, 
+        // but since we're updating CreatePost now, we'll mostly care about mediaItems.
+        
+        await Promise.all(deletePromises);
+      }
+
+      await deleteDoc(postRef);
       setShowDeleteConfirm(null);
       setShowPostMenu(null);
       setToast('Post deleted successfully');
@@ -1018,7 +1043,10 @@ const MediaElement = ({ url, type, isSmall = false, filters, onLoad }: MediaElem
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const filterStyles = filters ? {
+  const isCloudinary = url.includes('cloudinary.com');
+  const transformedUrl = isCloudinary && filters ? getTransformedUrl(url, getFiltersTransformation(filters)) : url;
+
+  const filterStyles = (filters && !isCloudinary) ? {
     filter: `
       grayscale(${filters.grayscale}%)
       brightness(${filters.brightness}%)
@@ -1034,7 +1062,7 @@ const MediaElement = ({ url, type, isSmall = false, filters, onLoad }: MediaElem
         <div className="w-full h-full relative" style={filterStyles}>
           <video 
             ref={videoRef}
-            src={url}
+            src={transformedUrl}
             className="w-full h-full object-contain"
             onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
             onLoadedMetadata={(e) => {
@@ -1069,7 +1097,7 @@ const MediaElement = ({ url, type, isSmall = false, filters, onLoad }: MediaElem
         </div>
       ) : (
         <img 
-          src={url} 
+          src={transformedUrl} 
           alt="" 
           className="w-full h-full object-contain" 
           style={filterStyles} 

@@ -277,6 +277,7 @@ async function startServer() {
         console.log("Cloudinary upload success:", result.secure_url);
         res.json({ 
           url: result.secure_url,
+          public_id: result.public_id,
           resource_type: result.resource_type,
           format: result.format
         });
@@ -288,6 +289,29 @@ async function startServer() {
         });
       }
     });
+  });
+
+  // API Route for Cloudinary Deletion
+  app.post("/api/delete-media", async (req, res) => {
+    const { publicId, resourceType } = req.body;
+    if (!publicId) return res.status(400).json({ error: "publicId is required" });
+
+    try {
+      console.log(`Deleting from Cloudinary: ${publicId} (${resourceType || 'image'})`);
+      const result = await cloudinary.uploader.destroy(publicId, {
+        resource_type: resourceType || "image"
+      });
+      
+      if (result.result === 'ok' || result.result === 'not found') {
+        res.json({ success: true, result });
+      } else {
+        console.error("Cloudinary destroy result not ok:", result);
+        res.status(500).json({ error: "Failed to delete from Cloudinary", details: result });
+      }
+    } catch (error: any) {
+      console.error("Cloudinary deletion error:", error);
+      res.status(500).json({ error: "Cloudinary deletion failed", message: error.message });
+    }
   });
 
   // API Route for Zego Token Generation
