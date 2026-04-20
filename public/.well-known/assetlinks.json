@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ocsthael.occhat",
+      "sha256_cert_fingerprints": ["98:65:9B:8F:45:CD:EC:1E:2F:72:6E:B0:34:62:5B:1F:81:42:DC:34:DA:40:23:C9:56:66:21:DB:97:16:BC:A2"]
+    }
+  }
+]

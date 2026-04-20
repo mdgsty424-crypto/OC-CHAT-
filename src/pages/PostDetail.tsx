@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Helmet } from 'react-helmet-async';
 import { Loader2, ArrowLeft, Home, Share2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { cn } from '../lib/utils';
 // We'll need BookCard from a separate component file if we want to reuse it, 
 // but for now I'll just copy the necessary logic or import it if possible.
 // Actually, since everything is in Books.tsx, I'll extract it later.
@@ -78,7 +79,22 @@ export default function PostDetail() {
         <meta name="twitter:card" content="summary_large_image" />
       </Helmet>
       
-      <header className="bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex items-center gap-4">
+      {!user && (
+        <div className="bg-blue-600 text-white p-4 sticky top-0 z-[60] flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2">
+            <span className="font-black uppercase tracking-tighter">OC-CHAT</span>
+            <span className="text-xs font-bold opacity-80">Experience the ultimate super app</span>
+          </div>
+          <button 
+            onClick={() => navigate('/signup')}
+            className="bg-white text-blue-600 px-6 py-2 rounded-xl font-black text-sm border-2 border-white hover:bg-blue-50 transition-colors shadow-md"
+          >
+            JOIN OC-CHAT
+          </button>
+        </div>
+      )}
+
+      <header className={cn("bg-white border-b-4 border-black p-4 z-50 flex items-center gap-4", !user ? "relative" : "sticky top-0")}>
         <button 
           onClick={() => navigate(-1)}
           className="p-2 border-2 border-black rounded-xl hover:bg-gray-100 transition-colors shadow-[2px_2px_0px_#000]"

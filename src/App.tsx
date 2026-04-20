@@ -267,12 +267,19 @@ function AppRoutes() {
   }
 
   if (!user && !loading) {
-    return (
-      <Routes>
-        <Route path="/signup" element={<Signup />} />
-        <Route path="*" element={<Login />} />
-      </Routes>
-    );
+    const isPublicRoute = 
+      location.pathname.startsWith('/post/') || 
+      location.pathname.startsWith('/u/') || 
+      location.pathname.startsWith('/reel/');
+
+    if (!isPublicRoute) {
+      return (
+        <Routes>
+          <Route path="/signup" element={<Signup />} />
+          <Route path="*" element={<Login />} />
+        </Routes>
+      );
+    }
   }
 
   if (isLocked) {

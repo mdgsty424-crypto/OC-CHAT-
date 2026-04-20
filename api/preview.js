@@ -51,7 +51,7 @@ export default async function handler(req, res) {
   const optimizeCloudinary = (mediaUrl) => {
     if (!mediaUrl) return defaultImage;
     if (mediaUrl.includes('cloudinary.com') && mediaUrl.includes('/upload/')) {
-      return mediaUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill/');
+      return mediaUrl.replace('/upload/', '/upload/c_fill,w_1200,h_630/');
     }
     return mediaUrl;
   };
@@ -107,6 +107,8 @@ export default async function handler(req, res) {
 
     const cleanDesc = (description || '').replace(/"/g, '&quot;').replace(/\n/g, ' ');
     const cleanTitle = (title || '').replace(/"/g, '&quot;');
+    const optimizedImage = optimizeCloudinary(image);
+    const optimizedThumb = optimizeCloudinary(thumbnailUrl);
 
     let metaTags = [
       `<title>${cleanTitle}</title>`,
@@ -123,13 +125,15 @@ export default async function handler(req, res) {
     if (videoUrl) {
       metaTags.push(`<meta property="og:video" content="${videoUrl}" />`);
       metaTags.push(`<meta property="og:video:type" content="video/mp4" />`);
-      metaTags.push(`<meta property="og:image" content="${optimizeCloudinary(thumbnailUrl)}" />`);
+      metaTags.push(`<meta property="og:image" content="${optimizedThumb}" />`);
+      metaTags.push(`<meta property="og:image:secure_url" content="${optimizedThumb}" />`);
       metaTags.push(`<meta name="twitter:card" content="summary_large_image" />`);
-      metaTags.push(`<meta name="twitter:image" content="${optimizeCloudinary(thumbnailUrl)}" />`);
+      metaTags.push(`<meta name="twitter:image" content="${optimizedThumb}" />`);
     } else {
-      metaTags.push(`<meta property="og:image" content="${optimizeCloudinary(image)}" />`);
+      metaTags.push(`<meta property="og:image" content="${optimizedImage}" />`);
+      metaTags.push(`<meta property="og:image:secure_url" content="${optimizedImage}" />`);
       metaTags.push(`<meta name="twitter:card" content="summary_large_image" />`);
-      metaTags.push(`<meta name="twitter:image" content="${optimizeCloudinary(image)}" />`);
+      metaTags.push(`<meta name="twitter:image" content="${optimizedImage}" />`);
     }
 
     const html = `<!DOCTYPE html>
