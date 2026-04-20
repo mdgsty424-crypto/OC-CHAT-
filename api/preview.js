@@ -110,8 +110,10 @@ export default async function handler(req, res) {
 
     const cleanDesc = (description || '').replace(/"/g, '&quot;').replace(/\n/g, ' ');
     const cleanTitle = (title || '').replace(/"/g, '&quot;');
-    const optimizedImage = optimizeCloudinary(image);
-    const optimizedThumb = optimizeCloudinary(thumbnailUrl);
+    const version = Date.now();
+    const optimizedImage = `${optimizeCloudinary(image)}?v=${version}`;
+    const optimizedThumb = `${optimizeCloudinary(thumbnailUrl)}?v=${version}`;
+    const fallbackImg = `${defaultImage}?v=${version}`;
 
     let metaTags = [
       `<title>${cleanTitle}</title>`,
@@ -171,7 +173,7 @@ export default async function handler(req, res) {
     <meta name="description" content="${defaultDesc}" />
     <meta property="og:title" content="${defaultTitle}" />
     <meta property="og:description" content="${defaultDesc}" />
-    <meta property="og:image" content="${defaultImage}" />
+    <meta property="og:image" content="${fallbackImg}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
