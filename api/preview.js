@@ -145,7 +145,10 @@ export default async function handler(req, res) {
       metaTags.push(`<meta name="twitter:image" content="${optimizedImage}" />`);
     }
 
-    const html = `<!DOCTYPE html>
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
+
+    const htmlResponse = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -156,10 +159,28 @@ export default async function handler(req, res) {
 </body>
 </html>`;
 
-    res.setHeader('Content-Type', 'text/html');
-    return res.status(200).send(html);
+    return res.status(200).send(htmlResponse);
   } catch (err) {
     console.error("Error generating preview:", err);
-    return res.status(200).send("OC-CHAT Preview");
+    // Return a generic fallback preview instead of an error
+    const fallbackHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>${defaultTitle}</title>
+    <meta name="description" content="${defaultDesc}" />
+    <meta property="og:title" content="${defaultTitle}" />
+    <meta property="og:description" content="${defaultDesc}" />
+    <meta property="og:image" content="${defaultImage}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+</head>
+<body>
+    <script>window.location.href = "${domain}";</script>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html');
+    return res.status(200).send(fallbackHtml);
   }
 }
