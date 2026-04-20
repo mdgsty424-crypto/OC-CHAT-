@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import imageCompression from 'browser-image-compression';
 import { useAuth } from '../hooks/useAuth';
 import { db } from '../lib/firebase';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
@@ -75,13 +76,26 @@ export default function Signup() {
   };
 
   const handleCloudinaryUpload = async (file: File, type: 'profile' | 'bg') => {
-    // Implement Cloudinary upload
-    const data = new FormData();
-    data.append('file', file);
-    data.append('upload_preset', 'oc_chat_preset'); // Replace with actual preset
-    
     try {
       setLoading(true);
+      setError('');
+
+      // Compress image for mobile APK compatibility and faster uploads
+      const options = {
+        maxSizeMB: 1, // Max 1MB
+        maxWidthOrHeight: 1280,
+        useWebWorker: true,
+      };
+      
+      let fileToUpload = file;
+      if (file.type.startsWith('image/')) {
+        fileToUpload = await imageCompression(file, options);
+      }
+
+      const data = new FormData();
+      data.append('file', fileToUpload);
+      data.append('upload_preset', 'oc_chat_preset');
+      
       const res = await fetch('https://api.cloudinary.com/v1_1/dxiolmmdv/image/upload', {
         method: 'POST',
         body: data
@@ -93,7 +107,8 @@ export default function Signup() {
         setFormData({ ...formData, bgPic: fileData.secure_url });
       }
     } catch (err) {
-      setError('Image upload failed');
+      console.error('Upload error:', err);
+      setError('Image upload failed. If you are using the app, please ensure storage permissions are granted.');
     } finally {
       setLoading(false);
     }

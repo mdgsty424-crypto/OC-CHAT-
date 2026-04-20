@@ -17,6 +17,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "@zegocloud/zego-uikit-prebuilt": "^2.17.3",
     "axios": "^1.14.0",
+    "browser-image-compression": "^2.0.2",
     "cheerio": "^1.2.0",
     "cloudinary": "^1.41.3",
     "clsx": "^2.1.1",

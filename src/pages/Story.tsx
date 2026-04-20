@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import imageCompression from 'browser-image-compression';
 import { useAuth } from '../hooks/useAuth';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -228,8 +229,20 @@ export default function Story() {
     if (!user || !uploadForm.file) return;
     setIsSubmitting(true);
     try {
+      let fileToUpload = uploadForm.file;
+      
+      // Compress if it's an image (Stairs can take photos too)
+      if (fileToUpload.type.startsWith('image/')) {
+        const options = {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1280,
+          useWebWorker: true,
+        };
+        fileToUpload = await imageCompression(fileToUpload, options);
+      }
+
       const formData = new FormData();
-      formData.append('file', uploadForm.file);
+      formData.append('file', fileToUpload);
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.url) {
@@ -250,6 +263,7 @@ export default function Story() {
       }
     } catch (error) {
       console.error('Upload failed:', error);
+      alert('Upload failed. If you are using the app, please check your internet and storage permissions.');
     } finally {
       setIsSubmitting(false);
     }
