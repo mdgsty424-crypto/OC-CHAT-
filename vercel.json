@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/post/:id", "destination": "/api/preview?type=post&id=:id" },
+    { "source": "/u/:username", "destination": "/api/preview?type=u&id=:username" },
+    { "source": "/reel/:id", "destination": "/api/preview?type=reel&id=:id" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
