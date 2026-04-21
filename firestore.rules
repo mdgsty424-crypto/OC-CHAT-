@@ -37,7 +37,9 @@ service cloud.firestore {
              (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 1000)) &&
              (!('sex' in data) || (data.sex is string && data.sex.size() < 20)) &&
              (!('birthYear' in data) || (data.birthYear is number && data.birthYear > 1900 && data.birthYear < 2100)) &&
-             (!('verified' in data) || data.verified is bool);
+             (!('verified' in data) || data.verified is bool) &&
+             (!('onesignalIds' in data) || (data.onesignalIds is list)) &&
+             (!('lastNotificationLink' in data) || (data.lastNotificationLink is timestamp));
     }
     function isValidIdentity(data) {
       return (!('nameBangla' in data) || (data.nameBangla is string && data.nameBangla.size() < 200)) &&

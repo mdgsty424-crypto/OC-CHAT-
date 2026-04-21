@@ -26,70 +26,72 @@ export function useNotifications() {
         });
         
         if (user) {
-          console.log('[OneSignal] User detected. Forcing External ID link:', user.uid);
+          console.log('[OneSignal] Initializing sync for user:', user.uid);
           
           try {
-            // 1. Immediate Login
+            // Priority 1: Immediate Login to link External ID
             await OneSignal.login(user.uid);
+            console.log('[OneSignal] Immediate login executed for UID:', user.uid);
             
-            // 2. Backup: Add user_id as a tag
+            // Backup tags
             await OneSignal.User.addTag("user_id", user.uid);
-            console.log('[OneSignal] Login and Tagging initiated for:', user.uid);
-
-            // 3. Verification Log after delay
-            setTimeout(() => {
-              console.log('[OneSignal] Current External ID:', OneSignal.User.externalId);
-              console.log('[OneSignal] Current User Tags:', OneSignal.User.getTags());
-            }, 2000);
 
             const syncSubscriptionId = async (subId: string | undefined | null) => {
               if (!subId || !user) return;
-              console.log('[OneSignal] Syncing ID to Firestore:', subId);
+              console.log(`[OneSignal] Syncing User: ${user.uid} with SubID: ${subId}`);
+              
               try {
                 const userRef = doc(db, 'users', user.uid);
                 await updateDoc(userRef, {
                   onesignalIds: arrayUnion(subId),
                   lastNotificationLink: serverTimestamp()
                 });
-                console.log('[OneSignal] ID successfully synced.');
-              } catch (err) {
-                console.error('[OneSignal] Sync error:', err);
+                console.log('[OneSignal] ID successfully synced to Firestore document: users/' + user.uid);
+              } catch (fsErr: any) {
+                console.error('[OneSignal] Firestore Sync FAILED:', fsErr.message || fsErr);
+                if (fsErr.code === 'permission-denied') {
+                  console.error('[OneSignal] Critical: Firestore Permission Denied. Check your security rules.');
+                }
               }
             };
 
-            // Initial Check
+            // Capture initial ID
             const initialId = OneSignal.User?.PushSubscription?.id;
             if (initialId) {
                console.log('[OneSignal] Initial ID found:', initialId);
                await syncSubscriptionId(initialId);
             }
 
-            // Event Listener for subscription changes
+            // aggressive verification log
+            setTimeout(() => {
+              console.log('[OneSignal] verification Check - ExternalID:', OneSignal.User.externalId);
+              console.log('[OneSignal] verification Check - SubscriptionID:', OneSignal.User.PushSubscription.id);
+            }, 3000);
+
+            // Listener for future changes
             OneSignal.User.PushSubscription.addEventListener("change", (event: any) => {
-              console.log('[OneSignal] Subscription changed. New ID:', event.current.id);
+              console.log('[OneSignal] Subscription changed. event.current.id:', event.current.id);
               if (event.current.id) {
                 syncSubscriptionId(event.current.id);
               }
             });
 
-            // Force Permission Check
+            // Permission Loop
             const checkPermission = async () => {
               if (!user) return;
               const permissionStatus = OneSignal.Notifications.permission;
               if (!permissionStatus) {
-                 console.log('[OneSignal] Prompting for notification permission...');
+                 console.log('[OneSignal] No permission. Triggering requestPermission...');
                  await OneSignal.Notifications.requestPermission();
               }
             };
-
             checkPermission();
-            const permissionInterval = setInterval(checkPermission, 30000);
 
-            return () => {
-              clearInterval(permissionInterval);
-            };
-          } catch (linkErr) {
-            console.error('[OneSignal] Error linking user:', linkErr);
+            const permissionInterval = setInterval(checkPermission, 30000);
+            return () => clearInterval(permissionInterval);
+
+          } catch (linkErr: any) {
+            console.error('[OneSignal] Error during link/login process:', linkErr);
           }
         } else {
           console.log('[OneSignal] No user, logging out');
