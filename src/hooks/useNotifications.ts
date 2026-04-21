@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAuth } from './useAuth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import OneSignal from 'react-onesignal';
 
@@ -26,32 +26,32 @@ export function useNotifications() {
         });
         
         if (user) {
-          console.log('[OneSignal] User detected, waiting 2s for SDK stability before login...');
+          console.log('[OneSignal] User detected, waiting 3s for SDK stability...');
           
           setTimeout(async () => {
-            console.log('[OneSignal] Attempting to link UID:', user.uid);
+            console.log('[OneSignal] Checking for Subscription ID...');
             try {
-              await OneSignal.login(user.uid);
-              console.log('[OneSignal] Login call successful for:', user.uid);
+              // Get current subscription ID
+              const subId = OneSignal.User?.PushSubscription?.id;
               
-              // Explicitly check and request permission
-              // Use native Notification API or OneSignal boolean check
-              const isSubscribed = OneSignal.Notifications.permission;
-              console.log('[OneSignal] Is subscribed:', isSubscribed);
-              
-              if (!isSubscribed) {
-                console.log('[OneSignal] Requesting notification permission...');
+              if (subId) {
+                console.log('[OneSignal] Captured Subscription ID:', subId);
+                
+                // Save to Firestore under users collection
+                const userRef = doc(db, 'users', user.uid);
+                await updateDoc(userRef, {
+                  onesignalIds: arrayUnion(subId),
+                  lastNotificationLink: serverTimestamp()
+                });
+                console.log('[OneSignal] Subscription ID saved to Firestore.');
+              } else {
+                console.warn('[OneSignal] No Subscription ID found yet. Requesting permission...');
                 await OneSignal.Notifications.requestPermission();
               }
-              
-              if (OneSignal.User && OneSignal.User.PushSubscription) {
-                const subId = OneSignal.User.PushSubscription.id;
-                console.log('[OneSignal] External ID linked to Subscription ID:', subId);
-              }
-            } catch (loginErr) {
-              console.error('[OneSignal] Login/Permission error:', loginErr);
+            } catch (err) {
+              console.error('[OneSignal] Error saving sub ID:', err);
             }
-          }, 2000);
+          }, 3000);
         } else {
           console.log('[OneSignal] No user, logging out');
           await OneSignal.logout();

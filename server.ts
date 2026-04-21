@@ -357,116 +357,82 @@ async function startServer() {
     }
 
     try {
-      // Handle Global Broadcast
-      let targetUserIds: string[] = [];
+      const payload: any = {
+        app_id: "77b000e4-b044-4010-ac1e-9e73704baefa",
+        headings: { en: title },
+        contents: { en: message },
+        priority: priority === 'high' ? 10 : undefined,
+        ttl: priority === 'high' ? 0 : undefined,
+      };
+
       if (targetUserId === 'all') {
-        const usersSnap = await getDocs(collection(db, "users"));
-        targetUserIds = usersSnap.docs.map(doc => doc.id);
+        payload.included_segments = ["All"];
+        console.log(`[Push] Broadcasting to all users: ${title}`);
       } else {
-        targetUserIds = [targetUserId];
+        // Fetch recipient's OneSignal IDs from Firestore
+        const userRef = doc(db, "users", targetUserId);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          return res.status(404).json({ error: "Recipient user not found in Firestore" });
+        }
+
+        const userData = userDoc.data();
+        const subscriptionIds = userData?.onesignalIds || [];
+
+        if (!subscriptionIds || subscriptionIds.length === 0) {
+          console.warn(`[Push] No OneSignal Subscription IDs found for user: ${targetUserId}`);
+          // Return success true but with a note, to not break the frontend calling logic
+          return res.json({ success: false, message: "User has no linked subscription IDs" });
+        }
+
+        payload.include_subscription_ids = subscriptionIds;
+        console.log(`[Push] Targeting Subscription IDs for ${targetUserId}: ${JSON.stringify(subscriptionIds)}`);
       }
 
-      console.log(`Sending notification to ${targetUserIds.length} users: ${title}`);
-
-        const payload: any = {
-          app_id: "77b000e4-b044-4010-ac1e-9e73704baefa",
-          headings: { en: title },
-          contents: { en: message },
-          priority: priority === 'high' ? 10 : undefined,
-          ttl: priority === 'high' ? 0 : undefined,
-        };
-
-        if (targetUserId === 'all') {
-          payload.included_segments = ["All"];
-        } else {
-          payload.include_external_user_ids = targetUserIds;
-          console.log(`[Push] Targeting External IDs: ${JSON.stringify(targetUserIds)}`);
-        }
-
-        if (image) payload.big_picture = image;
-        if (link) payload.url = link;
-        if (actions) {
-          payload.buttons = actions.map((a: any) => ({
-            id: a.action,
-            text: a.title,
-            url: a.url
-          }));
-        }
-
-        // Standard OneSignal Auth for v2 keys: key [REST_API_KEY]
-        const restKey = 'os_v2_app_o6yabzfqirabbla6tzzxas5o7jofiheaeobuuo5qosiiirr4rpofyqqexdzljvqvlv6txcpgsmcisgskhzchtxqxhxhs4wjpy2whj4y';
-
-        console.log(`[Push] Payload size: ${JSON.stringify(payload).length} bytes`);
-
-        try {
-          const response = await fetch("https://api.onesignal.com/notifications", {
-            method: "POST",
-            headers: { 
-              'Authorization': 'key ' + restKey,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
-
-          console.log("[Push] OneSignal HTTP Status:", response.status, response.statusText);
-          const responseText = await response.text();
-          
-          let data;
-          try {
-            data = JSON.parse(responseText);
-            console.log("[Push] OneSignal Response:", JSON.stringify(data, null, 2));
-          } catch (e) {
-            console.error("[Push] OneSignal returned non-JSON response:", responseText.substring(0, 200));
-            return res.status(500).json({ error: "OneSignal returned invalid response", details: responseText });
-          }
-
-          if (!response.ok) {
-            return res.status(response.status).json({ error: "OneSignal Error", details: data });
-          }
-
-          return res.json({ success: true, data });
-        } catch (fetchErr: any) {
-          console.error("[Push] Fetch Exception:", fetchErr);
-          return res.status(500).json({ error: "Network Error", message: fetchErr.message });
-        }
-
-      // Fallback to webtoapp.design for each user
-      let totalSent = 0;
-      for (const uid of targetUserIds) {
-        const q = query(collection(db, "user_tokens"), where("userId", "==", uid));
-        const querySnapshot = await getDocs(q);
-        const tokens = querySnapshot.docs.map(doc => doc.data().token);
-
-        if (tokens.length === 0) continue;
-
-        await Promise.all(tokens.map(async (token) => {
-          const payload: any = {
-            token: token,
-            title: title,
-            message: message
-          };
-
-          if (image) payload.image_url = image;
-          if (link) payload.url_to_open = link;
-          if (actions) payload.actions = actions;
-
-          await fetch(WEBTOAPP_API_URL, {
-            method: "POST",
-            headers: { 
-              "accept": "application/json",
-              "content-type": "application/json" 
-            },
-            body: JSON.stringify(payload)
-          });
-          totalSent++;
+      if (image) payload.big_picture = image;
+      if (link) payload.url = link;
+      if (actions) {
+        payload.buttons = actions.map((a: any) => ({
+          id: a.action,
+          text: a.title,
+          url: a.url
         }));
       }
 
-      res.json({ success: true, sent: totalSent });
+      // Standard OneSignal Auth for v2 keys
+      const restKey = 'os_v2_app_o6yabzfqirabbla6tzzxas5o7ldepp4fojfurx4zstq3pgj7tdxjny7nqrihlrb5x2yftdmwy6dlddcedxwbtumeioxyxghvhsemgvy';
+
+      const response = await fetch("https://api.onesignal.com/notifications", {
+        method: "POST",
+        headers: { 
+          'Authorization': 'key ' + restKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error("[Push] OneSignal returned non-JSON:", responseText.substring(0, 100));
+        return res.status(500).json({ error: "OneSignal invalid response", details: responseText });
+      }
+
+      console.log("[Push] OneSignal HTTP Status:", response.status, JSON.stringify(data));
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: "OneSignal Error", details: data });
+      }
+
+      return res.json({ success: true, data });
+
     } catch (error: any) {
-      console.error("Error sending notification:", error);
-      res.status(500).json({ error: "Failed to send notification", message: error.message });
+      console.error("[Push] Internal Error:", error);
+      return res.status(500).json({ error: "Failed to send notification", message: error.message });
     }
   });
 

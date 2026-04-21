@@ -62,7 +62,13 @@ export default function ChatDetail() {
     if (audio) {
       console.log(`Playing sound: ${soundName}`);
       audio.currentTime = 0;
-      audio.play().catch(e => console.error(`Sound error (${soundName}):`, e));
+      audio.play().catch(e => {
+        if (e.name === 'NotAllowedError') {
+          console.warn(`Sound playback blocked (user interaction required): ${soundName}`);
+        } else {
+          console.error(`Sound error (${soundName}):`, e.message || e);
+        }
+      });
     } else {
       console.warn(`Sound not found or not loaded: ${soundName}`);
     }

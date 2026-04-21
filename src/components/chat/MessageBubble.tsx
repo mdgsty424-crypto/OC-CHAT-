@@ -641,7 +641,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <audio 
                     ref={audioRef}
                     src={message.audioUrl}
-                    crossOrigin="anonymous"
                     onPlay={() => setIsPlaying(true)}
                     onPause={() => setIsPlaying(false)}
                     onEnded={() => setIsPlaying(false)}
@@ -657,12 +656,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             return res.blob();
                           })
                           .then(blob => {
-                            const blobUrl = URL.createObjectURL(new Blob([blob], { type: blob.type || 'audio/mp4' }));
+                            let mimeType = blob.type;
+                            // Cloudinary raw files often have generic octet-stream type
+                            if (!mimeType || mimeType === 'application/octet-stream') {
+                              mimeType = 'audio/mpeg'; // Default to mp3/mpeg
+                            }
+                            const blobUrl = URL.createObjectURL(new Blob([blob], { type: mimeType }));
                             if (audioRef.current) {
                               audioRef.current.src = blobUrl;
                               audioRef.current.load();
                               audioRef.current.play().catch(e => {
-                                console.error('[Audio] Blob playback failed:', e);
+                                console.error('[Audio] Blob playback failed after type correction:', e);
                                 setAudioError(true);
                                 setIsPlaying(false);
                               });

@@ -10,11 +10,10 @@ export interface AppAssets {
 }
 
 const defaultAssets: AppAssets = {
-  // Using reliable public URLs as defaults since local files might be missing
-  ringtone: 'https://res.cloudinary.com/demo/video/upload/v1626343568/sample_audio.mp3',
-  sent: 'https://actions.google.com/sounds/v1/multimedia/message_sent.ogg',
-  received: 'https://actions.google.com/sounds/v1/multimedia/notification_high_intensity.ogg',
-  typing: 'https://actions.google.com/sounds/v1/foley/keyboard_typing_fast.ogg'
+  ringtone: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_b20253457a.mp3?filename=incoming-call-95743.mp3',
+  sent: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_3d44111394.mp3?filename=message-sent-7111.mp3',
+  received: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_9593bd6c57.mp3?filename=message-received-7110.mp3',
+  typing: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_730635e985.mp3?filename=keyboard-typing-59910.mp3'
 };
 
 export function useAppAssets() {
