@@ -26,16 +26,20 @@ export function useNotifications() {
         });
         
         if (user) {
-          console.log('[OneSignal] User detected, waiting 3s for SDK stability...');
+          console.log('[OneSignal] User detected, waiting 5s for SDK stability...');
           
           setTimeout(async () => {
-            console.log('[OneSignal] Checking for Subscription ID...');
+            console.log('[OneSignal] Checking Subscription...');
             try {
+              // Explicitly request permission first to ensure a subscription can be created
+              console.log('[OneSignal] Ensuring notification permission...');
+              await OneSignal.Notifications.requestPermission();
+              
               // Get current subscription ID
               const subId = OneSignal.User?.PushSubscription?.id;
               
               if (subId) {
-                console.log('[OneSignal] Captured Subscription ID:', subId);
+                console.log('[OneSignal] ID found:', subId);
                 
                 // Save to Firestore under users collection
                 const userRef = doc(db, 'users', user.uid);
@@ -43,15 +47,14 @@ export function useNotifications() {
                   onesignalIds: arrayUnion(subId),
                   lastNotificationLink: serverTimestamp()
                 });
-                console.log('[OneSignal] Subscription ID saved to Firestore.');
+                console.log('[OneSignal] Subscription ID synced to Firestore.');
               } else {
-                console.warn('[OneSignal] No Subscription ID found yet. Requesting permission...');
-                await OneSignal.Notifications.requestPermission();
+                console.warn('[OneSignal] ID not found yet. User might have denied permission or SDK is still registering.');
               }
             } catch (err) {
-              console.error('[OneSignal] Error saving sub ID:', err);
+              console.error('[OneSignal] Error during subscription capture:', err);
             }
-          }, 3000);
+          }, 5000);
         } else {
           console.log('[OneSignal] No user, logging out');
           await OneSignal.logout();
