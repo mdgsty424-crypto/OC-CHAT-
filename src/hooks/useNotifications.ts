@@ -23,33 +23,41 @@ export function useNotifications() {
         await OneSignal.init({
           appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa",
           allowLocalhostAsSecureOrigin: true,
-          promptOptions: {
-            slidedown: {
-              prompts: [
-                {
-                  type: "push",
-                  autoPrompt: true,
-                  text: {
-                    actionMessage: "We'd like to show you notifications for the latest news and updates.",
-                    acceptButton: "Allow",
-                    cancelButton: "Cancel",
-                  },
-                  delay: {
-                    pageViews: 1,
-                    timeDelay: 20,
-                  }
-                }
-              ]
-            }
-          }
         });
         
         if (user) {
-          await OneSignal.login(user.uid);
-          console.log('OneSignal: User logged in with UID:', user.uid);
+          console.log('[OneSignal] User detected, waiting 2s for SDK stability before login...');
+          
+          setTimeout(async () => {
+            console.log('[OneSignal] Attempting to link UID:', user.uid);
+            try {
+              await OneSignal.login(user.uid);
+              console.log('[OneSignal] Login call successful for:', user.uid);
+              
+              // Explicitly check and request permission
+              // Use native Notification API or OneSignal boolean check
+              const isSubscribed = OneSignal.Notifications.permission;
+              console.log('[OneSignal] Is subscribed:', isSubscribed);
+              
+              if (!isSubscribed) {
+                console.log('[OneSignal] Requesting notification permission...');
+                await OneSignal.Notifications.requestPermission();
+              }
+              
+              if (OneSignal.User && OneSignal.User.PushSubscription) {
+                const subId = OneSignal.User.PushSubscription.id;
+                console.log('[OneSignal] External ID linked to Subscription ID:', subId);
+              }
+            } catch (loginErr) {
+              console.error('[OneSignal] Login/Permission error:', loginErr);
+            }
+          }, 2000);
+        } else {
+          console.log('[OneSignal] No user, logging out');
+          await OneSignal.logout();
         }
       } catch (error) {
-        console.error('OneSignal initialization failed:', error);
+        console.error('[OneSignal] Initialization error:', error);
       }
     };
 
@@ -119,12 +127,23 @@ export function useNotifications() {
     actions?: Array<{ title: string; action: 'open_url' | 'dismiss'; url?: string }>;
   }) => {
     try {
+      console.log('Pushing notification via server:', params);
       const response = await fetch('/api/notifications/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
       });
-      return await response.json();
+      
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        console.log('Push Notification Result:', data);
+        return data;
+      } else {
+        const text = await response.text();
+        console.error('Expected JSON but received:', text.substring(0, 100));
+        return { success: false, error: 'Non-JSON response received', status: response.status };
+      }
     } catch (error) {
       console.error('Failed to send notification:', error);
       return { success: false, error };

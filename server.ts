@@ -368,8 +368,6 @@ async function startServer() {
 
       console.log(`Sending notification to ${targetUserIds.length} users: ${title}`);
 
-      // If OneSignal REST API Key is available, use OneSignal
-      if (process.env.ONESIGNAL_REST_API_KEY) {
         const payload: any = {
           app_id: "77b000e4-b044-4010-ac1e-9e73704baefa",
           headings: { en: title },
@@ -381,10 +379,8 @@ async function startServer() {
         if (targetUserId === 'all') {
           payload.included_segments = ["All"];
         } else {
-          payload.include_aliases = {
-            external_id: targetUserIds
-          };
-          payload.target_channel = "push";
+          payload.include_external_user_ids = targetUserIds;
+          console.log(`[Push] Targeting External IDs: ${JSON.stringify(targetUserIds)}`);
         }
 
         if (image) payload.big_picture = image;
@@ -397,23 +393,43 @@ async function startServer() {
           }));
         }
 
-        const response = await fetch("https://api.onesignal.com/notifications", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Basic ${process.env.ONESIGNAL_REST_API_KEY}`
-          },
-          body: JSON.stringify(payload)
-        });
+        // Standard OneSignal Auth for v2 keys: key [REST_API_KEY]
+        const restKey = 'os_v2_app_o6yabzfqirabbla6tzzxas5o7jofiheaeobuuo5qosiiirr4rpofyqqexdzljvqvlv6txcpgsmcisgskhzchtxqxhxhs4wjpy2whj4y';
 
-        const data = await response.json();
-        if (!response.ok) {
-          console.error(`OneSignal API Error: ${JSON.stringify(data)}`);
-          return res.status(response.status).json({ error: "Failed to send notification via OneSignal", details: data });
+        console.log(`[Push] Payload size: ${JSON.stringify(payload).length} bytes`);
+
+        try {
+          const response = await fetch("https://api.onesignal.com/notifications", {
+            method: "POST",
+            headers: { 
+              'Authorization': 'key ' + restKey,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+
+          console.log("[Push] OneSignal HTTP Status:", response.status, response.statusText);
+          const responseText = await response.text();
+          
+          let data;
+          try {
+            data = JSON.parse(responseText);
+            console.log("[Push] OneSignal Response:", JSON.stringify(data, null, 2));
+          } catch (e) {
+            console.error("[Push] OneSignal returned non-JSON response:", responseText.substring(0, 200));
+            return res.status(500).json({ error: "OneSignal returned invalid response", details: responseText });
+          }
+
+          if (!response.ok) {
+            return res.status(response.status).json({ error: "OneSignal Error", details: data });
+          }
+
+          return res.json({ success: true, data });
+        } catch (fetchErr: any) {
+          console.error("[Push] Fetch Exception:", fetchErr);
+          return res.status(500).json({ error: "Network Error", message: fetchErr.message });
         }
-
-        return res.json({ success: true, data });
-      }
 
       // Fallback to webtoapp.design for each user
       let totalSent = 0;
@@ -468,7 +484,7 @@ async function startServer() {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
-        timeout: 5000
+        timeout: 10000
       });
       
       const html = response.data;
