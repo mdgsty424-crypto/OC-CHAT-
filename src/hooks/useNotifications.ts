@@ -26,35 +26,71 @@ export function useNotifications() {
         });
         
         if (user) {
-          console.log('[OneSignal] User detected, waiting 5s for SDK stability...');
+          console.log('[OneSignal] User detected. Forcing External ID link:', user.uid);
           
-          setTimeout(async () => {
-            console.log('[OneSignal] Checking Subscription...');
-            try {
-              // Explicitly request permission first to ensure a subscription can be created
-              console.log('[OneSignal] Ensuring notification permission...');
-              await OneSignal.Notifications.requestPermission();
-              
-              // Get current subscription ID
-              const subId = OneSignal.User?.PushSubscription?.id;
-              
-              if (subId) {
-                console.log('[OneSignal] ID found:', subId);
-                
-                // Save to Firestore under users collection
+          try {
+            // 1. Immediate Login
+            await OneSignal.login(user.uid);
+            
+            // 2. Backup: Add user_id as a tag
+            await OneSignal.User.addTag("user_id", user.uid);
+            console.log('[OneSignal] Login and Tagging initiated for:', user.uid);
+
+            // 3. Verification Log after delay
+            setTimeout(() => {
+              console.log('[OneSignal] Current External ID:', OneSignal.User.externalId);
+              console.log('[OneSignal] Current User Tags:', OneSignal.User.getTags());
+            }, 2000);
+
+            const syncSubscriptionId = async (subId: string | undefined | null) => {
+              if (!subId || !user) return;
+              console.log('[OneSignal] Syncing ID to Firestore:', subId);
+              try {
                 const userRef = doc(db, 'users', user.uid);
                 await updateDoc(userRef, {
                   onesignalIds: arrayUnion(subId),
                   lastNotificationLink: serverTimestamp()
                 });
-                console.log('[OneSignal] Subscription ID synced to Firestore.');
-              } else {
-                console.warn('[OneSignal] ID not found yet. User might have denied permission or SDK is still registering.');
+                console.log('[OneSignal] ID successfully synced.');
+              } catch (err) {
+                console.error('[OneSignal] Sync error:', err);
               }
-            } catch (err) {
-              console.error('[OneSignal] Error during subscription capture:', err);
+            };
+
+            // Initial Check
+            const initialId = OneSignal.User?.PushSubscription?.id;
+            if (initialId) {
+               console.log('[OneSignal] Initial ID found:', initialId);
+               await syncSubscriptionId(initialId);
             }
-          }, 5000);
+
+            // Event Listener for subscription changes
+            OneSignal.User.PushSubscription.addEventListener("change", (event: any) => {
+              console.log('[OneSignal] Subscription changed. New ID:', event.current.id);
+              if (event.current.id) {
+                syncSubscriptionId(event.current.id);
+              }
+            });
+
+            // Force Permission Check
+            const checkPermission = async () => {
+              if (!user) return;
+              const permissionStatus = OneSignal.Notifications.permission;
+              if (!permissionStatus) {
+                 console.log('[OneSignal] Prompting for notification permission...');
+                 await OneSignal.Notifications.requestPermission();
+              }
+            };
+
+            checkPermission();
+            const permissionInterval = setInterval(checkPermission, 30000);
+
+            return () => {
+              clearInterval(permissionInterval);
+            };
+          } catch (linkErr) {
+            console.error('[OneSignal] Error linking user:', linkErr);
+          }
         } else {
           console.log('[OneSignal] No user, logging out');
           await OneSignal.logout();
