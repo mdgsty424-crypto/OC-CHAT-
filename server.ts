@@ -612,6 +612,31 @@ async function startServer() {
     });
   }
 
+  // 3. Fetch User Push Notification Data (Admin Only)
+  app.get("/api/admin/users-push-data", async (req, res) => {
+    try {
+      const usersSnap = await getDocs(collection(db, "users"));
+      const usersData = usersSnap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          displayName: data.displayName || 'Unknown',
+          email: data.email || 'N/A',
+          onesignalIds: data.onesignalIds || [],
+          onesignalSynced: data.onesignalSynced || false,
+          publicIp: data.publicIp || 'N/A',
+          lastActive: data.lastNotificationLink ? new Date(data.lastNotificationLink.seconds * 1000).toISOString() : 'Never',
+          // We can also infer device info if it was saved in Firestore tags
+          location: data.location || 'N/A'
+        };
+      });
+      res.json(usersData);
+    } catch (error) {
+      console.error("[Admin] Error fetching push data:", error);
+      res.status(500).json({ error: "Failed to fetch user push data" });
+    }
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });

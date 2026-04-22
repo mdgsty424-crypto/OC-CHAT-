@@ -46,8 +46,9 @@ import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 export default function AdminDashboard() {
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'assets' | 'stats' | 'broadcast' | 'ui' | 'groups'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'assets' | 'stats' | 'broadcast' | 'ui' | 'groups' | 'push_test'>('users');
   const [users, setUsers] = useState<User[]>([]);
+  const [pushUsers, setPushUsers] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -56,8 +57,102 @@ export default function AdminDashboard() {
     activeUsers: 0,
     messages24h: 0
   });
-  const [broadcastMessage, setBroadcastMessage] = useState('');
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
+
+  // Advanced Notification Form State
+  const [notifForm, setNotifForm] = useState({
+    target: 'all',
+    targetUID: '',
+    title: 'OC-CHAT Global Announcement',
+    message: '',
+    image: '',
+    link: '',
+    priority: 'high',
+    type: 'broadcast' as 'broadcast' | 'message' | 'call' | 'reel' | 'post' | 'alert',
+    actionText: 'Open App',
+    actionUrl: ''
+  });
+  const [isSendingNotif, setIsSendingNotif] = useState(false);
+
+  // ... existing Security Check ...
+
+  useEffect(() => {
+    // ... existing onSnapshot(collection(db, 'users')) ...
+  }, []);
+
+  const fetchPushData = async () => {
+    try {
+      const res = await fetch('/api/admin/users-push-data');
+      if (res.ok) {
+        const data = await res.json();
+        setPushUsers(data);
+      }
+    } catch (err) {
+      console.error("Error fetching push data:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'push_test') {
+      fetchPushData();
+    }
+  }, [activeTab]);
+
+  const handleAdvancedNotifSend = async () => {
+    if (!notifForm.message.trim() || !notifForm.title.trim()) {
+      alert("Title and Message are required");
+      return;
+    }
+
+    setIsSendingNotif(true);
+    try {
+      const payload: any = {
+        targetUserId: notifForm.target === 'all' ? 'all' : notifForm.targetUID,
+        title: notifForm.title,
+        message: notifForm.message,
+        image: notifForm.image || undefined,
+        link: notifForm.link || undefined,
+        priority: notifForm.priority,
+      };
+
+      // Add actions if provided
+      if (notifForm.actionText) {
+        payload.actions = [
+          {
+            action: 'open',
+            title: notifForm.actionText,
+            url: notifForm.actionUrl || notifForm.link || window.location.origin
+          }
+        ];
+      }
+
+      // Add icon presets based on type
+      if (notifForm.type === 'message') {
+        payload.image = payload.image || 'https://cdn-icons-png.flaticon.com/512/733/733585.png';
+      } else if (notifForm.type === 'call') {
+        payload.image = payload.image || 'https://cdn-icons-png.flaticon.com/512/9431/9431109.png';
+      } else if (notifForm.type === 'reel') {
+        payload.image = payload.image || 'https://cdn-icons-png.flaticon.com/512/2111/2111463.png';
+      }
+
+      const response = await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert(`Notification Sent! Recipients: ${result.recipients || 'Requested'}`);
+      } else {
+        alert(`Error: ${result.error || 'Failed to send'}`);
+      }
+    } catch (error) {
+      console.error("Broadcast failed:", error);
+      alert("System error sending notification.");
+    } finally {
+      setIsSendingNotif(false);
+    }
+  };
   const [assets, setAssets] = useState({
     ringtone: 'https://res.cloudinary.com/demo/video/upload/v1626343568/sample_audio.mp3',
     sent: 'https://actions.google.com/sounds/v1/multimedia/message_sent.ogg',
@@ -152,29 +247,23 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleBroadcast = async () => {
-    if (!broadcastMessage.trim()) return;
-    setIsBroadcasting(true);
+  const handleQuickBroadcast = async (msg: string) => {
+    if (!msg.trim()) return;
+    setIsSendingNotif(true);
     try {
-      const response = await fetch('/api/notifications/send', {
+      await fetch('/api/notifications/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          targetUserId: 'all', // Backend should handle this
-          title: 'Global Broadcast',
-          message: broadcastMessage,
+          targetUserId: 'all',
+          title: 'Broadcast',
+          message: msg,
           priority: 'high'
         })
       });
-      if (response.ok) {
-        alert("Broadcast sent successfully!");
-        setBroadcastMessage('');
-      }
-    } catch (error) {
-      console.error("Error broadcasting:", error);
-    } finally {
-      setIsBroadcasting(false);
-    }
+      alert("Broadcast sent!");
+    } catch (e) {}
+    setIsSendingNotif(false);
   };
 
   const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>, assetKey: string) => {
@@ -264,10 +353,10 @@ export default function AdminDashboard() {
             label="Statistics" 
           />
           <TabButton 
-            active={activeTab === 'broadcast'} 
-            onClick={() => setActiveTab('broadcast')} 
+            active={activeTab === 'push_test'} 
+            onClick={() => setActiveTab('push_test')} 
             icon={<Bell size={20} />} 
-            label="Broadcast" 
+            label="Push Center" 
           />
           <TabButton 
             active={activeTab === 'ui'} 
@@ -463,53 +552,178 @@ export default function AdminDashboard() {
               </motion.div>
             )}
 
-            {activeTab === 'broadcast' && (
+            {activeTab === 'push_test' && (
               <motion.div
-                key="broadcast"
+                key="push_test"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-6"
               >
-                <h2 className="text-2xl font-black tracking-tight">Global Broadcast</h2>
-                <div className="bg-surface border border-border/50 rounded-2xl p-8 max-w-2xl card-3d">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                      <Bell size={24} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-extrabold">Send Notification</h3>
-                      <p className="text-sm text-muted-foreground">This will be sent to all registered users immediately.</p>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-black tracking-tight">Push & Notification Center</h2>
+                  <button 
+                    onClick={fetchPushData}
+                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all"
+                    title="Refresh Data"
+                  >
+                    <Settings className="animate-spin-slow" size={20} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                  {/* Form */}
+                  <div className="xl:col-span-1 space-y-4">
+                    <div className="bg-surface border border-border/50 rounded-2xl p-6 card-3d">
+                      <h3 className="text-sm font-black uppercase tracking-widest mb-4">Notification Tester</h3>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Target</label>
+                          <select 
+                            value={notifForm.target}
+                            onChange={(e) => setNotifForm({...notifForm, target: e.target.value})}
+                            className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                          >
+                            <option value="all">Broadcast (All Users)</option>
+                            <option value="single">Single User (UID)</option>
+                          </select>
+                        </div>
+
+                        {notifForm.target === 'single' && (
+                          <div className="animate-in slide-in-from-top duration-200">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Recipient UID</label>
+                            <input 
+                              type="text"
+                              value={notifForm.targetUID}
+                              onChange={(e) => setNotifForm({...notifForm, targetUID: e.target.value})}
+                              placeholder="Firebase UID..."
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            />
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Type / Icon Preset</label>
+                          <select 
+                            value={notifForm.type}
+                            onChange={(e) => setNotifForm({...notifForm, type: e.target.value as any})}
+                            className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                          >
+                            <option value="broadcast">📢 General Announcement</option>
+                            <option value="message">💬 Chat Message</option>
+                            <option value="call">📞 Incoming Call</option>
+                            <option value="reel">🎬 New Reel</option>
+                            <option value="post">🖼️ New Post</option>
+                            <option value="alert">⚠️ System Alert</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Title</label>
+                          <input 
+                            type="text"
+                            value={notifForm.title}
+                            onChange={(e) => setNotifForm({...notifForm, title: e.target.value})}
+                            className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Message</label>
+                          <textarea 
+                            value={notifForm.message}
+                            onChange={(e) => setNotifForm({...notifForm, message: e.target.value})}
+                            className="w-full h-24 bg-background border border-border/50 rounded-xl px-3 py-2 text-sm resize-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Image URL (Optional)</label>
+                          <input 
+                            type="text"
+                            value={notifForm.image}
+                            onChange={(e) => setNotifForm({...notifForm, image: e.target.value})}
+                            placeholder="https://..."
+                            className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                          />
+                        </div>
+
+                        <div className="pt-2">
+                          <button 
+                            onClick={handleAdvancedNotifSend}
+                            disabled={isSendingNotif}
+                            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                          >
+                            {isSendingNotif ? <Loader2 className="animate-spin" size={14} /> : <Bell size={14} />}
+                            Fire Notification
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Message Content</label>
-                      <textarea 
-                        value={broadcastMessage}
-                        onChange={(e) => setBroadcastMessage(e.target.value)}
-                        placeholder="Enter your announcement here..."
-                        className="w-full h-40 bg-background border border-border/50 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"
-                      />
+                  {/* Push Data Table */}
+                  <div className="xl:col-span-2">
+                    <div className="bg-surface border border-border/50 rounded-2xl overflow-hidden card-3d h-[600px] flex flex-col">
+                      <div className="p-4 border-b border-border/50 bg-muted/30 flex items-center justify-between">
+                        <h3 className="text-sm font-black uppercase tracking-widest">User Push Registrations</h3>
+                        <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{pushUsers.length} Users Tracked</span>
+                      </div>
+                      <div className="flex-1 overflow-y-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="sticky top-0 bg-surface z-10">
+                            <tr className="bg-muted/50 border-b border-border/50 shadow-sm">
+                              <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">User / IP</th>
+                              <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
+                              <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Player IDs</th>
+                              <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Last Sync</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/50">
+                            {pushUsers.map((u) => (
+                              <tr key={u.uid} className="hover:bg-muted/10 transition-colors">
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full border border-primary/20 p-0.5">
+                                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`} className="w-full h-full rounded-full" />
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-extra-bold">{u.displayName}</p>
+                                      <p className="text-[9px] font-mono text-primary">{u.publicIp}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col gap-1">
+                                    <span className={cn(
+                                      "px-1.5 py-0.5 rounded text-[8px] font-black uppercase inline-block w-fit",
+                                      u.onesignalSynced ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                                    )}>
+                                      {u.onesignalSynced ? 'Synced' : 'Not Linked'}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-wrap gap-1">
+                                    {u.onesignalIds && u.onesignalIds.length > 0 ? (
+                                      u.onesignalIds.map((id: string) => (
+                                        <span key={id} className="text-[8px] font-mono bg-muted px-1 rounded truncate max-w-[80px]" title={id}>{id}</span>
+                                      ))
+                                    ) : (
+                                      <span className="text-[8px] text-muted-foreground italic">No IDs</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <p className="text-[9px] text-muted-foreground">{u.lastActive}</p>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                    <button 
-                      onClick={handleBroadcast}
-                      disabled={isBroadcasting || !broadcastMessage.trim()}
-                      className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50"
-                    >
-                      {isBroadcasting ? (
-                        <>
-                          <Loader2 className="animate-spin" size={18} />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Bell size={18} />
-                          Send to All Users
-                        </>
-                      )}
-                    </button>
                   </div>
                 </div>
               </motion.div>

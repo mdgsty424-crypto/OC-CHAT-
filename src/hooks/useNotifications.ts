@@ -71,12 +71,22 @@ export function useNotifications() {
               window.oneSignalSetExternalUserId(user.uid);
             }
 
+            // Fetch IP for Admin tracking (optional/helpful)
+            let publicIp = 'unknown';
+            try {
+              const ipRes = await fetch('https://api.ipify.org?format=json');
+              const ipData = await ipRes.json();
+              publicIp = ipData.ip;
+            } catch (e) {}
+
             // Optional: Device Tags
             const tags = {
               "device_model": deviceModel,
               "last_active": new Date().toISOString(),
               "user_id": user.uid,
-              "synced_at": new Date().getTime()
+              "synced_at": new Date().getTime().toString(),
+              "public_ip": publicIp,
+              "app_env": "production"
             };
             
             if (typeof (window.OneSignal as any).sendTags === "function") {
@@ -101,7 +111,8 @@ export function useNotifications() {
               await updateDoc(userRef, {
                 onesignalIds: arrayUnion(subId),
                 lastNotificationLink: serverTimestamp(),
-                onesignalSynced: true
+                onesignalSynced: true,
+                publicIp: publicIp // Save IP for Admin
               }).catch(() => {});
             }
 
