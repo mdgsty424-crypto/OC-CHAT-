@@ -369,25 +369,10 @@ async function startServer() {
         payload.included_segments = ["All"];
         console.log(`[Push] Broadcasting to all users: ${title}`);
       } else {
-        // Fetch recipient's OneSignal IDs from Firestore
-        const userRef = doc(db, "users", targetUserId);
-        const userDoc = await getDoc(userRef);
-        
-        if (!userDoc.exists()) {
-          return res.status(404).json({ error: "Recipient user not found in Firestore" });
-        }
-
-        const userData = userDoc.data();
-        const subscriptionIds = userData?.onesignalIds || [];
-
-        if (!subscriptionIds || subscriptionIds.length === 0) {
-          console.warn(`[Push] No OneSignal Subscription IDs found for user: ${targetUserId}`);
-          // Return success true but with a note, to not break the frontend calling logic
-          return res.json({ success: false, message: "User has no linked subscription IDs" });
-        }
-
-        payload.include_subscription_ids = subscriptionIds;
-        console.log(`[Push] Targeting Subscription IDs for ${targetUserId}: ${JSON.stringify(subscriptionIds)}`);
+        // Priority: Target via External User ID (Firebase UID)
+        // OneSignal will automatically match this to the correct Subscription ID
+        payload.include_external_user_ids = [targetUserId];
+        console.log(`[Push] Targeting External User ID (Firebase UID): ${targetUserId}`);
       }
 
       if (image) payload.big_picture = image;

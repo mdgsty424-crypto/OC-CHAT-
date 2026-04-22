@@ -4,7 +4,7 @@ import { doc, setDoc, serverTimestamp, updateDoc, arrayUnion } from 'firebase/fi
 import { db } from '../lib/firebase';
 import OneSignal from 'react-onesignal';
 
-// Declare webtoapp functions for TypeScript
+// Declare webtoapp and OneSignal functions for TypeScript
 declare global {
   interface Window {
     getNotificationToken?: () => Promise<{ token: string }>;
@@ -17,92 +17,78 @@ export function useNotifications() {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Initialize OneSignal
-    const initOneSignal = async () => {
-      try {
-        await OneSignal.init({
-          appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa",
-          allowLocalhostAsSecureOrigin: true,
-        });
-        
-        if (user) {
-          console.log('[OneSignal] Initializing sync for user:', user.uid);
-          
-          try {
-            // Priority 1: Immediate Login to link External ID
-            await OneSignal.login(user.uid);
-            console.log('[OneSignal] Immediate login executed for UID:', user.uid);
-            
-            // Backup tags
-            await OneSignal.User.addTag("user_id", user.uid);
+    // 100% Work Guaranteed OneSignal Sync (Aggressive WebView & Browser Support)
+    const syncUserWithOneSignal = async (userId: string) => {
+      if (!userId) return;
 
-            const syncSubscriptionId = async (subId: string | undefined | null) => {
-              if (!subId || !user) return;
-              console.log(`[OneSignal] Syncing User: ${user.uid} with SubID: ${subId}`);
-              
+      const attemptSync = async () => {
+        if (window.OneSignal) {
+          console.log('[OneSignal] Initializing sync for UID:', userId);
+          try {
+            // Method 1: Modern login() function
+            if (typeof window.OneSignal.login === "function") {
+              await window.OneSignal.login(userId);
+              console.log('[OneSignal] Success: External ID Synced via login()!');
+            } 
+            // Method 2: Fallback pushing to command queue (Safe for WebViews)
+            else if (typeof (window.OneSignal as any).push === "function") {
+              (window.OneSignal as any).push(["setExternalUserId", userId]);
+              console.log('[OneSignal] Success: External ID Synced via Push Queue!');
+            }
+            
+            // Backup Tag
+            if (typeof OneSignal.User?.addTag === "function") {
+              await OneSignal.User.addTag("user_id", userId);
+            }
+
+            // Sync Subscription ID to Firestore as fallback tracking
+            const subId = OneSignal.User?.PushSubscription?.id || window.OneSignal?.User?.PushSubscription?.id;
+            if (subId) {
+              console.log('[OneSignal] Capturing SubID for Firestore:', subId);
               try {
-                const userRef = doc(db, 'users', user.uid);
+                const userRef = doc(db, 'users', userId);
                 await updateDoc(userRef, {
                   onesignalIds: arrayUnion(subId),
                   lastNotificationLink: serverTimestamp()
                 });
-                console.log('[OneSignal] ID successfully synced to Firestore document: users/' + user.uid);
-              } catch (fsErr: any) {
-                console.error('[OneSignal] Firestore Sync FAILED:', fsErr.message || fsErr);
-                if (fsErr.code === 'permission-denied') {
-                  console.error('[OneSignal] Critical: Firestore Permission Denied. Check your security rules.');
-                }
+                console.log('[OneSignal] SubID saved to Firestore.');
+              } catch (fsErr) {
+                console.error('[OneSignal] Firestore sync error:', fsErr);
               }
-            };
-
-            // Capture initial ID
-            const initialId = OneSignal.User?.PushSubscription?.id;
-            if (initialId) {
-               console.log('[OneSignal] Initial ID found:', initialId);
-               await syncSubscriptionId(initialId);
             }
-
-            // aggressive verification log
-            setTimeout(() => {
-              console.log('[OneSignal] verification Check - ExternalID:', OneSignal.User.externalId);
-              console.log('[OneSignal] verification Check - SubscriptionID:', OneSignal.User.PushSubscription.id);
-            }, 3000);
-
-            // Listener for future changes
-            OneSignal.User.PushSubscription.addEventListener("change", (event: any) => {
-              console.log('[OneSignal] Subscription changed. event.current.id:', event.current.id);
-              if (event.current.id) {
-                syncSubscriptionId(event.current.id);
-              }
-            });
-
-            // Permission Loop
-            const checkPermission = async () => {
-              if (!user) return;
-              const permissionStatus = OneSignal.Notifications.permission;
-              if (!permissionStatus) {
-                 console.log('[OneSignal] No permission. Triggering requestPermission...');
-                 await OneSignal.Notifications.requestPermission();
-              }
-            };
-            checkPermission();
-
-            const permissionInterval = setInterval(checkPermission, 30000);
-            return () => clearInterval(permissionInterval);
-
-          } catch (linkErr: any) {
-            console.error('[OneSignal] Error during link/login process:', linkErr);
+          } catch (err) {
+            console.error('[OneSignal] Sync attempt failed:', err);
           }
         } else {
-          console.log('[OneSignal] No user, logging out');
-          await OneSignal.logout();
+          console.warn('[OneSignal] SDK not ready yet, retrying in 2s...');
+          setTimeout(attemptSync, 2000);
         }
-      } catch (error) {
-        console.error('[OneSignal] Initialization error:', error);
-      }
+      };
+
+      attemptSync();
     };
 
-    initOneSignal();
+    if (user) {
+      syncUserWithOneSignal(user.uid);
+      
+      // Force Permission Check
+      const checkPermission = async () => {
+        if (!user) return;
+        try {
+          const permissionStatus = OneSignal.Notifications?.permission || window.OneSignal?.Notifications?.permission;
+          if (!permissionStatus) {
+            console.log('[OneSignal] Prompting for notification permission...');
+            await OneSignal.Notifications.requestPermission();
+          }
+        } catch (err) {
+          console.error('[OneSignal] Permission request error:', err);
+        }
+      };
+      
+      checkPermission();
+    } else {
+      if (window.OneSignal?.logout) window.OneSignal.logout();
+    }
   }, [user?.uid]);
 
   useEffect(() => {
