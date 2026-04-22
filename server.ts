@@ -385,14 +385,14 @@ async function startServer() {
         }));
       }
 
-      // Corrected OneSignal Auth and URL
-      const authHeader = "Basic os_v2_app_o6yabzfqirabbla6tzzxas5o7l47eywtifketvmjby3thbl3m4gjqbyc4wui3qhtoqrf7q2hfhw55z4j6z4ywlastmbreteot2luj2a";
+      // Corrected OneSignal Auth and URL with the latest provided key
+      const authHeader = "Basic os_v2_app_o6yabzfqirabbla6tzzxas5o7jo35egxg2iecxuaiy7q7ix423vhbzwty7nkpgnuj464t7wfb5h6kbkodt7aget7mvpjfqdeaqc3yaa";
 
       const response = await fetch("https://api.onesignal.com/notifications", {
         method: "POST",
         headers: { 
           'Authorization': authHeader,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
           'Accept': 'application/json'
         },
         body: JSON.stringify(payload)
