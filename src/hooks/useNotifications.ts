@@ -24,27 +24,39 @@ export function useNotifications() {
       const attemptSync = async () => {
         if (window.OneSignal) {
           console.log('[OneSignal] Initializing sync for UID:', userId);
+          const deviceModel = navigator.userAgent;
+
           try {
-            // Method 1: Modern login() function
-            if (typeof window.OneSignal.login === "function") {
-              await window.OneSignal.login(userId);
-              console.log('[OneSignal] Success: External ID Synced via login()!');
-            } 
-            // Method 2: Fallback pushing to command queue (Safe for WebViews)
-            else if (typeof (window.OneSignal as any).push === "function") {
-              (window.OneSignal as any).push(["setExternalUserId", userId]);
-              console.log('[OneSignal] Success: External ID Synced via Push Queue!');
-            }
-            
-            // Backup Tag
-            if (typeof OneSignal.User?.addTag === "function") {
-              await OneSignal.User.addTag("user_id", userId);
-            }
+            // Using the user's specific sync logic for profiles and tags
+            (window.OneSignal as any).push(() => {
+              // 1. Main Profile ID set (Firebase UID)
+              if (typeof window.OneSignal.login === "function") {
+                window.OneSignal.login(userId);
+              } else if (typeof (window.OneSignal as any).setExternalUserId === "function") {
+                (window.OneSignal as any).setExternalUserId(userId);
+              } else {
+                (window.OneSignal as any).push(["setExternalUserId", userId]);
+              }
+
+              // 2. Phone model and login time as Tags
+              const tags = {
+                "device_model": deviceModel,
+                "last_login": new Date().toISOString(),
+                "user_id": userId
+              };
+
+              if (typeof (window.OneSignal as any).sendTags === "function") {
+                (window.OneSignal as any).sendTags(tags);
+              } else if (OneSignal.User?.addTags) {
+                OneSignal.User.addTags(tags);
+              }
+              
+              console.log("[OneSignal] Profile created and device info synced!");
+            });
 
             // Sync Subscription ID to Firestore as fallback tracking
             const subId = OneSignal.User?.PushSubscription?.id || window.OneSignal?.User?.PushSubscription?.id;
             if (subId) {
-              console.log('[OneSignal] Capturing SubID for Firestore:', subId);
               try {
                 const userRef = doc(db, 'users', userId);
                 await updateDoc(userRef, {
