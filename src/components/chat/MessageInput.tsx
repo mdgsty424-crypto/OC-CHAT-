@@ -44,10 +44,17 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     ];
 
     soundsToLoad.forEach(({ key, url }) => {
-      const audio = new Audio(url);
-      audio.load();
-      audioRefs.current[key] = audio;
-      console.log(`Pre-loaded input sound: ${key} from ${url}`);
+      try {
+        const audio = new Audio(url);
+        audio.preload = 'auto';
+        audio.addEventListener('error', (e) => {
+          console.warn(`[Audio] Failed to pre-load ${key} sound from ${url}. Check if the URL is accessible.`);
+        }, { once: true });
+        audioRefs.current[key] = audio;
+        console.log(`Pre-loading input sound: ${key}`);
+      } catch (err) {
+        console.warn(`[Audio] Setup failed for ${key} sound:`, err);
+      }
     });
   }, [assets]);
 

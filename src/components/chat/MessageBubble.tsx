@@ -647,30 +647,41 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     onError={() => {
                       // Suppress error logging for old raw audio files to avoid console spam
                       const audio = audioRef.current;
-                      if (message.audioUrl && message.audioUrl.includes('/raw/upload/') && audio && !audio.dataset.fallbackAttempted) {
+                      if (message.audioUrl && audio && !audio.dataset.fallbackAttempted) {
                         audio.dataset.fallbackAttempted = 'true';
-                        console.log('[Audio] Fallback triggered for raw Cloudinary URL:', message.audioUrl);
+                        console.log('[Audio] Fallback triggered for URL:', message.audioUrl);
                         fetch(message.audioUrl)
                           .then(res => {
                             if (!res.ok) throw new Error(`HTTP ${res.status}`);
                             return res.blob();
                           })
                           .then(blob => {
-                            let mimeType = blob.type;
-                            // Cloudinary raw files often have generic octet-stream type
-                            if (!mimeType || mimeType === 'application/octet-stream') {
-                              mimeType = 'audio/mpeg'; // Default to mp3/mpeg
-                            }
-                            const blobUrl = URL.createObjectURL(new Blob([blob], { type: mimeType }));
-                            if (audioRef.current) {
-                              audioRef.current.src = blobUrl;
-                              audioRef.current.load();
-                              audioRef.current.play().catch(e => {
-                                console.error('[Audio] Blob playback failed after type correction:', e);
-                                setAudioError(true);
-                                setIsPlaying(false);
-                              });
-                            }
+                            // Try common audio MIME types if detection fails
+                            const typesToTry = ['audio/mpeg', 'audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
+                            let currentTypeIdx = 0;
+
+                            const tryPlay = (type: string) => {
+                              const blobUrl = URL.createObjectURL(new Blob([blob], { type }));
+                              if (audioRef.current) {
+                                audioRef.current.src = blobUrl;
+                                audioRef.current.load();
+                                audioRef.current.play().then(() => {
+                                  console.log('[Audio] Successfully played with type:', type);
+                                }).catch(e => {
+                                  console.warn(`[Audio] Failed with type ${type}:`, e.message);
+                                  currentTypeIdx++;
+                                  if (currentTypeIdx < typesToTry.length) {
+                                    tryPlay(typesToTry[currentTypeIdx]);
+                                  } else {
+                                    console.error('[Audio] All playback fallback types failed.');
+                                    setAudioError(true);
+                                    setIsPlaying(false);
+                                  }
+                                });
+                              }
+                            };
+
+                            tryPlay(blob.type && blob.type !== 'application/octet-stream' ? blob.type : typesToTry[0]);
                           })
                           .catch(e => {
                             console.error('[Audio] Fetch fallback failed:', e.message);
@@ -679,7 +690,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                           });
                         return;
                       }
-                      console.error('[Audio] Playback error for source:', message.audioUrl);
                       setAudioError(true);
                       setIsPlaying(false);
                     }}

@@ -10,6 +10,7 @@ declare global {
     getNotificationToken?: () => Promise<{ token: string }>;
     executeWhenAppReady?: (callback: () => void) => void;
     receivePushNotificationToken?: (token: string) => void;
+    oneSignalSetExternalUserId?: (userId: string) => void;
   }
 }
 
@@ -17,89 +18,111 @@ export function useNotifications() {
   const { user } = useAuth();
 
   useEffect(() => {
-    // 100% Work Guaranteed OneSignal Sync (Aggressive WebView & Browser Support)
-    const syncUserWithOneSignal = async (userId: string) => {
-      if (!userId) return;
+    // 1. Initialize OneSignal exactly once using the command queue
+    const initOneSignal = async () => {
+      if (typeof window === 'undefined') return;
 
-      const attemptSync = async () => {
-        if (window.OneSignal) {
-          console.log('[OneSignal] Initializing sync for UID:', userId);
-          const deviceModel = navigator.userAgent;
+      // Safe global initialization
+      const OneSignalStack = (window as any).OneSignal || [];
+      (window as any).OneSignal = OneSignalStack;
 
-          try {
-            // Using the user's specific sync logic for profiles and tags
-            (window.OneSignal as any).push(() => {
-              // 1. Main Profile ID set (Firebase UID)
-              if (typeof window.OneSignal.login === "function") {
-                window.OneSignal.login(userId);
-              } else if (typeof (window.OneSignal as any).setExternalUserId === "function") {
-                (window.OneSignal as any).setExternalUserId(userId);
-              } else {
-                (window.OneSignal as any).push(["setExternalUserId", userId]);
-              }
-
-              // 2. Phone model and login time as Tags
-              const tags = {
-                "device_model": deviceModel,
-                "last_login": new Date().toISOString(),
-                "user_id": userId
-              };
-
-              if (typeof (window.OneSignal as any).sendTags === "function") {
-                (window.OneSignal as any).sendTags(tags);
-              } else if (OneSignal.User?.addTags) {
-                OneSignal.User.addTags(tags);
-              }
-              
-              console.log("[OneSignal] Profile created and device info synced!");
-            });
-
-            // Sync Subscription ID to Firestore as fallback tracking
-            const subId = OneSignal.User?.PushSubscription?.id || window.OneSignal?.User?.PushSubscription?.id;
-            if (subId) {
-              try {
-                const userRef = doc(db, 'users', userId);
-                await updateDoc(userRef, {
-                  onesignalIds: arrayUnion(subId),
-                  lastNotificationLink: serverTimestamp()
-                });
-                console.log('[OneSignal] SubID saved to Firestore.');
-              } catch (fsErr) {
-                console.error('[OneSignal] Firestore sync error:', fsErr);
-              }
-            }
-          } catch (err) {
-            console.error('[OneSignal] Sync attempt failed:', err);
-          }
-        } else {
-          console.warn('[OneSignal] SDK not ready yet, retrying in 2s...');
-          setTimeout(attemptSync, 2000);
+      // Only init if not already done
+      if (!(window.OneSignal as any).initialized) {
+        console.log('[OneSignal] Initializing SDK and Service Worker...');
+        try {
+          await OneSignal.init({
+            appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa",
+            allowLocalhostAsSecureOrigin: true,
+            serviceWorkerPath: "OneSignalSDKWorker.js",
+            serviceWorkerParam: { scope: "/" },
+          });
+          console.log('[OneSignal] SDK Initialized Successfully with Service Worker');
+        } catch (err) {
+          console.error('[OneSignal] Initialization error:', err);
         }
-      };
-
-      attemptSync();
+      }
     };
 
-    if (user) {
-      syncUserWithOneSignal(user.uid);
-      
-      // Force Permission Check
-      const checkPermission = async () => {
-        if (!user) return;
-        try {
-          const permissionStatus = OneSignal.Notifications?.permission || window.OneSignal?.Notifications?.permission;
-          if (!permissionStatus) {
-            console.log('[OneSignal] Prompting for notification permission...');
-            await OneSignal.Notifications.requestPermission();
+    initOneSignal();
+  }, []);
+
+  useEffect(() => {
+    // 2. Handle Login/Logout (External ID Binding)
+    const syncIdentity = async () => {
+      if (!window.OneSignal) return;
+
+      if (user) {
+        console.log('[OneSignal] Syncing Identity for UID:', user.uid);
+        const deviceModel = navigator.userAgent;
+
+        (window.OneSignal as any).push(async () => {
+          try {
+            // Priority: Link External ID (Essential for Backend targeting)
+            if (typeof window.OneSignal.login === "function") {
+              await window.OneSignal.login(user.uid);
+              console.log('[OneSignal] External ID linked via login()');
+            } else if (typeof (window.OneSignal as any).setExternalUserId === "function") {
+              await (window.OneSignal as any).setExternalUserId(user.uid);
+              console.log('[OneSignal] External ID linked via setExternalUserId()');
+            }
+
+            // webtoapp bridge sync (Requested Fix)
+            if (window.oneSignalSetExternalUserId) {
+              window.oneSignalSetExternalUserId(user.uid);
+              console.log('[OneSignal] External ID synced via webtoapp bridge');
+            }
+
+            // Optional: Device Tags
+            const tags = {
+              "device_model": deviceModel,
+              "last_active": new Date().toISOString(),
+              "user_id": user.uid
+            };
+            
+            if (typeof (window.OneSignal as any).sendTags === "function") {
+              await (window.OneSignal as any).sendTags(tags);
+            } else if (OneSignal.User?.addTags) {
+              await OneSignal.User.addTags(tags);
+            }
+
+            // Priority: Ensure Subscription (WebView Compatibility)
+            const permission = OneSignal.Notifications?.permission || window.OneSignal?.Notifications?.permission;
+            if (!permission) {
+              console.log('[OneSignal] Prompting for notification permission...');
+              await OneSignal.Notifications.requestPermission();
+            }
+
+            // Sync Subscription ID to Firestore (Persistence)
+            const subId = OneSignal.User?.PushSubscription?.id || window.OneSignal?.User?.PushSubscription?.id;
+            if (subId) {
+              const userRef = doc(db, 'users', user.uid);
+              await updateDoc(userRef, {
+                onesignalIds: arrayUnion(subId),
+                lastNotificationLink: serverTimestamp()
+              }).catch(e => console.error('[OneSignal] Firestore sync failed:', e));
+              console.log('[OneSignal] Subscription ID saved:', subId);
+            }
+
+          } catch (err) {
+            console.error('[OneSignal] Sync error:', err);
           }
-        } catch (err) {
-          console.error('[OneSignal] Permission request error:', err);
-        }
-      };
-      
-      checkPermission();
+        });
+      } else {
+        // User logout
+        (window.OneSignal as any).push(() => {
+          if (typeof window.OneSignal.logout === "function") {
+            window.OneSignal.logout();
+            console.log('[OneSignal] User logged out from SDK');
+          }
+        });
+      }
+    };
+
+    // If SDK is ready, sync immediately. If not, retry shortly.
+    if (window.OneSignal) {
+      syncIdentity();
     } else {
-      if (window.OneSignal?.logout) window.OneSignal.logout();
+      setTimeout(syncIdentity, 2000);
     }
   }, [user?.uid]);
 
