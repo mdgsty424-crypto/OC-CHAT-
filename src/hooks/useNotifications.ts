@@ -22,24 +22,23 @@ export function useNotifications() {
     const initOneSignal = async () => {
       if (typeof window === 'undefined') return;
 
-      // Safe global initialization
-      const OneSignalStack = (window as any).OneSignal || [];
-      (window as any).OneSignal = OneSignalStack;
+      try {
+        // Safe global initialization
+        (window as any).OneSignal = (window as any).OneSignal || [];
 
-      // Only init if not already done
-      if (!(window.OneSignal as any).initialized) {
-        console.log('[OneSignal] Initializing SDK and Service Worker...');
-        try {
+        // Only init if not already done
+        if (!(window.OneSignal as any).initialized) {
+          console.log('[OneSignal] Initializing SDK and Service Worker...');
           await OneSignal.init({
             appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa",
             allowLocalhostAsSecureOrigin: true,
             serviceWorkerPath: "OneSignalSDKWorker.js",
             serviceWorkerParam: { scope: "/" },
           });
-          console.log('[OneSignal] SDK Initialized Successfully with Service Worker');
-        } catch (err) {
-          console.error('[OneSignal] Initialization error:', err);
+          console.log('[OneSignal] SDK Initialized Successfully');
         }
+      } catch (err) {
+        console.warn('[OneSignal] Init error (suppressed for WebView):', err);
       }
     };
 
@@ -49,34 +48,35 @@ export function useNotifications() {
   useEffect(() => {
     // 2. Handle Login/Logout (External ID Binding)
     const syncIdentity = async () => {
-      if (!window.OneSignal) return;
+      if (typeof window === 'undefined' || !window.OneSignal) return;
 
       if (user) {
-        console.log('[OneSignal] Syncing Identity for UID:', user.uid);
         const deviceModel = navigator.userAgent;
 
         (window.OneSignal as any).push(async () => {
           try {
-            // Priority: Link External ID (Essential for Backend targeting)
+            console.log('[OneSignal] Explicitly syncing Identity for UID:', user.uid);
+            
+            // Priority: Link External ID
             if (typeof window.OneSignal.login === "function") {
               await window.OneSignal.login(user.uid);
-              console.log('[OneSignal] External ID linked via login()');
+              console.log('[OneSignal] Logged in with UID:', user.uid);
             } else if (typeof (window.OneSignal as any).setExternalUserId === "function") {
               await (window.OneSignal as any).setExternalUserId(user.uid);
-              console.log('[OneSignal] External ID linked via setExternalUserId()');
+              console.log('[OneSignal] Set External ID:', user.uid);
             }
 
-            // webtoapp bridge sync (Requested Fix)
-            if (window.oneSignalSetExternalUserId) {
+            // webtoapp bridge sync
+            if (window.oneSignalSetExternalUserId && typeof window.oneSignalSetExternalUserId === 'function') {
               window.oneSignalSetExternalUserId(user.uid);
-              console.log('[OneSignal] External ID synced via webtoapp bridge');
             }
 
             // Optional: Device Tags
             const tags = {
               "device_model": deviceModel,
               "last_active": new Date().toISOString(),
-              "user_id": user.uid
+              "user_id": user.uid,
+              "synced_at": new Date().getTime()
             };
             
             if (typeof (window.OneSignal as any).sendTags === "function") {
@@ -85,45 +85,49 @@ export function useNotifications() {
               await OneSignal.User.addTags(tags);
             }
 
-            // Priority: Ensure Subscription (WebView Compatibility)
-            const permission = OneSignal.Notifications?.permission || window.OneSignal?.Notifications?.permission;
-            if (!permission) {
-              console.log('[OneSignal] Prompting for notification permission...');
-              await OneSignal.Notifications.requestPermission();
+            // Priority: Ensure Subscription
+            if (OneSignal.Notifications?.requestPermission) {
+              const isPermissionGranted = OneSignal.Notifications.permission;
+              if (!isPermissionGranted) {
+                console.log('[OneSignal] Re-requesting permission if needed...');
+                await OneSignal.Notifications.requestPermission();
+              }
             }
 
-            // Sync Subscription ID to Firestore (Persistence)
-            const subId = OneSignal.User?.PushSubscription?.id || window.OneSignal?.User?.PushSubscription?.id;
+            // Sync Subscription ID to Firestore
+            const subId = OneSignal.User?.PushSubscription?.id;
             if (subId) {
               const userRef = doc(db, 'users', user.uid);
               await updateDoc(userRef, {
                 onesignalIds: arrayUnion(subId),
-                lastNotificationLink: serverTimestamp()
-              }).catch(e => console.error('[OneSignal] Firestore sync failed:', e));
-              console.log('[OneSignal] Subscription ID saved:', subId);
+                lastNotificationLink: serverTimestamp(),
+                onesignalSynced: true
+              }).catch(() => {});
             }
 
           } catch (err) {
-            console.error('[OneSignal] Sync error:', err);
+            console.warn('[OneSignal] Sync error (background):', err);
           }
         });
       } else {
         // User logout
         (window.OneSignal as any).push(() => {
           if (typeof window.OneSignal.logout === "function") {
-            window.OneSignal.logout();
-            console.log('[OneSignal] User logged out from SDK');
+            window.OneSignal.logout().catch(() => {});
           }
         });
       }
     };
 
-    // If SDK is ready, sync immediately. If not, retry shortly.
-    if (window.OneSignal) {
-      syncIdentity();
-    } else {
-      setTimeout(syncIdentity, 2000);
-    }
+    // Sync several times to ensure it sticks across page loads/navigation
+    syncIdentity();
+    const t1 = setTimeout(syncIdentity, 2000);
+    const t2 = setTimeout(syncIdentity, 10000);
+    
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [user?.uid]);
 
   useEffect(() => {

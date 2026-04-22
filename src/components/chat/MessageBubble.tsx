@@ -641,6 +641,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <audio 
                     ref={audioRef}
                     src={message.audioUrl}
+                    crossOrigin="anonymous"
                     onPlay={() => setIsPlaying(true)}
                     onPause={() => setIsPlaying(false)}
                     onEnded={() => setIsPlaying(false)}
@@ -650,14 +651,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       if (message.audioUrl && audio && !audio.dataset.fallbackAttempted) {
                         audio.dataset.fallbackAttempted = 'true';
                         console.log('[Audio] Fallback triggered for URL:', message.audioUrl);
-                        fetch(message.audioUrl)
+                        fetch(message.audioUrl, { mode: 'cors' })
                           .then(res => {
                             if (!res.ok) throw new Error(`HTTP ${res.status}`);
                             return res.blob();
                           })
                           .then(blob => {
                             // Try common audio MIME types if detection fails
-                            const typesToTry = ['audio/mpeg', 'audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
+                            const typesToTry = [
+                              'audio/mpeg', 
+                              'audio/webm', 
+                              'audio/mp4', 
+                              'audio/ogg', 
+                              'audio/wav',
+                              'video/webm', // Sometimes voice notes are containerized as video/webm
+                              'audio/aac'
+                            ];
                             let currentTypeIdx = 0;
 
                             const tryPlay = (type: string) => {
@@ -681,7 +690,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                               }
                             };
 
-                            tryPlay(blob.type && blob.type !== 'application/octet-stream' ? blob.type : typesToTry[0]);
+                            const initialType = blob.type && blob.type !== 'application/octet-stream' ? blob.type : typesToTry[0];
+                            tryPlay(initialType);
                           })
                           .catch(e => {
                             console.error('[Audio] Fetch fallback failed:', e.message);

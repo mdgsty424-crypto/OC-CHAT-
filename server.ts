@@ -258,6 +258,7 @@ async function startServer() {
           const uploadOptions: any = {
             folder: "oc-chat",
             resource_type: "auto",
+            flags: "attachment" // Better for raw files to be treated as attachments
           };
 
           const uploadStream = cloudinary.uploader.upload_stream(
@@ -385,8 +386,8 @@ async function startServer() {
         }));
       }
 
-      // Corrected OneSignal Auth and URL with the latest provided key
-      const authHeader = "Basic os_v2_app_o6yabzfqirabbla6tzzxas5o7jo35egxg2iecxuaiy7q7ix423vhbzwty7nkpgnuj464t7wfb5h6kbkodt7aget7mvpjfqdeaqc3yaa";
+      // Updated OneSignal Auth and URL with the latest provided key
+      const authHeader = "Basic os_v2_app_o6yabzfqirabbla6tzzxas5o7llwkuhekrzuc5ez2wrq3aaknepr3fg3coismhxdj2bz22novqn2gq4scvmfpydvccpqasxu3asey3i";
 
       const response = await fetch("https://api.onesignal.com/notifications", {
         method: "POST",
@@ -413,7 +414,15 @@ async function startServer() {
         return res.status(response.status).json({ error: "OneSignal Error", details: data });
       }
 
-      return res.json({ success: true, data });
+      if (data.recipients === 0) {
+        console.warn(`[Push] Warning: Notification sent to 0 recipients for target: ${targetUserId}. This usually means the External ID (Firebase UID) is not currently linked to any device in OneSignal.`);
+      }
+
+      return res.json({ 
+        success: true, 
+        data,
+        recipients: data.recipients || 0
+      });
 
     } catch (error: any) {
       console.error("[Push] Internal Error:", error);
