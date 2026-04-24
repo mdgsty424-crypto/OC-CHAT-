@@ -121,7 +121,7 @@ export default function Signup() {
 
       const data = new FormData();
       data.append('file', fileToUpload);
-      data.append('upload_preset', 'oc_chat_preset');
+      data.append('upload_preset', 'ml_default');
       
       const res = await fetch('https://api.cloudinary.com/v1_1/dxiolmmdv/image/upload', {
         method: 'POST',

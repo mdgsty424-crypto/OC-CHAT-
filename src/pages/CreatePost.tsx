@@ -203,7 +203,7 @@ const CreatePost: React.FC = () => {
 
         const formData = new FormData();
         formData.append('file', fileBlob, fileName);
-        formData.append('upload_preset', 'oc_chat_preset');
+        formData.append('upload_preset', 'ml_default');
 
         console.log(`Starting direct Cloudinary upload for ${item.id} (${item.file.type}, ${item.file.size} bytes)`);
         

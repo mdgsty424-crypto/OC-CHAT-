@@ -345,7 +345,7 @@ export default function Profile() {
     // 1. Blob Conversion for WebView reliability
     const fileBlob = new Blob([file], { type: file.type });
     formData.append('file', fileBlob, file.name || `upload_${Date.now()}`);
-    formData.append('upload_preset', 'oc_chat_preset');
+    formData.append('upload_preset', 'ml_default');
 
     try {
       console.log(`Starting ${type} direct Cloudinary upload...`);
@@ -469,7 +469,7 @@ export default function Profile() {
       // Blob conversion for WebView
       const fileBlob = new Blob([bookForm.file], { type: bookForm.file.type });
       formData.append('file', fileBlob, bookForm.file.name || `upload_${Date.now()}`);
-      formData.append('upload_preset', 'oc_chat_preset');
+      formData.append('upload_preset', 'ml_default');
 
       console.log('Starting book post direct Cloudinary upload...');
       const cloudName = 'dxiolmmdv';
@@ -538,7 +538,7 @@ export default function Profile() {
     // Blob conversion for WebView
     const fileBlob = new Blob([file], { type: file.type });
     formData.append('file', fileBlob, file.name || `upload_${Date.now()}`);
-    formData.append('upload_preset', 'oc_chat_preset');
+    formData.append('upload_preset', 'ml_default');
 
     try {
       console.log('Starting story direct Cloudinary upload...');
