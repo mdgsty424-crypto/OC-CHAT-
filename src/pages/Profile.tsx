@@ -342,20 +342,30 @@ export default function Profile() {
 
     setIsUploading(true);
     const formData = new FormData();
-    formData.append('file', file);
+    // 1. Blob Conversion for WebView reliability
+    const fileBlob = new Blob([file], { type: file.type });
+    formData.append('file', fileBlob, file.name || `upload_${Date.now()}`);
 
     try {
       console.log(`Starting ${type} upload...`);
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
-        // IMPORTANT: No manual Content-Type header. 
-        // WebView/Browser sets it automatically with boundary.
+        // No manual Content-Type
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Upload failed: ${response.status}`);
+        const status = response.status;
+        console.error(`Upload error status: ${status}`);
+        let errorMsg = `Upload failed: ${status}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.message || errorMsg;
+        } catch (e) {
+          const text = await response.text().catch(() => '');
+          console.error('Upload error text:', text);
+        }
+        throw new Error(errorMsg);
       }
       
       const data = await response.json();
@@ -455,18 +465,28 @@ export default function Profile() {
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', bookForm.file);
+      // Blob conversion for WebView
+      const fileBlob = new Blob([bookForm.file], { type: bookForm.file.type });
+      formData.append('file', fileBlob, bookForm.file.name || `upload_${Date.now()}`);
 
       console.log('Starting book post upload...');
       const res = await fetch('/api/upload', { 
         method: 'POST', 
-        body: formData,
-        // No Content-Type header
+        body: formData
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Upload failed: ${res.status}`);
+        const status = res.status;
+        console.error(`Book upload error status: ${status}`);
+        let errorMsg = `Upload failed: ${status}`;
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.message || errorMsg;
+        } catch (e) {
+          const text = await res.text().catch(() => '');
+          console.error('Book upload error text:', text);
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await res.json();
@@ -512,19 +532,29 @@ export default function Profile() {
 
     setIsUploadingStory(true);
     const formData = new FormData();
-    formData.append('file', file);
+    // Blob conversion for WebView
+    const fileBlob = new Blob([file], { type: file.type });
+    formData.append('file', fileBlob, file.name || `upload_${Date.now()}`);
 
     try {
       console.log('Starting story upload...');
       const response = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
-        // No Content-Type header
+        body: formData
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Upload failed: ${response.status}`);
+        const status = response.status;
+        console.error(`Story upload error status: ${status}`);
+        let errorMsg = `Upload failed: ${status}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.message || errorMsg;
+        } catch (e) {
+          const text = await response.text().catch(() => '');
+          console.error('Story upload error text:', text);
+        }
+        throw new Error(errorMsg);
       }
       
       const data = await response.json();

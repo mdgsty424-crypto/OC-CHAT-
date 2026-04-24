@@ -197,20 +197,36 @@ const CreatePost: React.FC = () => {
           throw new Error('No file selected');
         }
 
-        const formData = new FormData();
-        formData.append('file', item.file);
+        // 1. Blob Conversion: Re-creating the blob can help with WebView file reference issues
+        const fileBlob = new Blob([item.file], { type: item.file.type });
+        const fileName = item.file.name || `upload_${Date.now()}`;
 
-        console.log('Starting upload for:', item.id);
+        const formData = new FormData();
+        // Use a generic name if filename is missing, important for some Android WebViews
+        formData.append('file', fileBlob, fileName);
+
+        console.log(`Starting upload for ${item.id} (${item.file.type}, ${item.file.size} bytes)`);
+        
+        // 2. FormData Logic: No manual headers, let the browser/WebView handle it
         const res = await fetch('/api/upload', { 
           method: 'POST', 
-          body: formData,
-          // IMPORTANT: Do NOT set Content-Type header here. 
-          // The browser (and WebView) needs to set it with the boundary string.
+          body: formData
         });
 
+        // 3. Try-Catch refinement: Log status and handle non-JSON responses
         if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.message || `Upload failed with status ${res.status}`);
+          const status = res.status;
+          console.error(`Server returned error status: ${status}`);
+          let errorMsg = `Upload failed with status ${status}`;
+          try {
+            const errorData = await res.json();
+            errorMsg = errorData.message || errorMsg;
+          } catch (e) {
+            // If not JSON, try to get text
+            const text = await res.text().catch(() => '');
+            console.error('Server error response (text):', text);
+          }
+          throw new Error(errorMsg);
         }
 
         const data = await res.json();

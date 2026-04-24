@@ -244,18 +244,28 @@ export default function Story() {
       }
 
       const formData = new FormData();
-      formData.append('file', fileToUpload);
+      // 1. Blob conversion for and reliability in WebView
+      const fileBlob = new Blob([fileToUpload], { type: fileToUpload.type });
+      formData.append('file', fileBlob, fileToUpload.name || `upload_${Date.now()}`);
 
       console.log('Starting story upload for reel...');
       const res = await fetch('/api/upload', { 
         method: 'POST', 
-        body: formData,
-        // No manual headers
+        body: formData
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Upload failed: ${res.status}`);
+        const status = res.status;
+        console.error(`Story reel upload error status: ${status}`);
+        let errorMsg = `Upload failed: ${status}`;
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.message || errorMsg;
+        } catch (e) {
+          const text = await res.text().catch(() => '');
+          console.error('Story reel upload error text:', text);
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await res.json();
