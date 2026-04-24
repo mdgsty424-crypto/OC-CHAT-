@@ -46,6 +46,87 @@ export function useNotifications() {
   }, []);
 
   useEffect(() => {
+    // 1.1 Add Notification Click Listener
+    if (typeof window === 'undefined' || !window.OneSignal) return;
+
+    const handleNotificationClick = async (event: any) => {
+      console.log('[OneSignal] Notification clicked:', event);
+      const actionId = event.action?.actionId;
+      const data = event.notification.additionalData;
+
+      if (!data) return;
+
+      const chatId = data.chatId;
+      const messageId = data.messageId;
+      const userId = data.userId;
+
+      // 1. LIKE BUTTON
+      if (actionId === "like") {
+        try {
+          await fetch("/api/message/like", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messageId, userId })
+          });
+          console.log("Message liked 👍");
+        } catch (e) {
+          console.error("Failed to like message:", e);
+        }
+      }
+
+      // 2. REPLY BUTTON / OPEN BUTTON
+      if (actionId === "reply" || actionId === "open") {
+        window.location.href = "/chat/" + chatId;
+      }
+
+      // 3. CALL ACCEPT
+      if (actionId === "accept") {
+        const callerId = data.callerId;
+        const callType = data.callType || 'audio';
+        const callId = data.callId;
+        window.location.href = `/call-screen/${callerId}?type=${callType}&callId=${callId}&mode=receiver`;
+      }
+
+      // 4. CALL REJECT
+      if (actionId === "reject") {
+        try {
+          await fetch("/api/call/reject", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chatId, userId })
+          });
+          console.log("Call rejected ❌");
+        } catch (e) {
+          console.error("Failed to reject call:", e);
+        }
+      }
+
+      // Default behavior: if no actionId but has a URL or chatId
+      if (!actionId) {
+        if (event.notification.launchURL) {
+          window.location.href = event.notification.launchURL;
+        } else if (chatId) {
+          window.location.href = "/chat/" + chatId;
+        }
+      }
+    };
+
+    (window.OneSignal as any).push(() => {
+      if (OneSignal.Notifications?.addEventListener) {
+        OneSignal.Notifications.addEventListener("click", handleNotificationClick);
+      }
+    });
+
+    return () => {
+      (window.OneSignal as any).push(() => {
+        if (OneSignal.Notifications?.removeEventListener) {
+          OneSignal.Notifications.removeEventListener("click", handleNotificationClick);
+        }
+      });
+    };
+  }, []);
+
+  useEffect(() => {
     // 2. Handle Login/Logout (External ID Binding)
     const syncIdentity = async () => {
       if (typeof window === 'undefined' || !window.OneSignal) return;
@@ -197,11 +278,14 @@ export function useNotifications() {
     title: string;
     message: string;
     image?: string;
+    largeIcon?: string;
     link?: string;
     priority?: 'high' | 'normal';
     sound?: string;
     requireInteraction?: boolean;
-    actions?: Array<{ title: string; action: 'open_url' | 'dismiss'; url?: string }>;
+    type?: string;
+    data?: any;
+    actions?: any[];
   }) => {
     try {
       console.log('Pushing notification via server:', params);

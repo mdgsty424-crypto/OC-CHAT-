@@ -348,53 +348,114 @@ async function startServer() {
   });
 
   // --- Push Notification Endpoints ---
+  app.get("/api/admin/users-push-data", async (req, res) => {
+    try {
+      const usersSnap = await getDocs(collection(db, "users"));
+      const usersData = usersSnap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          displayName: data.displayName || 'Unknown',
+          email: data.email || 'N/A',
+          onesignalIds: data.onesignalIds || [],
+          onesignalSynced: data.onesignalSynced || false,
+          publicIp: data.publicIp || 'N/A',
+          lastActive: data.lastNotificationLink ? new Date(data.lastNotificationLink.seconds * 1000).toISOString() : 'Never',
+          location: data.location || 'N/A'
+        };
+      });
+      res.json(usersData);
+    } catch (error) {
+      console.error("[Admin] Error fetching push data:", error);
+      res.status(500).json({ error: "Failed to fetch user push data" });
+    }
+  });
 
   // 2. Send Push Notification
   app.post("/api/notifications/send", async (req, res) => {
-    const { targetUserId, title, message, image, link, priority, sound, requireInteraction, actions } = req.body;
+    const { 
+      targetUserId, 
+      title, 
+      message, 
+      image, 
+      largeIcon,
+      smallIcon,
+      link, 
+      priority, 
+      ttl,
+      sound, 
+      accentColor,
+      ledColor,
+      visibility,
+      collapseId,
+      actions,
+      data: extraData
+    } = req.body;
     
     if (!targetUserId || !title || !message) {
       return res.status(400).json({ error: "targetUserId, title, and message are required" });
     }
 
     try {
+      const appId = "77b000e4-b044-4010-ac1e-9e73704baefa";
       const payload: any = {
-        app_id: "77b000e4-b044-4010-ac1e-9e73704baefa",
+        app_id: appId,
         headings: { en: title },
         contents: { en: message },
         priority: priority === 'high' ? 10 : undefined,
-        ttl: priority === 'high' ? 0 : undefined,
+        ttl: typeof ttl === 'number' ? ttl * 86400 : (priority === 'high' ? 259200 : undefined), // 86400 = 1 day in seconds
+        android_visibility: typeof visibility === 'number' ? visibility : 1, 
+        android_accent_color: accentColor || undefined,
+        android_led_color: ledColor || undefined,
+        collapse_id: collapseId || undefined,
+        small_icon: smallIcon || "ic_stat_notification",
       };
 
       if (targetUserId === 'all') {
         payload.included_segments = ["All"];
-        console.log(`[Push] Broadcasting to all users: ${title}`);
+        console.log(`[Push] Broadcasting to all users: "${title}"`);
       } else {
-        // Priority: Target via External User ID (Firebase UID)
-        // OneSignal will automatically match this to the correct Subscription ID
         payload.include_external_user_ids = [targetUserId];
-        console.log(`[Push] Targeting External User ID (Firebase UID): ${targetUserId}`);
+        console.log(`[Push] Targeting External User ID: "${targetUserId}" | Title: "${title}"`);
       }
 
+      // Visuals
       if (image) payload.big_picture = image;
+      if (largeIcon) {
+        payload.large_icon = largeIcon;
+        payload.chrome_web_icon = largeIcon;
+      }
       if (link) payload.url = link;
-      if (actions) {
-        payload.buttons = actions.map((a: any) => ({
-          id: a.action,
-          text: a.title,
-          url: a.url
+
+      // Data and Sound
+      if (extraData) payload.data = extraData;
+      if (sound && sound !== 'default') {
+        payload.android_sound = sound;
+        payload.ios_sound = `${sound}.wav`;
+      }
+
+      // Action Buttons
+      if (actions && actions.length > 0) {
+        payload.buttons = actions.map((a: any, idx: number) => ({
+          id: a.id || `action_${idx}`,
+          text: a.text || a.title,
+          icon: a.icon || undefined,
+          url: a.url || undefined
         }));
       }
 
-      // Updated OneSignal Auth and URL with the latest provided key
-      const authHeader = "Basic os_v2_app_o6yabzfqirabbla6tzzxas5o7llwkuhekrzuc5ez2wrq3aaknepr3fg3coismhxdj2bz22novqn2gq4scvmfpydvccpqasxu3asey3i";
+      // Key management
+      const rawKey = "os_v2_app_o6yabzfqirabbla6tzzxas5o7lkbg7cpl4nuwuu6ij5dbqylscpeadgwgdffmwiy7czmkmevbqsc3kfufcwkfrdflvudpe3j2g7xzpq".trim();
+      
+      console.log(`[Push] Attempting OneSignal Delivery...`);
+      console.log(`[Push] Payload Summary: Target=${targetUserId}, Priority=${priority}, TTL=${payload.ttl}`);
 
       const response = await fetch("https://api.onesignal.com/notifications", {
         method: "POST",
         headers: { 
-          'Authorization': authHeader,
-          'Content-Type': 'application/json; charset=utf-8',
-          'Accept': 'application/json'
+          "Authorization": `Basic ${rawKey}`,
+          "Content-Type": "application/json; charset=utf-8",
+          "Accept": "application/json"
         },
         body: JSON.stringify(payload)
       });
@@ -404,29 +465,42 @@ async function startServer() {
       try {
         data = JSON.parse(responseText);
       } catch (e) {
-        console.error("[Push] OneSignal returned non-JSON:", responseText.substring(0, 100));
-        return res.status(500).json({ error: "OneSignal invalid response", details: responseText });
+        console.error("[Push] FATAL: OneSignal returned non-JSON response.");
+        console.error("[Push] Raw Response:", responseText.substring(0, 500));
+        return res.status(500).json({ 
+          error: "OneSignal communication failed", 
+          rawResponse: responseText.substring(0, 200) 
+        });
       }
 
-      console.log("[Push] OneSignal HTTP Status:", response.status, JSON.stringify(data));
+      console.log("[Push] OneSignal Response Status:", response.status);
+      console.log("[Push] OneSignal Response Data:", JSON.stringify(data));
 
       if (!response.ok) {
-        return res.status(response.status).json({ error: "OneSignal Error", details: data });
+        console.error("[Push] OneSignal API Error (4xx/5xx)");
+        return res.status(response.status).json({ 
+          error: "OneSignal API Error", 
+          details: data 
+        });
       }
 
-      if (data.recipients === 0) {
-        console.warn(`[Push] Warning: Notification sent to 0 recipients for target: ${targetUserId}. This usually means the External ID (Firebase UID) is not currently linked to any device in OneSignal.`);
+      const recipients = data.recipients || 0;
+      if (recipients === 0 && targetUserId !== 'all') {
+        console.warn(`[Push] Warning: 0 recipients reached for UID: ${targetUserId}. Check if External ID is correctly linked in OneSignal dashboard.`);
       }
 
       return res.json({ 
         success: true, 
-        data,
-        recipients: data.recipients || 0
+        recipients,
+        id: data.id
       });
 
     } catch (error: any) {
-      console.error("[Push] Internal Error:", error);
-      return res.status(500).json({ error: "Failed to send notification", message: error.message });
+      console.error("[Push] Critical Server Error:", error);
+      return res.status(500).json({ 
+        error: "Internal Push Gateway Error", 
+        message: error.message 
+      });
     }
   });
 
@@ -582,13 +656,26 @@ async function startServer() {
     }
   });
 
-  app.post('*', (req, res) => {
-    console.log("POST request to unknown route:", req.path);
-    res.status(404).json({ error: "Not found" });
+  // Action listeners for Notification Buttons
+  app.post("/api/message/like", async (req, res) => {
+    const { messageId, userId } = req.body;
+    console.log(`[Action] User ${userId} liked message ${messageId}`);
+    // In a real app, you would update the database here
+    res.json({ success: true });
   });
 
-  // Global error handler to ensure JSON responses
+  app.post("/api/call/reject", async (req, res) => {
+    const { chatId, userId } = req.body;
+    console.log(`[Action] User ${userId} rejected call in chat ${chatId}`);
+    // In a real app, you would update the call status here
+    res.json({ success: true });
+  });
+
+  // --- End of API Routes ---
+
+  // Global error handler to ensure JSON responses for API errors
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (res.headersSent) return next(err);
     console.error("Unhandled server error:", err);
     res.status(err.status || 500).json({ 
       error: "Internal server error", 
@@ -612,29 +699,10 @@ async function startServer() {
     });
   }
 
-  // 3. Fetch User Push Notification Data (Admin Only)
-  app.get("/api/admin/users-push-data", async (req, res) => {
-    try {
-      const usersSnap = await getDocs(collection(db, "users"));
-      const usersData = usersSnap.docs.map(doc => {
-        const data = doc.data();
-        return {
-          uid: doc.id,
-          displayName: data.displayName || 'Unknown',
-          email: data.email || 'N/A',
-          onesignalIds: data.onesignalIds || [],
-          onesignalSynced: data.onesignalSynced || false,
-          publicIp: data.publicIp || 'N/A',
-          lastActive: data.lastNotificationLink ? new Date(data.lastNotificationLink.seconds * 1000).toISOString() : 'Never',
-          // We can also infer device info if it was saved in Firestore tags
-          location: data.location || 'N/A'
-        };
-      });
-      res.json(usersData);
-    } catch (error) {
-      console.error("[Admin] Error fetching push data:", error);
-      res.status(500).json({ error: "Failed to fetch user push data" });
-    }
+  // Final catch-all for unknown POST/other requests (if needed)
+  app.post('*', (req, res) => {
+    console.log("POST request to unknown route:", req.path);
+    res.status(404).json({ error: "Not found" });
   });
 
   app.listen(PORT, "0.0.0.0", () => {

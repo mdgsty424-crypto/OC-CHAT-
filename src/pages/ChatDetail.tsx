@@ -277,13 +277,21 @@ export default function ChatDetail() {
         targetUserId: otherUser.uid,
         title: `Incoming ${type === 'video' ? 'Video' : 'Audio'} Call`,
         message: `${currentUser.displayName || 'Someone'} is calling you...`,
-        image: currentUser.photoURL || '',
+        largeIcon: currentUser.photoURL || '',
         link: `${window.location.origin}/call-screen/${currentUser.uid}?type=${type}&callId=${callId}&mode=receiver`,
         priority: 'high',
+        type: 'call',
         requireInteraction: true,
+        data: { 
+          chatId: id, 
+          callId, 
+          type: 'call', 
+          callerId: currentUser.uid, 
+          callType: type 
+        },
         actions: [
-          { title: 'Accept', action: 'open_url', url: `${window.location.origin}/call-screen/${currentUser.uid}?type=${type}&callId=${callId}&mode=receiver` },
-          { title: 'Decline', action: 'dismiss' }
+          { id: 'accept', text: 'Accept', icon: 'ic_call' },
+          { id: 'reject', text: 'Reject', icon: 'ic_close' }
         ]
       });
       
@@ -345,6 +353,29 @@ export default function ChatDetail() {
         lastMessage: forwardingMessage.text || 'Forwarded message',
         lastMessageTime: new Date().toISOString(),
       }).catch(e => console.error("Error updating chat:", e));
+
+      // Trigger Push Notification for forwarded message
+      const targetChat = userChats.find(c => c.id === targetChatId);
+      if (targetChat) {
+        targetChat.participants.forEach(pid => {
+          if (pid !== currentUser.uid) {
+            sendNotification({
+              targetUserId: pid,
+              title: currentUser.displayName || 'New Message',
+              message: `↪️ Forwarded: ${forwardingMessage.text || 'Message'}`,
+              largeIcon: currentUser.photoURL || '',
+              link: `${window.location.origin}/chat/${targetChatId}`,
+              priority: 'high',
+              type: 'message',
+              data: { chatId: targetChatId, userId: currentUser.uid, type: 'chat' },
+              actions: [
+                { id: 'reply', text: 'Reply', icon: 'ic_reply' },
+                { id: 'open', text: 'Open Chat', icon: 'ic_open' }
+              ]
+            });
+          }
+        });
+      }
 
       setForwardingMessage(null);
       // alert('Message forwarded!'); // Removed alert to be less annoying

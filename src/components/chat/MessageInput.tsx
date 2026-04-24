@@ -151,9 +151,14 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             targetUserId: pid,
             title: user.displayName || 'New Message',
             message: `💸 Sent you ৳${moneyAmount}`,
-            image: user.photoURL || '',
+            largeIcon: user.photoURL || '',
             link: `${window.location.origin}/chat/${chatId}`,
-            priority: 'high'
+            priority: 'high',
+            type: 'message',
+            data: { chatId, userId: user.uid, type: 'chat' },
+            actions: [
+              { id: 'open', text: 'View Payment', icon: 'ic_open' }
+            ]
           });
         }
       });
@@ -388,9 +393,15 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             targetUserId: pid,
             title: user.displayName || 'New Message',
             message: '🎤 Sent a voice message',
-            image: user.photoURL || '',
+            largeIcon: user.photoURL || '',
             link: `${window.location.origin}/chat/${chatId}`,
-            priority: 'high'
+            priority: 'high',
+            type: 'message',
+            data: { chatId, userId: user.uid, type: 'chat' },
+            actions: [
+              { id: 'reply', text: 'Reply', icon: 'ic_reply' },
+              { id: 'open', text: 'Listen', icon: 'ic_open' }
+            ]
           });
         }
       });
@@ -514,9 +525,16 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             targetUserId: pid,
             title: user.displayName || 'New Message',
             message: data.resource_type === 'image' ? '📷 Sent a photo' : (data.resource_type === 'video' ? '🎥 Sent a video' : '📁 Sent a file'),
-            image: data.resource_type === 'image' ? data.url : (user.photoURL || ''),
+            image: data.resource_type === 'image' ? data.url : undefined,
+            largeIcon: user.photoURL || '',
             link: `${window.location.origin}/chat/${chatId}`,
-            priority: 'high'
+            priority: 'high',
+            type: 'message',
+            data: { chatId, userId: user.uid, type: 'chat' },
+            actions: [
+              { id: 'reply', text: 'Reply', icon: 'ic_reply' },
+              { id: 'open', text: 'View', icon: 'ic_open' }
+            ]
           });
         }
       });
@@ -584,9 +602,15 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               targetUserId: pid,
               title: user.displayName || 'New Message',
               message: text.trim(),
-              image: user.photoURL || '',
+              largeIcon: user.photoURL || '',
               link: `${window.location.origin}/chat/${chatId}`,
-              priority: 'high'
+              priority: 'high',
+              type: 'message',
+              data: { chatId, userId: user.uid, type: 'chat' },
+              actions: [
+                { id: 'reply', text: 'Reply', icon: 'ic_reply' },
+                { id: 'open', text: 'Open Chat', icon: 'ic_open' }
+              ]
             });
           }
         }
@@ -646,9 +670,14 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               targetUserId: pid,
               title: user.displayName || 'New Message',
               message: '📍 Shared a location',
-              image: user.photoURL || '',
+              largeIcon: user.photoURL || '',
               link: `${window.location.origin}/chat/${chatId}`,
-              priority: 'high'
+              priority: 'high',
+              type: 'message',
+              data: { chatId, userId: user.uid, type: 'chat' },
+              actions: [
+                { id: 'open', text: 'View Map', icon: 'ic_map' }
+              ]
             });
           }
         });
@@ -682,9 +711,14 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             targetUserId: pid,
             title: user.displayName || 'New Message',
             message: `📊 Created a poll: ${pollQuestion}`,
-            image: user.photoURL || '',
+            largeIcon: user.photoURL || '',
             link: `${window.location.origin}/chat/${chatId}`,
-            priority: 'high'
+            priority: 'high',
+            type: 'message',
+            data: { chatId, userId: user.uid, type: 'chat' },
+            actions: [
+              { id: 'open', text: 'Vote Now', icon: 'ic_poll' }
+            ]
           });
         }
       });

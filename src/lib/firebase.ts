@@ -11,7 +11,11 @@ import firebaseConfig from "../../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence).catch(console.error);
+
+// Use browser persistence only in browser environment
+if (typeof window !== 'undefined') {
+  setPersistence(auth, browserLocalPersistence).catch(console.error);
+}
 
 // Check if window and localStorage are available
 let isLocalStorageAvailable = false;
@@ -28,7 +32,7 @@ if (typeof window !== 'undefined') {
 
 // Initialize Firestore with persistent cache if available
 export const db = initializeFirestore(app, {
-  localCache: isLocalStorageAvailable 
+  localCache: (typeof window !== 'undefined' && isLocalStorageAvailable)
     ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
     : memoryLocalCache()
 }, (firebaseConfig as any).firestoreDatabaseId || "(default)");

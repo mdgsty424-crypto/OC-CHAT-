@@ -18,7 +18,9 @@ import {
   AlertTriangle,
   Loader2,
   CheckCircle2,
-  Palette
+  Palette,
+  Zap,
+  Target
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate, Link } from 'react-router-dom';
@@ -65,13 +67,58 @@ export default function AdminDashboard() {
     title: 'OC-CHAT Global Announcement',
     message: '',
     image: '',
+    largeIcon: '', 
+    smallIcon: 'ic_stat_notification',
     link: '',
     priority: 'high',
+    ttl: 3, // days
+    sound: 'default',
+    accentColor: 'E54B4D',
+    ledColor: 'E54B4D',
+    visibility: '1', // 1 = Public
+    collapseId: '',
     type: 'broadcast' as 'broadcast' | 'message' | 'call' | 'reel' | 'post' | 'alert',
     actionText: 'Open App',
-    actionUrl: ''
+    actionUrl: '',
+    customData: '{}', 
+    actionsJson: '[]' 
   });
   const [isSendingNotif, setIsSendingNotif] = useState(false);
+
+  // Auto-presets when type changes
+  useEffect(() => {
+    if (notifForm.type === 'message') {
+      setNotifForm(prev => ({
+        ...prev,
+        title: 'New Message from OC-CHAT',
+        message: 'You have a new unread message.',
+        priority: 'high',
+        sound: 'message',
+        accentColor: '0084FF', // Messenger Blue
+        actionText: 'Reply',
+        customData: JSON.stringify({ chatId: "TEST_CHAT_ID", userId: currentUser?.uid || "TEST_USER" }, null, 2)
+      }));
+    } else if (notifForm.type === 'call') {
+      setNotifForm(prev => ({
+        ...prev,
+        title: 'Incoming Call...',
+        message: 'Someone is calling you on OC-CHAT',
+        priority: 'high',
+        sound: 'ringtone',
+        accentColor: '4CAF50', // Success Green
+        actionText: 'Accept'
+      }));
+    } else if (notifForm.type === 'alert') {
+      setNotifForm(prev => ({
+        ...prev,
+        title: '⚠️ Security Alert',
+        message: 'A new login was detected on your account.',
+        priority: 'high',
+        sound: 'alert',
+        accentColor: 'F44336' // Danger Red
+      }));
+    }
+  }, [notifForm.type]);
 
   // ... existing Security Check ...
 
@@ -105,34 +152,74 @@ export default function AdminDashboard() {
 
     setIsSendingNotif(true);
     try {
+      let extraData: any = {};
+      try {
+        extraData = JSON.parse(notifForm.customData || '{}');
+      } catch (e) {
+        alert("Invalid JSON in Custom Data");
+        setIsSendingNotif(false);
+        return;
+      }
+
+      let customActions = [];
+      try {
+        customActions = JSON.parse(notifForm.actionsJson || '[]');
+      } catch (e) {
+        alert("Invalid JSON in Actions Buttons");
+        setIsSendingNotif(false);
+        return;
+      }
+
+      // Build initial payload
       const payload: any = {
         targetUserId: notifForm.target === 'all' ? 'all' : notifForm.targetUID,
         title: notifForm.title,
         message: notifForm.message,
         image: notifForm.image || undefined,
+        largeIcon: notifForm.largeIcon || undefined,
+        smallIcon: notifForm.smallIcon || undefined,
         link: notifForm.link || undefined,
         priority: notifForm.priority,
+        ttl: notifForm.ttl,
+        sound: notifForm.sound !== 'default' ? notifForm.sound : undefined,
+        accentColor: notifForm.accentColor,
+        ledColor: notifForm.ledColor,
+        visibility: parseInt(notifForm.visibility),
+        collapseId: notifForm.collapseId || undefined,
+        data: { ...extraData, type: notifForm.type },
+        actions: customActions.length > 0 ? customActions : undefined
       };
 
-      // Add actions if provided
-      if (notifForm.actionText) {
-        payload.actions = [
-          {
-            action: 'open',
-            title: notifForm.actionText,
-            url: notifForm.actionUrl || notifForm.link || window.location.origin
-          }
-        ];
+      // Auto-assign actions based on type if NONE provided manually
+      if (!payload.actions) {
+        if (notifForm.type === 'message') {
+          payload.actions = [
+            { id: 'reply', text: 'Reply', icon: 'ic_reply' },
+            { id: 'open', text: 'Open Chat', icon: 'ic_open' }
+          ];
+        } else if (notifForm.type === 'call') {
+          payload.actions = [
+            { id: 'accept', text: 'Accept', icon: 'ic_call' },
+            { id: 'reject', text: 'Reject', icon: 'ic_close' }
+          ];
+        } else if (notifForm.type === 'reel' || notifForm.type === 'post') {
+          payload.actions = [
+            { id: 'open', text: 'View Now', icon: 'ic_open' },
+            { id: 'like', text: 'Like', icon: 'ic_like' }
+          ];
+        } else if (notifForm.actionText) {
+          payload.actions = [
+            { id: 'open', text: notifForm.actionText }
+          ];
+        }
       }
 
-      // Add icon presets based on type
-      if (notifForm.type === 'message') {
-        payload.image = payload.image || 'https://cdn-icons-png.flaticon.com/512/733/733585.png';
-      } else if (notifForm.type === 'call') {
-        payload.image = payload.image || 'https://cdn-icons-png.flaticon.com/512/9431/9431109.png';
-      } else if (notifForm.type === 'reel') {
-        payload.image = payload.image || 'https://cdn-icons-png.flaticon.com/512/2111/2111463.png';
+      // Icon Presets logic - Use Large Icon for Messenger style
+      if (notifForm.type === 'message' && !payload.largeIcon) {
+        payload.largeIcon = 'https://cdn-icons-png.flaticon.com/512/733/733585.png';
       }
+
+      console.log("[Push] Sending Payload:", payload);
 
       const response = await fetch('/api/notifications/send', {
         method: 'POST',
@@ -172,7 +259,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     // Fetch Users
     const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const usersList = snapshot.docs.map(doc => doc.data() as User);
+      const usersList = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
       setUsers(usersList);
       setLoading(false);
     });
@@ -603,20 +690,86 @@ export default function AdminDashboard() {
                           </div>
                         )}
 
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Type / Icon Preset</label>
-                          <select 
-                            value={notifForm.type}
-                            onChange={(e) => setNotifForm({...notifForm, type: e.target.value as any})}
-                            className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
-                          >
-                            <option value="broadcast">📢 General Announcement</option>
-                            <option value="message">💬 Chat Message</option>
-                            <option value="call">📞 Incoming Call</option>
-                            <option value="reel">🎬 New Reel</option>
-                            <option value="post">🖼️ New Post</option>
-                            <option value="alert">⚠️ System Alert</option>
-                          </select>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Type / Preset</label>
+                            <select 
+                              value={notifForm.type}
+                              onChange={(e) => setNotifForm({...notifForm, type: e.target.value as any})}
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            >
+                              <option value="broadcast">📢 Broadcast</option>
+                              <option value="message">💬 Message</option>
+                              <option value="call">📞 Call</option>
+                              <option value="reel">🎬 Reel</option>
+                              <option value="post">🖼️ Post</option>
+                              <option value="alert">⚠️ Alert</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Priority</label>
+                            <select 
+                              value={notifForm.priority}
+                              onChange={(e) => setNotifForm({...notifForm, priority: e.target.value as any})}
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            >
+                              <option value="high">🔥 High</option>
+                              <option value="normal">🧊 Normal</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">TTL (Days)</label>
+                            <input 
+                              type="number"
+                              value={notifForm.ttl}
+                              onChange={(e) => setNotifForm({...notifForm, ttl: parseInt(e.target.value)})}
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Visibility</label>
+                            <select 
+                              value={notifForm.visibility}
+                              onChange={(e) => setNotifForm({...notifForm, visibility: e.target.value})}
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            >
+                              <option value="1">🔓 Public</option>
+                              <option value="0">🔒 Private</option>
+                              <option value="-1">🙈 Secret</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Accent Color</label>
+                            <div className="flex gap-1 overflow-hidden rounded-xl border border-border/50">
+                              <span className="bg-muted px-2 py-2 flex items-center text-[10px]">#</span>
+                              <input 
+                                type="text"
+                                value={notifForm.accentColor}
+                                onChange={(e) => setNotifForm({...notifForm, accentColor: e.target.value})}
+                                maxLength={6}
+                                className="w-full bg-background py-1 text-sm focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">LED Color</label>
+                            <div className="flex gap-1 overflow-hidden rounded-xl border border-border/50">
+                              <span className="bg-muted px-2 py-2 flex items-center text-[10px]">#</span>
+                              <input 
+                                type="text"
+                                value={notifForm.ledColor}
+                                onChange={(e) => setNotifForm({...notifForm, ledColor: e.target.value})}
+                                maxLength={6}
+                                className="w-full bg-background py-1 text-sm focus:outline-none"
+                              />
+                            </div>
+                          </div>
                         </div>
 
                         <div>
@@ -638,25 +791,136 @@ export default function AdminDashboard() {
                           />
                         </div>
 
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="col-span-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Large Icon (Avatar)</label>
+                            <input 
+                              type="text"
+                              value={notifForm.largeIcon}
+                              onChange={(e) => setNotifForm({...notifForm, largeIcon: e.target.value})}
+                              placeholder="Profile Pic URL"
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            />
+                            <p className="text-[8px] text-muted-foreground mt-1">Circular messenger-style icon.</p>
+                          </div>
+                          <div className="col-span-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Big Picture (Hero)</label>
+                            <input 
+                              type="text"
+                              value={notifForm.image}
+                              onChange={(e) => setNotifForm({...notifForm, image: e.target.value})}
+                              placeholder="Main Image URL"
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            />
+                            <p className="text-[8px] text-muted-foreground mt-1">Large image inside notification.</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                           <div className="col-span-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Small Icon (Res)</label>
+                            <input 
+                              type="text"
+                              value={notifForm.smallIcon}
+                              onChange={(e) => setNotifForm({...notifForm, smallIcon: e.target.value})}
+                              placeholder="ic_stat_..."
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            />
+                           </div>
+                           <div className="col-span-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Sound</label>
+                            <input 
+                              type="text"
+                              value={notifForm.sound}
+                              onChange={(e) => setNotifForm({...notifForm, sound: e.target.value})}
+                              placeholder="default"
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            />
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                           <div className="col-span-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Launch URL</label>
+                            <input 
+                              type="text"
+                              value={notifForm.link}
+                              onChange={(e) => setNotifForm({...notifForm, link: e.target.value})}
+                              placeholder="https://..."
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            />
+                           </div>
+                           <div className="col-span-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Collapse ID</label>
+                            <input 
+                              type="text"
+                              value={notifForm.collapseId}
+                              onChange={(e) => setNotifForm({...notifForm, collapseId: e.target.value})}
+                              placeholder="Group by ID"
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            />
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                           <div className="col-span-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Action Btn Text</label>
+                            <input 
+                              type="text"
+                              value={notifForm.actionText}
+                              onChange={(e) => setNotifForm({...notifForm, actionText: e.target.value})}
+                              placeholder="Open"
+                              className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                            />
+                           </div>
+                        </div>
+
                         <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Image URL (Optional)</label>
-                          <input 
-                            type="text"
-                            value={notifForm.image}
-                            onChange={(e) => setNotifForm({...notifForm, image: e.target.value})}
-                            placeholder="https://..."
-                            className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm"
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase font-mono">Custom Action Buttons (JSON)</label>
+                          <textarea 
+                            value={notifForm.actionsJson}
+                            onChange={(e) => setNotifForm({...notifForm, actionsJson: e.target.value})}
+                            placeholder='[{"id":"reply","text":"Reply","icon":"ic_menu_send"}]'
+                            className="w-full h-16 bg-background border border-border/50 rounded-xl px-3 py-2 text-[10px] font-mono resize-none"
                           />
                         </div>
 
-                        <div className="pt-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase font-mono">Payload Data (JSON)</label>
+                          <textarea 
+                            value={notifForm.customData}
+                            onChange={(e) => setNotifForm({...notifForm, customData: e.target.value})}
+                            placeholder='{"chatId": "...", "type": "message"}'
+                            className="w-full h-16 bg-background border border-border/50 rounded-xl px-3 py-2 text-[10px] font-mono resize-none"
+                          />
+                        </div>
+
+                        <div className="pt-4 flex gap-2">
+                          <button 
+                            onClick={() => {
+                              if (currentUser) {
+                                setNotifForm(prev => ({ 
+                                  ...prev, 
+                                  target: 'single', 
+                                  targetUID: currentUser.uid,
+                                  title: 'Quick Test 🚀',
+                                  message: 'Hello! This is a test notification from your own OC-CHAT Push Center.'
+                                }));
+                                alert("Target set to yourself. Click 'Execute Launch' to send.");
+                              }
+                            }}
+                            className="flex-1 py-4 bg-muted border border-border/50 text-muted-foreground rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Target size={14} />
+                            Set Me as Target
+                          </button>
                           <button 
                             onClick={handleAdvancedNotifSend}
                             disabled={isSendingNotif}
-                            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                            className="flex-[2] py-4 bg-primary text-primary-foreground rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all"
                           >
-                            {isSendingNotif ? <Loader2 className="animate-spin" size={14} /> : <Bell size={14} />}
-                            Fire Notification
+                            {isSendingNotif ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} fill="currentColor" />}
+                            Execute Launch
                           </button>
                         </div>
                       </div>
@@ -690,7 +954,20 @@ export default function AdminDashboard() {
                                     </div>
                                     <div>
                                       <p className="text-xs font-extra-bold">{u.displayName}</p>
-                                      <p className="text-[9px] font-mono text-primary">{u.publicIp}</p>
+                                      <div className="flex items-center gap-1 group/id">
+                                        <p className="text-[9px] font-mono text-primary bg-primary/5 px-1 rounded">{u.uid}</p>
+                                        <button 
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(u.uid);
+                                            alert("UID Copied!");
+                                          }}
+                                          className="opacity-0 group-hover/id:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded"
+                                          title="Copy External ID"
+                                        >
+                                          <Shield size={10} className="text-primary" />
+                                        </button>
+                                      </div>
+                                      <p className="text-[8px] text-muted-foreground mt-0.5">IP: {u.publicIp}</p>
                                     </div>
                                   </div>
                                 </td>
@@ -707,7 +984,7 @@ export default function AdminDashboard() {
                                 <td className="px-4 py-3">
                                   <div className="flex flex-wrap gap-1">
                                     {u.onesignalIds && u.onesignalIds.length > 0 ? (
-                                      u.onesignalIds.map((id: string) => (
+                                      Array.from(new Set(u.onesignalIds)).map((id: any) => (
                                         <span key={id} className="text-[8px] font-mono bg-muted px-1 rounded truncate max-w-[80px]" title={id}>{id}</span>
                                       ))
                                     ) : (
