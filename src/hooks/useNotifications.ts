@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAuth } from './useAuth';
-import { doc, setDoc, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, updateDoc, arrayUnion, collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import OneSignal from 'react-onesignal';
 
@@ -289,6 +289,22 @@ export function useNotifications() {
   }) => {
     try {
       console.log('Pushing notification via server:', params);
+
+      // Save to Firestore for in-app history
+      if (params.targetUserId !== 'all') {
+        const notifRef = collection(db, 'users', params.targetUserId, 'notifications');
+        await addDoc(notifRef, {
+          type: params.type || 'system',
+          senderName: params.title || 'System',
+          senderPhoto: params.largeIcon || 'https://cdn-icons-png.flaticon.com/512/3119/3119338.png',
+          message: params.message,
+          link: params.link || '',
+          data: params.data || {},
+          read: false,
+          timestamp: serverTimestamp(),
+        }).catch(e => console.error("History save failed:", e));
+      }
+
       const response = await fetch('/api/notifications/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

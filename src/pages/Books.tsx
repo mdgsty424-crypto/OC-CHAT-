@@ -14,6 +14,7 @@ import {
   Languages, Zap, Sparkles, Check, User, Users, FileText, HelpCircle, LogOut, Settings 
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useNotifications } from '../hooks/useNotifications';
 import { Helmet } from 'react-helmet-async';
 import { deleteDoc, getDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
@@ -68,6 +69,7 @@ export default function Books() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { sendNotification } = useNotifications();
   const [posts, setPosts] = useState<Post[]>([]);
   const [ads, setAds] = useState<any[]>([]);
   const [showComments, setShowComments] = useState<string | null>(null);
@@ -185,20 +187,74 @@ export default function Books() {
       await updateDoc(postRef, { likes: arrayRemove(user.uid) });
     } else {
       await updateDoc(postRef, { likes: arrayUnion(user.uid) });
+      
+      // Send notification to author
+      const post = posts.find(p => p.id === postId);
+      if (post && post.authorId !== user.uid) {
+        sendNotification({
+          targetUserId: post.authorId,
+          title: 'New Like! 👍',
+          message: `${user.displayName || 'Someone'} liked your post "${post.title || 'Untitled'}"`,
+          data: { 
+            type: 'like',
+            postId: post.id 
+          },
+          link: `/post/${post.id}`
+        });
+      }
     }
   };
 
   const handleAddComment = async (postId: string) => {
     if (!user || !commentText.trim()) return;
     try {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+
       await addDoc(collection(db, 'books_posts', postId, 'comments'), {
         userId: user.uid,
-        userName: user.displayName,
-        userPhoto: user.photoURL,
-        text: commentText,
+        userName: user.displayName || 'Anonymous',
+        userPhoto: user.photoURL || null,
+        text: commentText.trim() || '',
         timestamp: serverTimestamp(),
         parentId: replyingTo || null
       });
+
+      // Send notification to author or parent commenter
+      if (replyingTo) {
+        // Find parent comment for its author
+        try {
+          const parentDoc = await getDoc(doc(db, 'books_posts', postId, 'comments', replyingTo));
+          const parentData = parentDoc.data();
+          if (parentData && parentData.userId !== user.uid) {
+            sendNotification({
+              targetUserId: parentData.userId,
+              title: 'New Reply! 💬',
+              message: `${user.displayName || 'Someone'} replied to your comment`,
+              data: { 
+                type: 'reply',
+                postId: post.id,
+                commentId: replyingTo 
+              },
+              link: `/post/${post.id}`
+            });
+          }
+        } catch (e) {
+          console.error("Error sending reply notification:", e);
+        }
+      } else if (post.authorId !== user.uid) {
+        sendNotification({
+          targetUserId: post.authorId,
+          title: 'New Comment! 💬',
+          message: `${user.displayName || 'Someone'} commented on your post "${post.title || 'Untitled'}"`,
+          data: { 
+            type: 'comment',
+            postId: post.id 
+          },
+          link: `/post/${post.id}`
+        });
+      }
+
       setCommentText('');
       setReplyingTo(null);
       setReplyingToName(null);
@@ -213,7 +269,7 @@ export default function Books() {
       const postLink = generateShareLink('post', post.id);
       await addDoc(collection(db, 'chats', chatId, 'messages'), {
         senderId: user.uid,
-        text: `Shared a post: ${post.title}\n${postLink}`,
+        text: `Shared a post: ${post.title || 'Untitled'}\n${postLink}`,
         type: 'text',
         timestamp: serverTimestamp(),
         status: 'sent'

@@ -475,9 +475,9 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       if (isVideo && confirm('Would you like to post this video to your Story as well?')) {
         await addDoc(collection(db, 'stories'), {
           authorId: user.uid,
-          authorName: user.displayName,
-          authorPhoto: user.photoURL,
-          mediaUrl: data.url,
+          authorName: user.displayName || 'Anonymous',
+          authorPhoto: user.photoURL || null,
+          mediaUrl: data.url || '',
           mediaType: 'video',
           type: 'story',
           description: `Shared from chat`,
@@ -569,9 +569,9 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       type: 'text',
       timestamp: new Date().toISOString(),
       status: 'sent',
-      translatedText: translated,
-      isSelfDestruct: selfDestructTime !== null,
-      destructTime: selfDestructTime
+      translatedText: translated || '',
+      isSelfDestruct: !!selfDestructTime,
+      destructTime: selfDestructTime || null
     };
 
     if (replyingTo) {

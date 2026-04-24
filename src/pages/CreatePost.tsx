@@ -256,12 +256,17 @@ const CreatePost: React.FC = () => {
       await setDoc(doc(db, 'books_posts', shortCode), {
         authorId: user.uid,
         authorName: user.displayName || 'Anonymous',
-        authorPhoto: user.photoURL,
+        authorPhoto: user.photoURL || null,
         title: caption.slice(0, 30) || 'Untitled Post',
-        description: caption,
-        mediaUrl: uploadedMedia[0].url, // Backwards compatibility if needed
-        mediaType: uploadedMedia[0].type,
-        mediaItems: uploadedMedia,
+        description: caption || '',
+        mediaUrl: uploadedMedia[0]?.url || '', 
+        mediaType: uploadedMedia[0]?.type || 'image',
+        mediaItems: uploadedMedia.map(m => ({
+          url: m.url || '',
+          publicId: m.publicId || null,
+          type: m.type || 'image',
+          filters: m.filters || { grayscale: 0, brightness: 100, contrast: 100, sepia: 0, blur: 0 }
+        })),
         likes: [],
         commentsCount: 0,
         settings,
