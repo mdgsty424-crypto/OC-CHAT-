@@ -247,42 +247,46 @@ export default function Story() {
       // 1. Blob conversion for and reliability in WebView
       const fileBlob = new Blob([fileToUpload], { type: fileToUpload.type });
       formData.append('file', fileBlob, fileToUpload.name || `upload_${Date.now()}`);
+      formData.append('upload_preset', 'oc_chat_preset');
 
-      console.log('Starting story upload for reel...');
-      const res = await fetch('/api/upload', { 
+      console.log('Starting story direct Cloudinary upload for reel...');
+      const cloudName = 'dxiolmmdv';
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, { 
         method: 'POST', 
         body: formData
       });
 
       if (!res.ok) {
         const status = res.status;
-        console.error(`Story reel upload error status: ${status}`);
+        console.error(`Cloudinary story reel upload error status: ${status}`);
         let errorMsg = `Upload failed: ${status}`;
         try {
           const errorData = await res.json();
-          errorMsg = errorData.message || errorMsg;
+          errorMsg = errorData.error?.message || errorMsg;
         } catch (e) {
           const text = await res.text().catch(() => '');
-          console.error('Story reel upload error text:', text);
+          console.error('Cloudinary story reel upload error text:', text);
         }
         throw new Error(errorMsg);
       }
 
       const data = await res.json();
-      console.log('Story media upload success:', data.url);
+      console.log('Story media upload success:', data.secure_url);
 
-      if (data.url) {
+      if (data.secure_url) {
         await addDoc(collection(db, 'stories'), {
           authorId: user.uid || '',
           authorName: user.displayName || 'Anonymous',
           authorPhoto: user.photoURL || null,
           description: uploadForm.description || '',
-          mediaUrl: data.url || '',
+          mediaUrl: data.secure_url,
+          publicId: data.public_id,
           mediaType: (uploadForm.file?.type || '').startsWith('video/') ? 'video' : 'image',
           type: 'story',
           likes: [],
           comments: [],
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          views: 0
         });
         setIsUploading(false);
         setUploadForm({ description: '', file: null });

@@ -202,38 +202,38 @@ const CreatePost: React.FC = () => {
         const fileName = item.file.name || `upload_${Date.now()}`;
 
         const formData = new FormData();
-        // Use a generic name if filename is missing, important for some Android WebViews
         formData.append('file', fileBlob, fileName);
+        formData.append('upload_preset', 'oc_chat_preset');
 
-        console.log(`Starting upload for ${item.id} (${item.file.type}, ${item.file.size} bytes)`);
+        console.log(`Starting direct Cloudinary upload for ${item.id} (${item.file.type}, ${item.file.size} bytes)`);
         
-        // 2. FormData Logic: No manual headers, let the browser/WebView handle it
-        const res = await fetch('/api/upload', { 
+        // 2. Direct Cloudinary Upload Logic: No manual headers, bypass our server's 405
+        const cloudName = 'dxiolmmdv';
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${item.type}/upload`, { 
           method: 'POST', 
           body: formData
         });
 
-        // 3. Try-Catch refinement: Log status and handle non-JSON responses
+        // 3. Try-Catch refinement: Log status and handle errors
         if (!res.ok) {
           const status = res.status;
-          console.error(`Server returned error status: ${status}`);
+          console.error(`Cloudinary returned error status: ${status}`);
           let errorMsg = `Upload failed with status ${status}`;
           try {
             const errorData = await res.json();
-            errorMsg = errorData.message || errorMsg;
+            errorMsg = errorData.error?.message || errorMsg;
           } catch (e) {
-            // If not JSON, try to get text
             const text = await res.text().catch(() => '');
-            console.error('Server error response (text):', text);
+            console.error('Cloudinary error response (text):', text);
           }
           throw new Error(errorMsg);
         }
 
         const data = await res.json();
-        console.log('Upload success for:', item.id, data.url);
+        console.log('Upload success for:', item.id, data.secure_url);
         
         setMediaItems(prev => prev.map(m => 
-          m.id === item.id ? { ...m, preview: data.url, publicId: data.public_id, isUploading: false } : m
+          m.id === item.id ? { ...m, preview: data.secure_url, publicId: data.public_id, isUploading: false } : m
         ));
       } catch (err: any) {
         console.error('Upload failed for item:', item.id, err);

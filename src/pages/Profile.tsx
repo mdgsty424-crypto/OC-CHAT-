@@ -345,36 +345,37 @@ export default function Profile() {
     // 1. Blob Conversion for WebView reliability
     const fileBlob = new Blob([file], { type: file.type });
     formData.append('file', fileBlob, file.name || `upload_${Date.now()}`);
+    formData.append('upload_preset', 'oc_chat_preset');
 
     try {
-      console.log(`Starting ${type} upload...`);
-      const response = await fetch('/api/upload', {
+      console.log(`Starting ${type} direct Cloudinary upload...`);
+      const cloudName = 'dxiolmmdv';
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
         body: formData,
-        // No manual Content-Type
       });
 
       if (!response.ok) {
         const status = response.status;
-        console.error(`Upload error status: ${status}`);
+        console.error(`Cloudinary upload error status: ${status}`);
         let errorMsg = `Upload failed: ${status}`;
         try {
           const errorData = await response.json();
-          errorMsg = errorData.message || errorMsg;
+          errorMsg = errorData.error?.message || errorMsg;
         } catch (e) {
           const text = await response.text().catch(() => '');
-          console.error('Upload error text:', text);
+          console.error('Cloudinary upload error text:', text);
         }
         throw new Error(errorMsg);
       }
       
       const data = await response.json();
-      console.log(`${type} upload success:`, data.url);
+      console.log(`${type} upload success:`, data.secure_url);
       
       if (type === 'signature') {
-        setIdentity(prev => ({ ...prev, signatureURL: data.url }));
+        setIdentity(prev => ({ ...prev, signatureURL: data.secure_url }));
       } else {
-        const updateData = type === 'avatar' ? { photoURL: data.url } : { coverURL: data.url };
+        const updateData = type === 'avatar' ? { photoURL: data.secure_url } : { coverURL: data.secure_url };
         await updateDoc(doc(db, 'users', currentUser.uid), updateData);
       }
       setToast(`${type === 'avatar' ? 'Profile picture' : type === 'cover' ? 'Cover photo' : 'Signature'} updated!`);
@@ -468,31 +469,33 @@ export default function Profile() {
       // Blob conversion for WebView
       const fileBlob = new Blob([bookForm.file], { type: bookForm.file.type });
       formData.append('file', fileBlob, bookForm.file.name || `upload_${Date.now()}`);
+      formData.append('upload_preset', 'oc_chat_preset');
 
-      console.log('Starting book post upload...');
-      const res = await fetch('/api/upload', { 
+      console.log('Starting book post direct Cloudinary upload...');
+      const cloudName = 'dxiolmmdv';
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, { 
         method: 'POST', 
         body: formData
       });
 
       if (!res.ok) {
         const status = res.status;
-        console.error(`Book upload error status: ${status}`);
+        console.error(`Cloudinary Book upload error status: ${status}`);
         let errorMsg = `Upload failed: ${status}`;
         try {
           const errorData = await res.json();
-          errorMsg = errorData.message || errorMsg;
+          errorMsg = errorData.error?.message || errorMsg;
         } catch (e) {
           const text = await res.text().catch(() => '');
-          console.error('Book upload error text:', text);
+          console.error('Cloudinary Book upload error text:', text);
         }
         throw new Error(errorMsg);
       }
 
       const data = await res.json();
-      console.log('Book media uploaded:', data.url);
+      console.log('Book media uploaded:', data.secure_url);
 
-      if (data.url) {
+      if (data.secure_url) {
         const mentions = (bookForm.mentions || '').split(' ').filter(m => m.startsWith('@')).map(m => m.slice(1));
         await addDoc(collection(db, 'books_posts'), {
           authorId: currentUser.uid || '',
@@ -501,10 +504,10 @@ export default function Profile() {
           isVerified: currentUser.role === 'admin' || currentUser.isVerified || false,
           title: bookForm.title || 'Untitled Post',
           description: bookForm.description || '',
-          mediaUrl: data.url || '',
+          mediaUrl: data.secure_url || '',
           mediaType: (bookForm.file?.type || '').startsWith('video/') ? 'video' : 'image',
           mediaItems: [{ 
-            url: data.url || '', 
+            url: data.secure_url || '', 
             publicId: data.public_id || null, 
             type: (bookForm.file?.type || '').startsWith('video/') ? 'video' : 'image' 
           }],
@@ -535,36 +538,38 @@ export default function Profile() {
     // Blob conversion for WebView
     const fileBlob = new Blob([file], { type: file.type });
     formData.append('file', fileBlob, file.name || `upload_${Date.now()}`);
+    formData.append('upload_preset', 'oc_chat_preset');
 
     try {
-      console.log('Starting story upload...');
-      const response = await fetch('/api/upload', {
+      console.log('Starting story direct Cloudinary upload...');
+      const cloudName = 'dxiolmmdv';
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
         method: 'POST',
         body: formData
       });
 
       if (!response.ok) {
         const status = response.status;
-        console.error(`Story upload error status: ${status}`);
+        console.error(`Cloudinary Story upload error status: ${status}`);
         let errorMsg = `Upload failed: ${status}`;
         try {
           const errorData = await response.json();
-          errorMsg = errorData.message || errorMsg;
+          errorMsg = errorData.error?.message || errorMsg;
         } catch (e) {
           const text = await response.text().catch(() => '');
-          console.error('Story upload error text:', text);
+          console.error('Cloudinary Story upload error text:', text);
         }
         throw new Error(errorMsg);
       }
       
       const data = await response.json();
-      console.log('Story upload success:', data.url);
+      console.log('Story upload success:', data.secure_url);
       
       await addDoc(collection(db, 'stories'), {
         authorId: currentUser.uid || '',
         authorName: currentUser.displayName || 'Anonymous',
         authorPhoto: currentUser.photoURL || null,
-        mediaUrl: data.url || '',
+        mediaUrl: data.secure_url || '',
         publicId: data.public_id || null,
         mediaType: (file.type || '').startsWith('video/') ? 'video' : 'image',
         type: 'story',
