@@ -345,22 +345,21 @@ export default function Profile() {
     formData.append('file', file);
 
     try {
+      console.log(`Starting ${type} upload...`);
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
+        // IMPORTANT: No manual Content-Type header. 
+        // WebView/Browser sets it automatically with boundary.
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Upload failed: ${response.status} ${text}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Upload failed: ${response.status}`);
       }
       
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned non-JSON response. This usually means the file is too large.");
-      }
-
       const data = await response.json();
+      console.log(`${type} upload success:`, data.url);
       
       if (type === 'signature') {
         setIdentity(prev => ({ ...prev, signatureURL: data.url }));
@@ -368,9 +367,10 @@ export default function Profile() {
         const updateData = type === 'avatar' ? { photoURL: data.url } : { coverURL: data.url };
         await updateDoc(doc(db, 'users', currentUser.uid), updateData);
       }
-    } catch (error) {
-      console.error("Error uploading photo:", error);
-      alert("Failed to upload photo");
+      setToast(`${type === 'avatar' ? 'Profile picture' : type === 'cover' ? 'Cover photo' : 'Signature'} updated!`);
+    } catch (error: any) {
+      console.error(`Error uploading ${type}:`, error);
+      alert(`Failed to upload ${type}: ${error.message || 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
@@ -456,8 +456,22 @@ export default function Profile() {
     try {
       const formData = new FormData();
       formData.append('file', bookForm.file);
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+
+      console.log('Starting book post upload...');
+      const res = await fetch('/api/upload', { 
+        method: 'POST', 
+        body: formData,
+        // No Content-Type header
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Upload failed: ${res.status}`);
+      }
+
       const data = await res.json();
+      console.log('Book media uploaded:', data.url);
+
       if (data.url) {
         const mentions = (bookForm.mentions || '').split(' ').filter(m => m.startsWith('@')).map(m => m.slice(1));
         await addDoc(collection(db, 'books_posts'), {
@@ -482,10 +496,11 @@ export default function Profile() {
         });
         setIsUploadingBook(false);
         setBookForm({ title: '', description: '', mentions: '', file: null });
+        setToast('Book post published successfully!');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading book:', error);
-      alert('Failed to upload book');
+      alert(`Failed to upload book: ${error.message || 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
@@ -500,40 +515,39 @@ export default function Profile() {
     formData.append('file', file);
 
     try {
+      console.log('Starting story upload...');
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
+        // No Content-Type header
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Upload failed: ${response.status} ${text}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Upload failed: ${response.status}`);
       }
       
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned non-JSON response. This usually means the file is too large.");
-      }
-
       const data = await response.json();
+      console.log('Story upload success:', data.url);
       
       await addDoc(collection(db, 'stories'), {
-        authorId: currentUser.uid,
-        authorName: currentUser.displayName,
-        authorPhoto: currentUser.photoURL,
-        mediaUrl: data.url,
-        publicId: data.public_id,
-        mediaType: 'video',
+        authorId: currentUser.uid || '',
+        authorName: currentUser.displayName || 'Anonymous',
+        authorPhoto: currentUser.photoURL || null,
+        mediaUrl: data.url || '',
+        publicId: data.public_id || null,
+        mediaType: (file.type || '').startsWith('video/') ? 'video' : 'image',
         type: 'story',
-        description: `My new Reel!`,
+        description: `My new Story!`,
         likes: [],
         views: 0,
         createdAt: serverTimestamp(),
         comments: []
       });
-    } catch (error) {
+      setToast('Story shared successfully!');
+    } catch (error: any) {
       console.error("Error uploading story:", error);
-      alert("Failed to upload story");
+      alert(`Failed to share story: ${error.message || 'Unknown error'}`);
     } finally {
       setIsUploadingStory(false);
     }

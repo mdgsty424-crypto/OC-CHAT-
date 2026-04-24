@@ -233,7 +233,7 @@ export default function Story() {
     try {
       let fileToUpload = uploadForm.file;
       
-      // Compress if it's an image (Stairs can take photos too)
+      // Compress if it's an image
       if (fileToUpload.type.startsWith('image/')) {
         const options = {
           maxSizeMB: 1,
@@ -245,8 +245,22 @@ export default function Story() {
 
       const formData = new FormData();
       formData.append('file', fileToUpload);
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+
+      console.log('Starting story upload for reel...');
+      const res = await fetch('/api/upload', { 
+        method: 'POST', 
+        body: formData,
+        // No manual headers
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Upload failed: ${res.status}`);
+      }
+
       const data = await res.json();
+      console.log('Story media upload success:', data.url);
+
       if (data.url) {
         await addDoc(collection(db, 'stories'), {
           authorId: user.uid || '',
@@ -263,9 +277,9 @@ export default function Story() {
         setIsUploading(false);
         setUploadForm({ description: '', file: null });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload failed:', error);
-      alert('Upload failed. If you are using the app, please check your internet and storage permissions.');
+      alert(`Upload failed: ${error.message || 'Check your internet and storage permissions'}`);
     } finally {
       setIsSubmitting(false);
     }

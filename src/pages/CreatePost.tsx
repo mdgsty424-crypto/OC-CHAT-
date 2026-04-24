@@ -193,16 +193,35 @@ const CreatePost: React.FC = () => {
     // Start individual uploads
     newItems.forEach(async (item) => {
       try {
+        if (!item.file) {
+          throw new Error('No file selected');
+        }
+
         const formData = new FormData();
-        formData.append('file', item.file!);
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        formData.append('file', item.file);
+
+        console.log('Starting upload for:', item.id);
+        const res = await fetch('/api/upload', { 
+          method: 'POST', 
+          body: formData,
+          // IMPORTANT: Do NOT set Content-Type header here. 
+          // The browser (and WebView) needs to set it with the boundary string.
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || `Upload failed with status ${res.status}`);
+        }
+
         const data = await res.json();
+        console.log('Upload success for:', item.id, data.url);
         
         setMediaItems(prev => prev.map(m => 
           m.id === item.id ? { ...m, preview: data.url, publicId: data.public_id, isUploading: false } : m
         ));
-      } catch (err) {
+      } catch (err: any) {
         console.error('Upload failed for item:', item.id, err);
+        setError(`Upload failed: ${err.message || 'Check your internet connection'}`);
         setMediaItems(prev => prev.map(m => 
           m.id === item.id ? { ...m, isUploading: false } : m
         ));
