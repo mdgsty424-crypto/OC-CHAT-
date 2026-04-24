@@ -252,12 +252,11 @@ const CreatePost: React.FC = () => {
       // Generate a 6-character shortcode for the post ID
       const shortCode = Math.random().toString(36).substring(2, 8);
 
-      // Save to Firestore with the shortcode as the document ID
-      await setDoc(doc(db, 'books_posts', shortCode), {
-        authorId: user.uid,
+      const postPayload = {
+        authorId: user.uid || '',
         authorName: user.displayName || 'Anonymous',
         authorPhoto: user.photoURL || null,
-        title: caption.slice(0, 30) || 'Untitled Post',
+        title: (caption || '').slice(0, 30) || 'Untitled Post',
         description: caption || '',
         mediaUrl: uploadedMedia[0]?.url || '', 
         mediaType: uploadedMedia[0]?.type || 'image',
@@ -269,10 +268,17 @@ const CreatePost: React.FC = () => {
         })),
         likes: [],
         commentsCount: 0,
-        settings,
+        settings: {
+          comments: settings?.comments ?? true,
+          share: settings?.share ?? true,
+          privacy: settings?.privacy ?? 'public'
+        },
         type: 'books',
         createdAt: serverTimestamp(),
-      });
+      };
+
+      // Save to Firestore with the shortcode as the document ID
+      await setDoc(doc(db, 'books_posts', shortCode), postPayload);
 
       // Clear draft
       await localforage.removeItem('draft_post');

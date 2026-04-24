@@ -135,7 +135,8 @@ export default function Story() {
     setTimeout(() => setIsLiking(false), 500);
 
     const reelRef = doc(db, 'stories', reelId);
-    if (likes.includes(user.uid)) {
+    const safeLikes = Array.isArray(likes) ? likes : [];
+    if (safeLikes.includes(user.uid)) {
       await updateDoc(reelRef, { likes: arrayRemove(user.uid) });
     } else {
       await updateDoc(reelRef, { likes: arrayUnion(user.uid) });
@@ -171,10 +172,10 @@ export default function Story() {
 
     try {
         await addDoc(collection(db, 'stories', currentReelId, 'comments'), {
-        userId: user.uid,
+        userId: user.uid || '',
         userName: user.displayName || 'Anonymous',
         userProfilePic: user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || 'User'}`,
-        text: commentText.trim() || '',
+        text: (commentText || '').trim() || '',
         createdAt: serverTimestamp(),
         likes: []
       });
@@ -190,7 +191,8 @@ export default function Story() {
     if (!currentReelId) return;
 
     const commentRef = doc(db, 'stories', currentReelId, 'comments', commentId);
-    if (likes.includes(user.uid)) {
+    const safeLikes = Array.isArray(likes) ? likes : [];
+    if (safeLikes.includes(user.uid)) {
       await updateDoc(commentRef, { likes: arrayRemove(user.uid) });
     } else {
       await updateDoc(commentRef, { likes: arrayUnion(user.uid) });
@@ -247,12 +249,12 @@ export default function Story() {
       const data = await res.json();
       if (data.url) {
         await addDoc(collection(db, 'stories'), {
-          authorId: user.uid,
+          authorId: user.uid || '',
           authorName: user.displayName || 'Anonymous',
           authorPhoto: user.photoURL || null,
           description: uploadForm.description || '',
           mediaUrl: data.url || '',
-          mediaType: uploadForm.file.type.startsWith('video/') ? 'video' : 'image',
+          mediaType: (uploadForm.file?.type || '').startsWith('video/') ? 'video' : 'image',
           type: 'story',
           likes: [],
           comments: [],

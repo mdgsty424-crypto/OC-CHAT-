@@ -252,7 +252,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const toggleReaction = async (emoji: string) => {
     if (!user) return;
     const messageRef = doc(db, 'chats', message.chatId, 'messages', message.id);
-    const hasReacted = message.reactions?.[emoji]?.includes(user.uid);
+    const emojiReactions = message.reactions?.[emoji];
+    const hasReacted = Array.isArray(emojiReactions) && emojiReactions.includes(user.uid);
 
     try {
       updateDoc(messageRef, {
@@ -268,7 +269,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (!user || !message.poll) return;
     const messageRef = doc(db, 'chats', message.chatId, 'messages', message.id);
     const newOptions = [...message.poll.options];
-    const hasVoted = newOptions[optionIndex].votes.includes(user.uid);
+    const userVotes = newOptions[optionIndex].votes;
+    const hasVoted = Array.isArray(userVotes) && userVotes.includes(user.uid);
 
     if (hasVoted) {
       newOptions[optionIndex].votes = newOptions[optionIndex].votes.filter(id => id !== user.uid);
@@ -758,7 +760,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.poll.options.map((opt, i) => {
                 const totalVotes = message.poll?.options.reduce((acc, curr) => acc + curr.votes.length, 0) || 1;
                 const percentage = (opt.votes.length / totalVotes) * 100;
-                const hasVoted = opt.votes.includes(user?.uid || '');
+                const optionVotes = opt.votes;
+                const hasVoted = Array.isArray(optionVotes) && optionVotes.includes(user?.uid || '');
                 return (
                   <button 
                     key={i}

@@ -110,7 +110,8 @@ export default function StoryPlayer({ stories, initialIndex = 0, onClose }: Stor
 
   const toggleLike = async () => {
     if (!currentUser || !storyData) return;
-    const isLiked = storyData.likes.includes(currentUser.uid);
+    const safeLikes = Array.isArray(storyData.likes) ? storyData.likes : [];
+    const isLiked = safeLikes.includes(currentUser.uid);
     const storyRef = doc(db, 'stories', storyData.id);
 
     try {

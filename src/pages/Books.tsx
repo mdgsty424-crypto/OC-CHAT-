@@ -183,7 +183,8 @@ export default function Books() {
   const handleLike = async (postId: string, likes: string[]) => {
     if (!user) return;
     const postRef = doc(db, 'books_posts', postId);
-    if (likes.includes(user.uid)) {
+    const safeLikes = Array.isArray(likes) ? likes : [];
+    if (safeLikes.includes(user.uid)) {
       await updateDoc(postRef, { likes: arrayRemove(user.uid) });
     } else {
       await updateDoc(postRef, { likes: arrayUnion(user.uid) });
@@ -1099,7 +1100,7 @@ const MediaElement = ({ url, type, isSmall = false, filters, onLoad }: MediaElem
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const isCloudinary = url.includes('cloudinary.com');
+  const isCloudinary = (url || '').includes('cloudinary.com');
   const transformedUrl = isCloudinary && filters ? getTransformedUrl(url, getFiltersTransformation(filters)) : url;
 
   const filterStyles = (filters && !isCloudinary) ? {

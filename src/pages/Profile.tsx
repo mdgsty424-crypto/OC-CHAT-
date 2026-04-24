@@ -459,20 +459,20 @@ export default function Profile() {
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.url) {
-        const mentions = bookForm.mentions.split(' ').filter(m => m.startsWith('@')).map(m => m.slice(1));
+        const mentions = (bookForm.mentions || '').split(' ').filter(m => m.startsWith('@')).map(m => m.slice(1));
         await addDoc(collection(db, 'books_posts'), {
-          authorId: currentUser.uid,
+          authorId: currentUser.uid || '',
           authorName: currentUser.displayName || 'Anonymous',
           authorPhoto: currentUser.photoURL || null,
           isVerified: currentUser.role === 'admin' || currentUser.isVerified || false,
           title: bookForm.title || 'Untitled Post',
           description: bookForm.description || '',
           mediaUrl: data.url || '',
-          mediaType: bookForm.file.type.startsWith('video/') ? 'video' : 'image',
+          mediaType: (bookForm.file?.type || '').startsWith('video/') ? 'video' : 'image',
           mediaItems: [{ 
             url: data.url || '', 
             publicId: data.public_id || null, 
-            type: bookForm.file.type.startsWith('video/') ? 'video' : 'image' 
+            type: (bookForm.file?.type || '').startsWith('video/') ? 'video' : 'image' 
           }],
           likes: [],
           comments: [],
