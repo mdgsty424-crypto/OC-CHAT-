@@ -450,7 +450,7 @@ async function startServer() {
       }
 
       // Key management
-      const rawKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
+      const rawKey = (process.env.ONESIGNAL_REST_API_KEY || "os_v2_app_o6yabzfqirabbla6tzzxas5o7lkbg7cpl4nuwuu6ij5dbqylscpeadgwgdffmwiy7czmkmevbqsc3kfufcwkfrdflvudpe3j2g7xzpq").trim();
       
       console.log(`[Push] Attempting OneSignal Delivery...`);
       console.log(`[Push] Payload Summary: Target=${targetUserId}, Priority=${priority}, TTL=${payload.ttl}`);
