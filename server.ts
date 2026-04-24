@@ -1,6 +1,7 @@
 import "./src/lib/sanitize-env.ts";
 import fs from "fs";
 import express from "express";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -216,6 +217,7 @@ async function startServer() {
     next();
   });
 
+  app.use(cors());
   app.use(express.json());
 
   // Health check route
@@ -228,12 +230,13 @@ async function startServer() {
   });
 
   // API Route for Cloudinary Upload
-  app.post("/api/upload", (req, res) => {
-    console.log("POST /api/upload - Received request");
+  // Handle both /api/upload and /api/upload/ to avoid 405 on trailing slash
+  const handleUpload = (req: express.Request, res: express.Response) => {
+    console.log(`[UPLOAD] ${req.method} ${req.url} - Received upload request`);
     
     upload.single("file")(req, res, async (err) => {
       if (err) {
-        console.error("Multer error:", err);
+        console.error("[UPLOAD] Multer error:", err);
         return res.status(500).json({ 
           error: "Upload failed", 
           message: err.message,
@@ -242,35 +245,29 @@ async function startServer() {
       }
       
       if (!(req as any).file) {
-        console.error("No file in request");
+        console.error("[UPLOAD] No file in request");
         return res.status(400).json({ error: "No file uploaded" });
       }
       
       try {
-        console.log("Uploading to Cloudinary manually...", {
+        console.log("[UPLOAD] Uploading to Cloudinary...", {
           mimetype: (req as any).file.mimetype,
           originalname: (req as any).file.originalname,
           size: (req as any).file.size
         });
         
         const result: any = await new Promise((resolve, reject) => {
-          const isAudio = (req as any).file.mimetype.startsWith('audio/') || 
-                          (req as any).file.mimetype.startsWith('video/webm') ||
-                          (req as any).file.originalname.endsWith('.webm') || 
-                          (req as any).file.originalname.endsWith('.mp3') ||
-                          (req as any).file.originalname === 'voice.webm';
-          
           const uploadOptions: any = {
             folder: "oc-chat",
             resource_type: "auto",
-            flags: "attachment" // Better for raw files to be treated as attachments
+            flags: "attachment"
           };
 
           const uploadStream = cloudinary.uploader.upload_stream(
             uploadOptions,
             (error, result) => {
               if (error) {
-                console.error("Cloudinary upload_stream error callback:", error);
+                console.error("[UPLOAD] Cloudinary stream error:", error);
                 reject(error);
               } else {
                 resolve(result);
@@ -280,7 +277,7 @@ async function startServer() {
           uploadStream.end((req as any).file!.buffer);
         });
         
-        console.log("Cloudinary upload success:", result.secure_url);
+        console.log("[UPLOAD] Success:", result.secure_url);
         res.json({ 
           url: result.secure_url,
           public_id: result.public_id,
@@ -288,14 +285,17 @@ async function startServer() {
           format: result.format
         });
       } catch (uploadErr: any) {
-        console.error("Cloudinary upload error:", uploadErr);
+        console.error("[UPLOAD] Cloudinary error:", uploadErr);
         res.status(500).json({ 
           error: "Cloudinary upload failed", 
           message: uploadErr.message 
         });
       }
     });
-  });
+  };
+
+  app.post("/api/upload", handleUpload);
+  app.post("/api/upload/", handleUpload);
 
   // API Route for Cloudinary Deletion
   app.post("/api/delete-media", async (req, res) => {
