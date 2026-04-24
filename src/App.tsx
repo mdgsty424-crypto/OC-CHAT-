@@ -187,43 +187,32 @@ function AppRoutes() {
       permissionsRequested.current = true;
       const requestPermissions = async () => {
         try {
-          // Notification Permission
-          if (Notification.permission === 'default') {
+          if ('Notification' in window && Notification.permission === 'default') {
             await Notification.requestPermission();
           }
 
-          // Camera & Microphone Permission
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-          stream.getTracks().forEach(track => track.stop()); // Stop immediately after permission granted
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            stream.getTracks().forEach(track => track.stop());
+          }
           
-          console.log("Permissions granted successfully");
-
-          // Location tracking
           if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(async (pos) => {
               try {
-                // Simple reverse geocoding using a free API (or just store lat/lng)
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`, {
-                  headers: {
-                    'User-Agent': 'OC-CHAT-App/1.0'
-                  }
+                  headers: { 'User-Agent': 'OC-CHAT-App/1.0' }
                 });
-                if (!res.ok) throw new Error('Failed to fetch location');
-                const data = await res.json();
-                const locationString = data.address ? (data.address.city || data.address.town || data.address.village || data.address.country || `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`) : `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
-                
-                await updateDoc(doc(db, 'users', user.uid), {
-                  location: locationString
-                });
+                if (res.ok) {
+                  const data = await res.json();
+                  const locationString = data.address ? (data.address.city || data.address.town || data.address.village || data.address.country || `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`) : `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
+                  await updateDoc(doc(db, 'users', user.uid), { location: locationString });
+                }
               } catch (e) {
-                console.error("Reverse geocoding failed", e);
                 await updateDoc(doc(db, 'users', user.uid), {
                   location: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`
                 });
               }
-            }, (err) => {
-              console.warn("Location permission denied", err);
-            });
+            }, undefined, { timeout: 10000 });
           }
         } catch (error) {
           console.warn("Permissions denied or failed:", error);
@@ -232,7 +221,7 @@ function AppRoutes() {
 
       requestPermissions();
     }
-  }, [user, loading]);
+  }, [user?.uid, loading]);
 
   useEffect(() => {
     // Check for app lock

@@ -130,6 +130,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
             alt={preview.title} 
             className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
             referrerPolicy="no-referrer"
+            loading="lazy"
             onError={() => setImageError(true)}
           />
           {(isYouTube || isFacebook) && (
@@ -533,6 +534,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 alt="Sent image" 
                 className="w-full h-full object-cover hover:opacity-90 transition-opacity"
                 referrerPolicy="no-referrer"
+                loading="lazy"
               />
             )}
           </div>

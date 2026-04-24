@@ -114,7 +114,7 @@ export default function PostDetail() {
         {/* We can eventually move BookCard to a shared components folder */}
         <div className="bg-white border-4 border-black rounded-[2.5rem] p-6 shadow-[12px_12px_0px_#000]">
            <div className="flex items-center gap-4 mb-6">
-             <img src={post.authorPhoto} className="w-16 h-16 rounded-full border-4 border-black shadow-sm" alt="" />
+             <img src={post.authorPhoto} className="w-16 h-16 rounded-full border-4 border-black shadow-sm" alt="" loading="lazy" />
              <div>
                <h3 className="font-black text-2xl tracking-tighter">{post.authorName}</h3>
                <p className="text-black/40 font-bold uppercase text-xs tracking-widest">PUBLISHED RECENTLY</p>

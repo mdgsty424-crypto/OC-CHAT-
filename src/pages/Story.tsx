@@ -333,6 +333,7 @@ export default function Story() {
               src={feed[currentIndex]?.authorPhoto || `https://ui-avatars.com/api/?name=${feed[currentIndex]?.authorName || 'User'}`} 
               alt="Profile" 
               className="w-full h-full object-cover"
+              loading="lazy"
             />
           </div>
           <div className="flex flex-col">
@@ -391,7 +392,7 @@ export default function Story() {
                   onLoadedMetadata={(e) => index === currentIndex && setDuration(e.currentTarget.duration)}
                 />
               ) : (
-                <img src={reel.mediaUrl} alt="Story" className="w-full h-full object-cover" />
+                <img src={reel.mediaUrl} alt="Story" className="w-full h-full object-cover" loading="lazy" />
               )}
 
               {/* Center Controls (Copy Middle Controls) */}
@@ -549,6 +550,7 @@ export default function Story() {
                       src={comment.userProfilePic} 
                       alt={comment.userName} 
                       className="w-10 h-10 rounded-full border border-white/20 object-cover flex-shrink-0"
+                      loading="lazy"
                     />
                     <div className="flex-1 flex flex-col gap-1">
                       <div className="flex items-center justify-between">

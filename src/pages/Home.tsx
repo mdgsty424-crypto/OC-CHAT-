@@ -325,6 +325,7 @@ export default function Home() {
                   src={currentUserProfile?.photoURL || user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
                   className="w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-opacity rounded-full"
                   alt="Your Story"
+                  loading="lazy"
                 />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Plus size={20} className="text-white drop-shadow-md" />
@@ -346,6 +347,7 @@ export default function Home() {
                     src={u.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`} 
                     className="w-full h-full rounded-full object-cover"
                     alt={u.displayName}
+                    loading="lazy"
                   />
                 </div>
                 {u.online && (

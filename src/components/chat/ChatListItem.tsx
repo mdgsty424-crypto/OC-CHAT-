@@ -133,6 +133,7 @@ export default function ChatListItem({ chat, isSelected, onSelect }: ChatListIte
                   alt={chatName}
                   className="w-full h-full rounded-full object-cover"
                   referrerPolicy="no-referrer"
+                  loading="lazy"
                   onError={(e) => {
                     e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(chatName)}&background=random`;
                   }}

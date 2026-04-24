@@ -75,6 +75,7 @@ export default function UserChatListItem({ user }: UserChatListItemProps) {
                 alt={user.displayName}
                 className="w-full h-full rounded-full object-cover"
                 referrerPolicy="no-referrer"
+                loading="lazy"
               />
             </div>
             {user.online && (
