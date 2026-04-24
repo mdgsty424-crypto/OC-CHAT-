@@ -35,11 +35,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ZegoCloud Configuration
-const ZEGO_APP_ID = Number(process.env.ZEGO_APP_ID) || 1698335343;
-const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET || "d1647c6b9802ed758e1bf148914b80758d5b35061f3e8f76261c6187d55ab9fe";
+const ZEGO_APP_ID = Number(process.env.ZEGO_APP_ID);
+const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET;
 
 // webtoapp.design Configuration
-const WEBTOAPP_API_KEY = process.env.WEBTOAPP_API_KEY || "tFT_Zi9r8SEvbduQ3jRhMhRN73-raDOy2r-522NuXSc";
+const WEBTOAPP_API_KEY = process.env.WEBTOAPP_API_KEY;
 const WEBTOAPP_API_URL = `https://webtoapp.design/api/push_notifications?key=${WEBTOAPP_API_KEY}`;
 
 // Configure Cloudinary
@@ -402,7 +402,7 @@ async function startServer() {
     }
 
     try {
-      const appId = "77b000e4-b044-4010-ac1e-9e73704baefa";
+      const appId = process.env.ONESIGNAL_APP_ID;
       const payload: any = {
         app_id: appId,
         headings: { en: title },
@@ -450,7 +450,7 @@ async function startServer() {
       }
 
       // Key management
-      const rawKey = "os_v2_app_o6yabzfqirabbla6tzzxas5o7lkbg7cpl4nuwuu6ij5dbqylscpeadgwgdffmwiy7czmkmevbqsc3kfufcwkfrdflvudpe3j2g7xzpq".trim();
+      const rawKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
       
       console.log(`[Push] Attempting OneSignal Delivery...`);
       console.log(`[Push] Payload Summary: Target=${targetUserId}, Priority=${priority}, TTL=${payload.ttl}`);
@@ -624,8 +624,8 @@ async function startServer() {
     if (!phoneNumber) return res.status(400).json({ error: "phoneNumber is required" });
 
     try {
-      const INFOBIP_API_KEY = "701772971eb6b9d02482ba463bcfee11-01637336-f610-4a65-9947-ee8ae793983b";
-      const INFOBIP_BASE_URL = "https://9jjgy3.api.infobip.com";
+      const INFOBIP_API_KEY = process.env.INFOBIP_API_KEY;
+      const INFOBIP_BASE_URL = process.env.INFOBIP_BASE_URL || "https://9jjgy3.api.infobip.com";
 
       const payload = {
         messages: [

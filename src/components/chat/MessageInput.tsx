@@ -555,10 +555,9 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     const isAICommand = text.startsWith('@ai ');
     const prompt = isAICommand ? text.slice(4) : null;
 
-    // Simulated Translation using Gemini
+    // Translation logic could be implemented via /api/translate if needed
     let translated = "";
-    if (isTranslationEnabled && process.env.GEMINI_API_KEY) {
-      // Translation logic removed as requested
+    if (isTranslationEnabled) {
       translated = text;
     }
 

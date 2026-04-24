@@ -247,10 +247,10 @@ export default function Story() {
       // 1. Blob conversion for and reliability in WebView
       const fileBlob = new Blob([fileToUpload], { type: fileToUpload.type });
       formData.append('file', fileBlob, fileToUpload.name || `upload_${Date.now()}`);
-      formData.append('upload_preset', 'ml_default');
+      formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default');
 
       console.log('Starting story direct Cloudinary upload for reel...');
-      const cloudName = 'dxiolmmdv';
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dxiolmmdv';
       const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, { 
         method: 'POST', 
         body: formData

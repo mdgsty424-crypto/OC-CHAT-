@@ -345,11 +345,11 @@ export default function Profile() {
     // 1. Blob Conversion for WebView reliability
     const fileBlob = new Blob([file], { type: file.type });
     formData.append('file', fileBlob, file.name || `upload_${Date.now()}`);
-    formData.append('upload_preset', 'ml_default');
+    formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default');
 
     try {
       console.log(`Starting ${type} direct Cloudinary upload...`);
-      const cloudName = 'dxiolmmdv';
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dxiolmmdv';
       const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
         body: formData,
@@ -469,10 +469,10 @@ export default function Profile() {
       // Blob conversion for WebView
       const fileBlob = new Blob([bookForm.file], { type: bookForm.file.type });
       formData.append('file', fileBlob, bookForm.file.name || `upload_${Date.now()}`);
-      formData.append('upload_preset', 'ml_default');
+      formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default');
 
       console.log('Starting book post direct Cloudinary upload...');
-      const cloudName = 'dxiolmmdv';
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dxiolmmdv';
       const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, { 
         method: 'POST', 
         body: formData
@@ -538,11 +538,11 @@ export default function Profile() {
     // Blob conversion for WebView
     const fileBlob = new Blob([file], { type: file.type });
     formData.append('file', fileBlob, file.name || `upload_${Date.now()}`);
-    formData.append('upload_preset', 'ml_default');
+    formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default');
 
     try {
       console.log('Starting story direct Cloudinary upload...');
-      const cloudName = 'dxiolmmdv';
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dxiolmmdv';
       const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
         method: 'POST',
         body: formData

@@ -203,12 +203,12 @@ const CreatePost: React.FC = () => {
 
         const formData = new FormData();
         formData.append('file', fileBlob, fileName);
-        formData.append('upload_preset', 'ml_default');
+        formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default');
 
         console.log(`Starting direct Cloudinary upload for ${item.id} (${item.file.type}, ${item.file.size} bytes)`);
         
         // 2. Direct Cloudinary Upload Logic: No manual headers, bypass our server's 405
-        const cloudName = 'dxiolmmdv';
+        const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dxiolmmdv';
         const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${item.type}/upload`, { 
           method: 'POST', 
           body: formData

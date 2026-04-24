@@ -14,8 +14,11 @@ declare global {
   }
 }
 
+import { useNavigate } from 'react-router-dom';
+
 export function useNotifications() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // 1. Initialize OneSignal exactly once using the command queue
@@ -30,7 +33,7 @@ export function useNotifications() {
         if (!(window.OneSignal as any).initialized) {
           console.log('[OneSignal] Initializing SDK and Service Worker...');
           await OneSignal.init({
-            appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa",
+            appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
             allowLocalhostAsSecureOrigin: true,
             serviceWorkerPath: "OneSignalSDKWorker.js",
             serviceWorkerParam: { scope: "/" },
@@ -76,7 +79,7 @@ export function useNotifications() {
 
       // 2. REPLY BUTTON / OPEN BUTTON
       if (actionId === "reply" || actionId === "open") {
-        window.location.href = "/chat/" + chatId;
+        navigate("/chat/" + chatId);
       }
 
       // 3. CALL ACCEPT
@@ -84,7 +87,7 @@ export function useNotifications() {
         const callerId = data.callerId;
         const callType = data.callType || 'audio';
         const callId = data.callId;
-        window.location.href = `/call-screen/${callerId}?type=${callType}&callId=${callId}&mode=receiver`;
+        navigate(`/call-screen/${callerId}?type=${callType}&callId=${callId}&mode=receiver`);
       }
 
       // 4. CALL REJECT
@@ -104,9 +107,10 @@ export function useNotifications() {
       // Default behavior: if no actionId but has a URL or chatId
       if (!actionId) {
         if (event.notification.launchURL) {
-          window.location.href = event.notification.launchURL;
+          const url = new URL(event.notification.launchURL);
+          navigate(url.pathname + url.search);
         } else if (chatId) {
-          window.location.href = "/chat/" + chatId;
+          navigate("/chat/" + chatId);
         }
       }
     };
