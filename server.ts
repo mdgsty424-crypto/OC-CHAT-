@@ -402,7 +402,7 @@ async function startServer() {
     }
 
     try {
-      const appId = process.env.ONESIGNAL_APP_ID;
+      const appId = process.env.ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa";
       const payload: any = {
         app_id: appId,
         headings: { en: title },

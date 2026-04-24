@@ -33,7 +33,7 @@ export function useNotifications() {
         if (!(window.OneSignal as any).initialized) {
           console.log('[OneSignal] Initializing SDK and Service Worker...');
           await OneSignal.init({
-            appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+            appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa",
             allowLocalhostAsSecureOrigin: true,
             serviceWorkerPath: "OneSignalSDKWorker.js",
             serviceWorkerParam: { scope: "/" },
