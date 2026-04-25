@@ -196,6 +196,7 @@ export default function Books() {
           targetUserId: post.authorId,
           title: 'New Like! 👍',
           message: `${user.displayName || 'Someone'} liked your post "${post.title || 'Untitled'}"`,
+          largeIcon: user.photoURL || '',
           data: { 
             type: 'like',
             postId: post.id 
@@ -232,6 +233,7 @@ export default function Books() {
               targetUserId: parentData.userId,
               title: 'New Reply! 💬',
               message: `${user.displayName || 'Someone'} replied to your comment`,
+              largeIcon: user.photoURL || '',
               data: { 
                 type: 'reply',
                 postId: post.id,
@@ -248,6 +250,7 @@ export default function Books() {
           targetUserId: post.authorId,
           title: 'New Comment! 💬',
           message: `${user.displayName || 'Someone'} commented on your post "${post.title || 'Untitled'}"`,
+          largeIcon: user.photoURL || '',
           data: { 
             type: 'comment',
             postId: post.id 

@@ -354,6 +354,7 @@ export default function AdminDashboard() {
           targetUserId: 'all',
           title: 'Broadcast',
           message: msg,
+          largeIcon: 'https://cdn-icons-png.flaticon.com/512/3119/3119338.png',
           priority: 'high'
         })
       });

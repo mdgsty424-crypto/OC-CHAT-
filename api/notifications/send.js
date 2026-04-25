@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { targetUserId, title, message, image, link, priority, data, actions } = req.body;
+  const { targetUserId, title, message, image, largeIcon, link, priority, data, actions } = req.body;
 
   try {
     const appId = process.env.ONESIGNAL_APP_ID || process.env.VITE_ONESIGNAL_APP_ID;
@@ -28,6 +28,8 @@ export default async function handler(req, res) {
       data: { ...data, link },
       web_url: link,
       big_picture: image,
+      large_icon: largeIcon,
+      chrome_web_icon: largeIcon,
       buttons: actions
     };
 

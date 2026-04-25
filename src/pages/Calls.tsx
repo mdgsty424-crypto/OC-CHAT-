@@ -179,6 +179,7 @@ export default function Calls() {
         targetUserId: otherUser.uid,
         title: `Incoming ${type === 'video' ? 'Video' : 'Audio'} Call`,
         message: `${user.displayName || 'Someone'} is calling you...`,
+        largeIcon: user.photoURL || '',
         image: user.photoURL || '',
         link: `${window.location.origin}/call-screen/${user.uid}?type=${type}&callId=${callId}&mode=receiver`,
         priority: 'high',
