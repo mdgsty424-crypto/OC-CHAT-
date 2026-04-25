@@ -368,7 +368,7 @@ export default function AdminDashboard() {
         message: msg,
         largeIcon: 'https://ocsthael.ocsthael.com/favicon.ico',
         priority: 'high',
-        url: window.location.origin,
+        url: '/',
         deepLink: 'app://home'
       });
       

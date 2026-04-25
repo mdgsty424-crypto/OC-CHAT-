@@ -198,7 +198,7 @@ export default function Books() {
           message: `${user.displayName || 'Someone'} liked your post "${post.title || 'Untitled'}"`,
           largeIcon: user.photoURL || '',
           image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
-          url: `${window.location.origin}/post/${post.id}`,
+          url: `/post/${post.id}`,
           deepLink: `app://post/${post.id}`,
           priority: 'high',
           data: { 
@@ -206,8 +206,8 @@ export default function Books() {
             postId: post.id 
           },
           actions: [
-            { id: 'view', text: '👁 View', icon: 'view', url: `${window.location.origin}/post/${post.id}` },
-            { id: 'follow', text: '➕ Follow', icon: 'follow', url: `${window.location.origin}/user/${user.uid}` }
+            { id: 'view', text: '👁 View', icon: 'view', url: `/post/${post.id}` },
+            { id: 'follow', text: '➕ Follow', icon: 'follow', url: `/user/${user.uid}` }
           ]
         });
       }
@@ -242,7 +242,7 @@ export default function Books() {
               message: `${user.displayName || 'Someone'} replied to your comment`,
               largeIcon: user.photoURL || '',
               image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
-              url: `${window.location.origin}/post/${post.id}`,
+              url: `/post/${post.id}`,
               deepLink: `app://post/${post.id}`,
               priority: 'high',
               data: { 
@@ -251,8 +251,8 @@ export default function Books() {
                 commentId: replyingTo 
               },
               actions: [
-                { id: 'reply', text: '💬 Reply', icon: 'comment', url: `${window.location.origin}/post/${post.id}#comment-input` },
-                { id: 'view', text: '👁 View', icon: 'view', url: `${window.location.origin}/post/${post.id}` }
+                { id: 'reply', text: '💬 Reply', icon: 'comment', url: `/post/${post.id}#comment-input` },
+                { id: 'view', text: '👁 View', icon: 'view', url: `/post/${post.id}` }
               ]
             });
           }
@@ -266,7 +266,7 @@ export default function Books() {
           message: `${user.displayName || 'Someone'} commented on your post "${post.title || 'Untitled'}"`,
           largeIcon: user.photoURL || '',
           image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
-          url: `${window.location.origin}/post/${post.id}`,
+          url: `/post/${post.id}`,
           deepLink: `app://post/${post.id}`,
           priority: 'high',
           data: { 
@@ -274,8 +274,8 @@ export default function Books() {
             postId: post.id 
           },
           actions: [
-            { id: 'reply', text: '💬 Reply', icon: 'comment', url: `${window.location.origin}/post/${post.id}#comment-input` },
-            { id: 'view', text: '👁 View', icon: 'view', url: `${window.location.origin}/post/${post.id}` }
+            { id: 'reply', text: '💬 Reply', icon: 'comment', url: `/post/${post.id}#comment-input` },
+            { id: 'view', text: '👁 View', icon: 'view', url: `/post/${post.id}` }
           ]
         });
       }
@@ -313,12 +313,12 @@ export default function Books() {
           message: `${user.displayName || 'Someone'} shared your post "${post.title || 'Untitled'}"`,
           largeIcon: user.photoURL || '',
           image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
-          url: `${window.location.origin}/post/${post.id}`,
+          url: `/post/${post.id}`,
           deepLink: `app://post/${post.id}`,
           priority: 'high',
           data: { type: 'share', postId: post.id, sharerId: user.uid },
           actions: [
-            { id: 'view', text: '👁 View Post', icon: 'view', url: `${window.location.origin}/post/${post.id}` }
+            { id: 'view', text: '👁 View Post', icon: 'view', url: `/post/${post.id}` }
           ]
         });
       }
@@ -330,13 +330,13 @@ export default function Books() {
         message: post.title || 'Check out this shared post!',
         largeIcon: user.photoURL || '',
         image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
-        url: `${window.location.origin}/post/${post.id}`,
+        url: `/post/${post.id}`,
         deepLink: `app://post/${post.id}`,
         priority: 'high',
         data: { type: 'share', postId: post.id, sharerId: user.uid },
         actions: [
-          { id: 'view', text: '👁 View Post', icon: 'view', url: `${window.location.origin}/post/${post.id}` },
-          { id: 'follow', text: '➕ Follow', icon: 'follow', url: `${window.location.origin}/user/${user.uid}` }
+          { id: 'view', text: '👁 View Post', icon: 'view', url: `/post/${post.id}` },
+          { id: 'follow', text: '➕ Follow', icon: 'follow', url: `/user/${user.uid}` }
         ]
       });
 

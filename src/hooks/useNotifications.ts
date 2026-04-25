@@ -66,21 +66,38 @@ export function useNotifications() {
       const redirectUrl = data?.url || data?.deep_link || event.notification.launchURL;
 
       if (redirectUrl) {
-        // Handle deep links by routing inside the App OR full URL
-        try {
-          const url = new URL(redirectUrl, window.location.origin);
-          const path = url.pathname + url.search + url.hash;
-          navigate(path);
-          return;
-        } catch (e) {
-          // If not a valid local path, try navigating directly
-          if (redirectUrl.startsWith('http')) {
-             window.location.href = redirectUrl;
-          } else {
-             navigate(redirectUrl);
-          }
+        // 1. If it's a relative path starting with /
+        if (redirectUrl.startsWith('/')) {
+          navigate(redirectUrl);
           return;
         }
+
+        // 2. If it's an app:// deep link
+        if (redirectUrl.startsWith('app://')) {
+          const path = redirectUrl.replace('app://', '/');
+          // Map some common ones if needed
+          if (path === '/home') navigate('/');
+          else navigate(path);
+          return;
+        }
+
+        // 3. Fallback for internal URLs that were absolute but point here
+        try {
+          const url = new URL(redirectUrl);
+          if (url.origin === window.location.origin) {
+            navigate(url.pathname + url.search + url.hash);
+            return;
+          }
+          // If it's truly external, use window.location.href
+          window.location.href = redirectUrl;
+        } catch (e) {
+          // If not a valid URL, treat as internal path
+          navigate(redirectUrl);
+        }
+        return;
+      } else {
+        // Fallback: If no specific link, always go to the unified notification page
+        navigate("/notifications");
       }
 
       if (!data) return;

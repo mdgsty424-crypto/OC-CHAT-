@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { MessageCircle, Phone, Users, Heart, Settings, Search, LogOut, Shield } from 'lucide-react';
+import { MessageCircle, Phone, Users, Heart, Settings, Search, LogOut, Shield, Bell } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
 import { useGlobalSettings } from '../../hooks/useGlobalSettings';
@@ -12,6 +12,7 @@ export default function Sidebar() {
   const navItems = [
     { icon: MessageCircle, label: 'Chats', path: '/' },
     { icon: Phone, label: 'Calls', path: '/calls' },
+    { icon: Bell, label: 'Notifications', path: '/notifications' },
     { icon: Heart, label: 'People', path: '/dating' },
     { icon: Users, label: 'Groups', path: '/community' },
     { icon: Settings, label: 'Settings', path: '/profile' },

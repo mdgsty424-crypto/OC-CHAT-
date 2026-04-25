@@ -9,11 +9,13 @@ import {
   doc, 
   updateDoc, 
   deleteDoc,
-  Timestamp 
+  Timestamp,
+  limit 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { 
   ArrowLeft, 
+  ThumbsUp,
   Heart, 
   MessageCircle, 
   ShoppingBag, 
@@ -23,14 +25,15 @@ import {
   Settings, 
   Search,
   Check,
-  Trash2,
-  EyeOff,
-  Share2,
-  ThumbsUp,
   Video,
   DollarSign,
   PhoneIncoming,
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  Share2,
+  Trash2,
+  EyeOff,
+  Plus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -146,15 +149,23 @@ export default function Notifications() {
 
   const getActionOverlay = (type: string) => {
     switch (type) {
-      case 'like': return { icon: <ThumbsUp size={12} fill="white" stroke="white" />, color: 'bg-blue-500' };
-      case 'comment': return { icon: <MessageCircle size={10} fill="white" stroke="white" />, color: 'bg-green-500' };
-      case 'call': return { icon: <PhoneIncoming size={10} stroke="white" />, color: 'bg-green-600' };
-      case 'payment': return { icon: <DollarSign size={10} stroke="white" />, color: 'bg-emerald-500' };
-      case 'mention': return { icon: <Bell size={10} fill="white" stroke="white" />, color: 'bg-blue-600' };
-      case 'share': return { icon: <Share2 size={10} fill="white" stroke="white" />, color: 'bg-purple-500' };
-      case 'video': return { icon: <Video size={10} fill="white" stroke="white" />, color: 'bg-red-500' };
-      case 'alert': return { icon: <AlertTriangle size={10} stroke="white" />, color: 'bg-orange-500' };
-      default: return { icon: <Bell size={10} fill="white" stroke="white" />, color: 'bg-blue-500' };
+      case 'like': return { icon: <ThumbsUp size={12} fill="white" stroke="white" />, color: 'bg-blue-500', label: 'Liked your post' };
+      case 'comment': return { icon: <MessageCircle size={10} fill="white" stroke="white" />, color: 'bg-green-500', label: 'Commented on post' };
+      case 'reply': return { icon: <MessageCircle size={10} fill="white" stroke="white" />, color: 'bg-teal-500', label: 'Replied to you' };
+      case 'reaction': return { icon: <Heart size={10} fill="white" stroke="white" />, color: 'bg-pink-500', label: 'Reacted to comment' };
+      case 'call': return { icon: <PhoneIncoming size={10} stroke="white" />, color: 'bg-green-600', label: 'Incoming call' };
+      case 'missed_call': return { icon: <PhoneIncoming size={10} stroke="white" className="rotate-[135deg]" />, color: 'bg-red-500', label: 'Missed call' };
+      case 'payment': return { icon: <DollarSign size={10} stroke="white" />, color: 'bg-emerald-500', label: 'Payment received' };
+      case 'mention': return { icon: <Bell size={10} fill="white" stroke="white" />, color: 'bg-blue-600', label: 'Mentioned you' };
+      case 'share': return { icon: <Share2 size={10} fill="white" stroke="white" />, color: 'bg-purple-500', label: 'Shared your post' };
+      case 'video': return { icon: <Video size={10} fill="white" stroke="white" />, color: 'bg-red-500', label: 'Video call' };
+      case 'alert':
+      case 'warning': return { icon: <AlertTriangle size={10} stroke="white" />, color: 'bg-orange-600', label: 'System Alert' };
+      case 'team': return { icon: <Users size={10} stroke="white" />, color: 'bg-indigo-600', label: 'Team update' };
+      case 'support': return { icon: <MessageCircle size={10} stroke="white" />, color: 'bg-cyan-600', label: 'Support message' };
+      case 'id_related': return { icon: <Check size={10} stroke="white" />, color: 'bg-purple-600', label: 'ID Verification' };
+      case 'broadcast': return { icon: <Bell size={10} fill="white" stroke="white" />, color: 'bg-blue-700', label: 'Global broadcast' };
+      default: return { icon: <Bell size={10} fill="white" stroke="white" />, color: 'bg-blue-500', label: 'Notification' };
     }
   };
 
@@ -170,13 +181,7 @@ export default function Notifications() {
 
   const handleNotifClick = (notif: Notification) => {
     if (!notif.read) handleMarkAsRead(notif.id);
-    if (notif.link) {
-      if (notif.link.startsWith('http')) {
-        window.location.href = notif.link;
-      } else {
-        navigate(notif.link);
-      }
-    }
+    navigate(`/notifications/${notif.id}`);
   };
 
   return (
@@ -304,9 +309,19 @@ export default function Notifications() {
                       <span className="font-extrabold text-foreground">{notif.senderName} </span>
                       <span className={`${!notif.read ? 'font-bold text-foreground' : 'text-foreground/80'}`}>{notif.message}</span>
                     </p>
-                    <p className={`text-[11px] mt-1 font-medium ${notif.read ? 'text-muted-foreground' : 'text-blue-600'}`}>
-                      {getTimeLabel(notif.timestamp)}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest text-white ${overlay.color}`}>
+                        {overlay.label}
+                      </span>
+                      <span className={`text-[11px] font-medium ${notif.read ? 'text-muted-foreground' : 'text-blue-600'}`}>
+                        {getTimeLabel(notif.timestamp)}
+                      </span>
+                      {notif.link && (
+                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter bg-blue-50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                          <Plus size={10} /> Details
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Right Side Info: Unread Dot + Menu */}

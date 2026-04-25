@@ -249,6 +249,7 @@ export default function CallScreen() {
           url: `${window.location.origin}/chat/${currentUser.uid}`,
           deepLink: `app://chat/${currentUser.uid}`,
           priority: 'high',
+          type: 'missed_call',
           actions: [
             { id: 'callback', text: '📞 Call Back', icon: 'call', url: `${window.location.origin}/calls` },
             { id: 'message', text: '💬 Message', icon: 'comment', url: `${window.location.origin}/chat/${currentUser.uid}` }

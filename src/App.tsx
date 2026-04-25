@@ -36,6 +36,7 @@ import Dashboard from './pages/Dashboard';
 import Ads from './pages/Ads';
 import Dhukan from './pages/Dhukan';
 import Notifications from './pages/Notifications';
+import NotificationDetail from './pages/NotificationDetail';
 import SellerDashboard from './pages/SellerDashboard';
 import CreatePost from './pages/CreatePost';
 import NotFound from './pages/NotFound';
@@ -323,6 +324,7 @@ function AppRoutes() {
           <Route path="/dhukan" element={<Dhukan />} />
           <Route path="/seller-dashboard" element={<SellerDashboard />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/notifications/:id" element={<NotificationDetail />} />
           <Route path="/create-post" element={<CreatePost />} />
           <Route path="/chat/:id" element={<ChatDetail />} />
           <Route path="/call-screen/:id" element={<CallScreen />} />
