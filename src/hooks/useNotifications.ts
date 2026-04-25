@@ -302,7 +302,18 @@ export function useNotifications() {
       };
 
       // Save to Firestore for in-app history
-      if (params.targetUserId !== 'all') {
+      if (params.targetUserId === 'all') {
+        const globalNotifRef = collection(db, 'global_notifications');
+        await addDoc(globalNotifRef, {
+          type: params.type || 'broadcast',
+          senderName: params.title || 'System',
+          senderPhoto: params.largeIcon || 'https://cdn-icons-png.flaticon.com/512/3119/3119338.png',
+          message: params.message,
+          link: params.url || params.link || '',
+          data: enrichedData,
+          timestamp: serverTimestamp(),
+        }).catch(e => console.error("Global history save failed:", e));
+      } else {
         const notifRef = collection(db, 'users', params.targetUserId, 'notifications');
         await addDoc(notifRef, {
           type: params.type || 'system',

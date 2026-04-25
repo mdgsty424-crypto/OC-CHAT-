@@ -53,6 +53,7 @@ export default function Notifications() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [globalNotifications, setGlobalNotifications] = useState<Notification[]>([]);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,24 +61,49 @@ export default function Notifications() {
     if (!currentUser) return;
     
     setLoading(true);
+    
+    // 1. Personal Notifications
     const notificationsRef = collection(db, 'users', currentUser.uid, 'notifications');
-    const q = query(notificationsRef, orderBy('timestamp', 'desc'));
+    const qPersonal = query(notificationsRef, orderBy('timestamp', 'desc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribePersonal = onSnapshot(qPersonal, (snapshot) => {
       const notifs = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Notification[];
-      
       setNotifications(notifs);
-      setLoading(false);
-    }, (error) => {
-      console.error("Notifications listener failed:", error);
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    // 2. Global Notifications
+    const globalRef = collection(db, 'global_notifications');
+    const qGlobal = query(globalRef, orderBy('timestamp', 'desc'), limit(50));
+
+    const unsubscribeGlobal = onSnapshot(qGlobal, (snapshot) => {
+      const globNotifs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        read: true // Global notifications are typically informational and don't track read per-user easily without a link table
+      })) as Notification[];
+      setGlobalNotifications(globNotifs);
+    });
+
+    return () => {
+      unsubscribePersonal();
+      unsubscribeGlobal();
+    };
   }, [currentUser]);
+
+  useEffect(() => {
+    if (loading && (notifications.length > 0 || globalNotifications.length > 0)) {
+       setLoading(false);
+    }
+  }, [notifications, globalNotifications]);
+
+  const allNotifications = [...notifications, ...globalNotifications].sort((a, b) => {
+    const timeA = a.timestamp?.seconds || 0;
+    const timeB = b.timestamp?.seconds || 0;
+    return timeB - timeA;
+  });
 
   const handleMarkAsRead = async (id: string) => {
     if (!currentUser) return;
@@ -115,8 +141,8 @@ export default function Notifications() {
   };
 
   const filteredNotifs = filter === 'unread' 
-    ? notifications.filter(n => !n.read) 
-    : notifications;
+    ? allNotifications.filter(n => !n.read) 
+    : allNotifications;
 
   const getActionOverlay = (type: string) => {
     switch (type) {

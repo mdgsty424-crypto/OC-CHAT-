@@ -45,10 +45,12 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { cn } from '../lib/utils';
 import UserDetailsModal from '../components/admin/UserDetailsModal';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
+import { useNotifications } from '../hooks/useNotifications';
 
 export default function AdminDashboard() {
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'assets' | 'stats' | 'broadcast' | 'ui' | 'groups' | 'push_test'>('users');
+  const { sendNotification } = useNotifications();
+  const [activeTab, setActiveTab] = useState<'users' | 'assets' | 'stats' | 'broadcast' | 'ui' | 'groups' | 'push_test' | 'posts'>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [pushUsers, setPushUsers] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
@@ -77,7 +79,7 @@ export default function AdminDashboard() {
     ledColor: 'E54B4D',
     visibility: '1', // 1 = Public
     collapseId: '',
-    type: 'broadcast' as 'broadcast' | 'message' | 'call' | 'reel' | 'post' | 'alert',
+    type: 'broadcast' as 'broadcast' | 'message' | 'call' | 'reel' | 'post' | 'alert' | 'warning' | 'team' | 'support' | 'id_related',
     actionText: 'Open App',
     actionUrl: '',
     customData: '{}', 
@@ -108,14 +110,42 @@ export default function AdminDashboard() {
         accentColor: '4CAF50', // Success Green
         actionText: 'Accept'
       }));
-    } else if (notifForm.type === 'alert') {
+    } else if (notifForm.type === 'alert' || notifForm.type === 'warning') {
       setNotifForm(prev => ({
         ...prev,
-        title: '⚠️ Security Alert',
-        message: 'A new login was detected on your account.',
+        title: notifForm.type === 'warning' ? '⚠️ Official Warning' : '⚠️ Security Alert',
+        message: notifForm.type === 'warning' ? 'Your account has been flagged for a policy violation.' : 'A new login was detected on your account.',
         priority: 'high',
         sound: 'alert',
-        accentColor: 'F44336' // Danger Red
+        accentColor: 'F44336', // Danger Red
+        largeIcon: 'https://cdn-icons-png.flaticon.com/512/564/564619.png'
+      }));
+    } else if (notifForm.type === 'team') {
+      setNotifForm(prev => ({
+        ...prev,
+        title: '👥 OC-CHAT Team Update',
+        message: 'A new feature has been added to OC-CHAT!',
+        priority: 'high',
+        accentColor: '3F51B5', // Indigo
+        largeIcon: 'https://cdn-icons-png.flaticon.com/512/3133/3133181.png'
+      }));
+    } else if (notifForm.type === 'support') {
+      setNotifForm(prev => ({
+        ...prev,
+        title: '🎧 Support Response',
+        message: 'Our support team has responded to your ticket.',
+        priority: 'high',
+        accentColor: '00BCD4', // Cyan
+        largeIcon: 'https://cdn-icons-png.flaticon.com/512/1067/1067562.png'
+      }));
+    } else if (notifForm.type === 'id_related') {
+      setNotifForm(prev => ({
+        ...prev,
+        title: '🆔 Identity Verification',
+        message: 'Your identity document has been reviewed.',
+        priority: 'high',
+        accentColor: '9C27B0', // Purple
+        largeIcon: 'https://cdn-icons-png.flaticon.com/512/4833/4833215.png'
       }));
     }
   }, [notifForm.type]);
@@ -221,26 +251,11 @@ export default function AdminDashboard() {
 
       console.log("[Push] Sending Payload:", payload);
 
-      const response = await fetch('/api/notifications/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const contentType = response.headers.get('content-type');
-      let result;
-      if (contentType && contentType.includes('application/json')) {
-        result = await response.json();
+      const result = await sendNotification(payload);
+      if (result && result.success !== false) {
+        alert(`Notification Sent!`);
       } else {
-        const text = await response.text();
-        console.error("Non-JSON response from server:", text.substring(0, 200));
-        throw new Error("Server returned non-JSON response. Check your API server status.");
-      }
-
-      if (response.ok) {
-        alert(`Notification Sent! Recipients: ${result.recipients || 'Requested'}`);
-      } else {
-        alert(`Error: ${result.error || result.details?.errors?.[0] || 'Failed to send'}`);
+        alert(`Error: ${result?.error || 'Failed to send'}`);
       }
     } catch (error) {
       console.error("Broadcast failed:", error);
@@ -347,30 +362,20 @@ export default function AdminDashboard() {
     if (!msg.trim()) return;
     setIsSendingNotif(true);
     try {
-      const response = await fetch('/api/notifications/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetUserId: 'all',
-          title: 'System Announcement 📢',
-          message: msg,
-          largeIcon: 'https://ocsthael.ocsthael.com/favicon.ico',
-          priority: 'high',
-          url: window.location.origin,
-          deepLink: 'app://home'
-        })
+      const result = await sendNotification({
+        targetUserId: 'all',
+        title: 'System Announcement 📢',
+        message: msg,
+        largeIcon: 'https://ocsthael.ocsthael.com/favicon.ico',
+        priority: 'high',
+        url: window.location.origin,
+        deepLink: 'app://home'
       });
       
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
-        if (response.ok) {
-          alert("Broadcast sent!");
-        } else {
-          alert(`Failed: ${data.error || 'Unknown error'}`);
-        }
+      if (result && result.success !== false) {
+        alert("Broadcast sent!");
       } else {
-        alert("Server error: Received non-JSON response");
+        alert(`Failed: ${result?.error || 'Unknown error'}`);
       }
     } catch (e) {
       console.error("Broadcast failed:", e);
@@ -729,7 +734,11 @@ export default function AdminDashboard() {
                               <option value="call">📞 Call</option>
                               <option value="reel">🎬 Reel</option>
                               <option value="post">🖼️ Post</option>
-                              <option value="alert">⚠️ Alert</option>
+                              <option value="alert">🚨 Security Alert</option>
+                              <option value="warning">⚠️ Warning</option>
+                              <option value="team">👥 Team Support</option>
+                              <option value="support">🎧 Support Response</option>
+                              <option value="id_related">🆔 ID/Verification</option>
                             </select>
                           </div>
                           <div>
