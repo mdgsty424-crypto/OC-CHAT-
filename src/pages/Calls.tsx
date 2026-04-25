@@ -180,13 +180,13 @@ export default function Calls() {
         title: `Incoming ${type === 'video' ? 'Video' : 'Audio'} Call`,
         message: `${user.displayName || 'Someone'} is calling you...`,
         largeIcon: user.photoURL || '',
-        image: user.photoURL || '',
-        link: `${window.location.origin}/call-screen/${user.uid}?type=${type}&callId=${callId}&mode=receiver`,
+        url: `${window.location.origin}/call-screen/${user.uid}?type=${type}&callId=${callId}&mode=receiver`,
+        deepLink: `app://call/accept/${callId}`,
         priority: 'high',
         requireInteraction: true,
         actions: [
-          { title: 'Accept', action: 'open_url', url: `${window.location.origin}/call-screen/${user.uid}?type=${type}&callId=${callId}&mode=receiver` },
-          { title: 'Decline', action: 'dismiss' }
+          { id: 'accept', text: '✅ Accept', icon: 'call', url: `${window.location.origin}/call-screen/${user.uid}?type=${type}&callId=${callId}&mode=receiver` },
+          { id: 'reject', text: '❌ Decline', icon: 'close', url: `${window.location.origin}/api/call/reject?callId=${callId}` }
         ]
       });
       

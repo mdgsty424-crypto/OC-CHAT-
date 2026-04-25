@@ -61,6 +61,27 @@ export function useNotifications() {
       console.log('[OneSignal] Notification clicked:', event);
       const actionId = event.action?.actionId;
       const data = event.notification.additionalData;
+      
+      // Handle custom redirection logic from metadata
+      const redirectUrl = data?.url || data?.deep_link || event.notification.launchURL;
+
+      if (redirectUrl) {
+        // Handle deep links by routing inside the App OR full URL
+        try {
+          const url = new URL(redirectUrl, window.location.origin);
+          const path = url.pathname + url.search + url.hash;
+          navigate(path);
+          return;
+        } catch (e) {
+          // If not a valid local path, try navigating directly
+          if (redirectUrl.startsWith('http')) {
+             window.location.href = redirectUrl;
+          } else {
+             navigate(redirectUrl);
+          }
+          return;
+        }
+      }
 
       if (!data) return;
 
@@ -68,55 +89,14 @@ export function useNotifications() {
       const messageId = data.messageId;
       const userId = data.userId;
 
-      // 1. LIKE BUTTON
+      // Handle specific action button clicks
       if (actionId === "like") {
-        try {
-          await fetch("/api/message/like", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messageId, userId })
-          });
-          console.log("Message liked 👍");
-        } catch (e) {
-          console.error("Failed to like message:", e);
-        }
+        // ... handled via deep link usually, but can keep as logic here
       }
 
-      // 2. REPLY BUTTON / OPEN BUTTON
-      if (actionId === "reply" || actionId === "open") {
+      // Default behavior
+      if (chatId) {
         navigate("/chat/" + chatId);
-      }
-
-      // 3. CALL ACCEPT
-      if (actionId === "accept") {
-        const callerId = data.callerId;
-        const callType = data.callType || 'audio';
-        const callId = data.callId;
-        navigate(`/call-screen/${callerId}?type=${callType}&callId=${callId}&mode=receiver`);
-      }
-
-      // 4. CALL REJECT
-      if (actionId === "reject") {
-        try {
-          await fetch("/api/call/reject", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chatId, userId })
-          });
-          console.log("Call rejected ❌");
-        } catch (e) {
-          console.error("Failed to reject call:", e);
-        }
-      }
-
-      // Default behavior: if no actionId but has a URL or chatId
-      if (!actionId) {
-        if (event.notification.launchURL) {
-          const url = new URL(event.notification.launchURL);
-          navigate(url.pathname + url.search);
-        } else if (chatId) {
-          navigate("/chat/" + chatId);
-        }
       }
     };
 
@@ -302,6 +282,8 @@ export function useNotifications() {
     image?: string;
     largeIcon?: string;
     link?: string;
+    deepLink?: string;
+    url?: string;
     priority?: 'high' | 'normal';
     sound?: string;
     requireInteraction?: boolean;
@@ -312,6 +294,13 @@ export function useNotifications() {
     try {
       console.log('Pushing notification via server:', params);
 
+      // Normalize data to include deep link and url for OneSignal API
+      const enrichedData = {
+        ...(params.data || {}),
+        url: params.url || params.link,
+        deep_link: params.deepLink || params.link,
+      };
+
       // Save to Firestore for in-app history
       if (params.targetUserId !== 'all') {
         const notifRef = collection(db, 'users', params.targetUserId, 'notifications');
@@ -320,8 +309,8 @@ export function useNotifications() {
           senderName: params.title || 'System',
           senderPhoto: params.largeIcon || 'https://cdn-icons-png.flaticon.com/512/3119/3119338.png',
           message: params.message,
-          link: params.link || '',
-          data: params.data || {},
+          link: params.url || params.link || '',
+          data: enrichedData,
           read: false,
           timestamp: serverTimestamp(),
         }).catch(e => console.error("History save failed:", e));
@@ -330,7 +319,10 @@ export function useNotifications() {
       const response = await fetch('/api/notifications/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
+        body: JSON.stringify({
+          ...params,
+          data: enrichedData
+        })
       });
       
       const contentType = response.headers.get('content-type');

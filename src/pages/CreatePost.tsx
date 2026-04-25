@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../hooks/useNotifications';
 import { db } from '../lib/firebase';
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import localforage from 'localforage';
@@ -110,6 +111,7 @@ const MediaPreview: React.FC<{ item: MediaItem, large?: boolean }> = ({ item, la
 const CreatePost: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { sendNotification } = useNotifications();
   const [currentScreen, setCurrentScreen] = useState(1);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
@@ -314,6 +316,24 @@ const CreatePost: React.FC = () => {
 
       // Save to Firestore with the shortcode as the document ID
       await setDoc(doc(db, 'books_posts', shortCode), postPayload);
+
+      // Trigger Broadcast Notification to ALL users
+      sendNotification({
+        targetUserId: 'all',
+        title: `${user.displayName || 'Someone'} posted in Books`,
+        message: caption || 'New story posted!',
+        largeIcon: user.photoURL || '',
+        image: uploadedMedia[0]?.url || '',
+        url: `${window.location.origin}/post/${shortCode}`,
+        deepLink: `app://post/${shortCode}`,
+        priority: 'high',
+        actions: [
+          { id: 'like', text: '👍 Like', icon: 'like', url: `${window.location.origin}/post/${shortCode}?action=like` },
+          { id: 'comment', text: '💬 Comment', icon: 'comment', url: `${window.location.origin}/post/${shortCode}#comments` },
+          { id: 'view', text: '👁 View', icon: 'view', url: `${window.location.origin}/post/${shortCode}` },
+          { id: 'follow', text: '➕ Follow', icon: 'follow', url: `${window.location.origin}/user/${user.uid}` }
+        ]
+      });
 
       // Clear draft
       await localforage.removeItem('draft_post');

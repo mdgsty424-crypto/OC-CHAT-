@@ -21,6 +21,7 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useNotifications } from '../hooks/useNotifications';
 import { Helmet } from 'react-helmet-async';
 import NotFound from './NotFound';
 import { cn } from '../lib/utils';
@@ -33,6 +34,7 @@ export default function Story() {
   const navigate = useNavigate();
   const location = useLocation();
   const { reelId } = useParams();
+  const { sendNotification } = useNotifications();
   const [reels, setReels] = useState<any[]>([]);
   const [ads, setAds] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -274,7 +276,7 @@ export default function Story() {
       console.log('Story media upload success:', data.secure_url);
 
       if (data.secure_url) {
-        await addDoc(collection(db, 'stories'), {
+        const docRef = await addDoc(collection(db, 'stories'), {
           authorId: user.uid || '',
           authorName: user.displayName || 'Anonymous',
           authorPhoto: user.photoURL || null,
@@ -288,6 +290,25 @@ export default function Story() {
           createdAt: serverTimestamp(),
           views: 0
         });
+
+        // Trigger Broadcast Notification for Reels
+        sendNotification({
+          targetUserId: 'all',
+          title: `${user.displayName || 'Someone'} uploaded a reel`,
+          message: uploadForm.description || 'Watch now!',
+          largeIcon: user.photoURL || '',
+          image: data.secure_url,
+          url: `${window.location.origin}/reel/${docRef.id}`,
+          deepLink: `app://reel/${docRef.id}`,
+          priority: 'high',
+          actions: [
+            { id: 'watch', text: '▶️ Watch', icon: 'play', url: `${window.location.origin}/reel/${docRef.id}` },
+            { id: 'like', text: '❤️ Like', icon: 'like', url: `${window.location.origin}/reel/${docRef.id}?action=like` },
+            { id: 'comment', text: '💬 Comment', icon: 'comment', url: `${window.location.origin}/reel/${docRef.id}#comments` },
+            { id: 'follow', text: '➕ Follow', icon: 'follow', url: `${window.location.origin}/user/${user.uid}` }
+          ]
+        });
+
         setIsUploading(false);
         setUploadForm({ description: '', file: null });
       }

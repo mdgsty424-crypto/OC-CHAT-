@@ -7,6 +7,7 @@ import { User } from '../types';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { cn } from '../lib/utils';
 import { ICE_SERVERS, endCall } from '../lib/webrtc';
+import { useNotifications } from '../hooks/useNotifications';
 import { 
   Phone, 
   Video, 
@@ -52,6 +53,7 @@ export default function CallScreen() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'active' | 'ended' | 'rejected'>('connecting');
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const { sendNotification } = useNotifications();
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -236,7 +238,23 @@ export default function CallScreen() {
 
   const handleHangUp = async (notify = true) => {
     cleanup();
-    if (notify && callId) {
+    if (notify && callId && otherUserId && currentUser) {
+      // If caller hangs up before call becomes active, it's a missed call
+      if (mode === 'caller' && callStatus !== 'active') {
+        sendNotification({
+          targetUserId: otherUserId,
+          title: `Missed ${type === 'video' ? 'Video' : 'Audio'} Call`,
+          message: `${currentUser.displayName || 'Someone'} called you`,
+          largeIcon: currentUser.photoURL || '',
+          url: `${window.location.origin}/chat/${currentUser.uid}`,
+          deepLink: `app://chat/${currentUser.uid}`,
+          priority: 'high',
+          actions: [
+            { id: 'callback', text: '📞 Call Back', icon: 'call', url: `${window.location.origin}/calls` },
+            { id: 'message', text: '💬 Message', icon: 'comment', url: `${window.location.origin}/chat/${currentUser.uid}` }
+          ]
+        });
+      }
       await endCall(callId, otherUserId);
     }
     navigate(-1);

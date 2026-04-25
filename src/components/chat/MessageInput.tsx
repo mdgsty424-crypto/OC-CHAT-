@@ -150,14 +150,15 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
           sendNotification({
             targetUserId: pid,
             title: user.displayName || 'New Message',
-            message: `💸 Sent you ৳${moneyAmount}`,
+            message: `Sent ৳${moneyAmount}`,
+            url: `${window.location.origin}/chat/${chatId}`,
+            deepLink: `app://chat/${chatId}`,
             largeIcon: user.photoURL || '',
-            link: `${window.location.origin}/chat/${chatId}`,
             priority: 'high',
-            type: 'message',
-            data: { chatId, userId: user.uid, type: 'chat' },
+            type: 'money',
+            data: { chatId, userId: user.uid, type: 'chat', amount: moneyAmount },
             actions: [
-              { id: 'open', text: 'View Payment', icon: 'ic_open' }
+              { id: 'open', text: '👁 View', icon: 'view', url: `${window.location.origin}/chat/${chatId}` }
             ]
           });
         }
@@ -393,14 +394,15 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             targetUserId: pid,
             title: user.displayName || 'New Message',
             message: '🎤 Sent a voice message',
+            url: `${window.location.origin}/chat/${chatId}`,
+            deepLink: `app://chat/${chatId}`,
             largeIcon: user.photoURL || '',
-            link: `${window.location.origin}/chat/${chatId}`,
             priority: 'high',
-            type: 'message',
+            type: 'voice',
             data: { chatId, userId: user.uid, type: 'chat' },
             actions: [
-              { id: 'reply', text: 'Reply', icon: 'ic_reply' },
-              { id: 'open', text: 'Listen', icon: 'ic_open' }
+              { id: 'reply', text: '💬 Reply', icon: 'comment', url: `${window.location.origin}/chat/${chatId}` },
+              { id: 'open', text: '👁 View', icon: 'view', url: `${window.location.origin}/chat/${chatId}` }
             ]
           });
         }
@@ -534,15 +536,16 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             targetUserId: pid,
             title: user.displayName || 'New Message',
             message: data.resource_type === 'image' ? '📷 Sent a photo' : (data.resource_type === 'video' ? '🎥 Sent a video' : '📁 Sent a file'),
-            image: data.resource_type === 'image' ? data.url : undefined,
+            image: (data.resource_type === 'image' || data.resource_type === 'video') ? data.url : undefined,
             largeIcon: user.photoURL || '',
-            link: `${window.location.origin}/chat/${chatId}`,
+            url: `${window.location.origin}/chat/${chatId}`,
+            deepLink: `app://chat/${chatId}`,
             priority: 'high',
-            type: 'message',
+            type: data.resource_type === 'image' ? 'photo' : (data.resource_type === 'video' ? 'video' : 'file'),
             data: { chatId, userId: user.uid, type: 'chat' },
             actions: [
-              { id: 'reply', text: 'Reply', icon: 'ic_reply' },
-              { id: 'open', text: 'View', icon: 'ic_open' }
+              { id: 'reply', text: '💬 Reply', icon: 'comment', url: `${window.location.origin}/chat/${chatId}` },
+              { id: 'open', text: '👁 View', icon: 'view', url: `${window.location.origin}/chat/${chatId}` }
             ]
           });
         }
@@ -611,13 +614,14 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
               title: user.displayName || 'New Message',
               message: text.trim(),
               largeIcon: user.photoURL || '',
-              link: `${window.location.origin}/chat/${chatId}`,
+              url: `${window.location.origin}/chat/${chatId}`,
+              deepLink: `app://chat/${chatId}`,
               priority: 'high',
-              type: 'message',
+              type: 'text',
               data: { chatId, userId: user.uid, type: 'chat' },
               actions: [
-                { id: 'reply', text: 'Reply', icon: 'ic_reply' },
-                { id: 'open', text: 'Open Chat', icon: 'ic_open' }
+                { id: 'reply', text: '💬 Reply', icon: 'comment', url: `${window.location.origin}/chat/${chatId}` },
+                { id: 'open', text: '👁 Open', icon: 'view', url: `${window.location.origin}/chat/${chatId}` }
               ]
             });
           }
@@ -677,14 +681,15 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             sendNotification({
               targetUserId: pid,
               title: user.displayName || 'New Message',
-              message: '📍 Shared a location',
+              message: '📍 Sent a location',
               largeIcon: user.photoURL || '',
-              link: `${window.location.origin}/chat/${chatId}`,
+              url: `${window.location.origin}/chat/${chatId}`,
+              deepLink: `app://chat/${chatId}`,
               priority: 'high',
-              type: 'message',
+              type: 'location',
               data: { chatId, userId: user.uid, type: 'chat' },
               actions: [
-                { id: 'open', text: 'View Map', icon: 'ic_map' }
+                { id: 'open', text: '👁 View Map', icon: 'view', url: `${window.location.origin}/chat/${chatId}` }
               ]
             });
           }
@@ -720,12 +725,13 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
             title: user.displayName || 'New Message',
             message: `📊 Created a poll: ${pollQuestion}`,
             largeIcon: user.photoURL || '',
-            link: `${window.location.origin}/chat/${chatId}`,
+            url: `${window.location.origin}/chat/${chatId}`,
+            deepLink: `app://chat/${chatId}`,
             priority: 'high',
-            type: 'message',
+            type: 'poll',
             data: { chatId, userId: user.uid, type: 'chat' },
             actions: [
-              { id: 'open', text: 'Vote Now', icon: 'ic_poll' }
+              { id: 'open', text: '🗳 Vote Now', icon: 'view', url: `${window.location.origin}/chat/${chatId}` }
             ]
           });
         }

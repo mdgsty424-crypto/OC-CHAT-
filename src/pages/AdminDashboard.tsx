@@ -352,10 +352,12 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           targetUserId: 'all',
-          title: 'Broadcast',
+          title: 'System Announcement 📢',
           message: msg,
-          largeIcon: 'https://cdn-icons-png.flaticon.com/512/3119/3119338.png',
-          priority: 'high'
+          largeIcon: 'https://ocsthael.ocsthael.com/favicon.ico',
+          priority: 'high',
+          url: window.location.origin,
+          deepLink: 'app://home'
         })
       });
       

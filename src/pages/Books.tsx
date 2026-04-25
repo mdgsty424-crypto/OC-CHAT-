@@ -197,11 +197,18 @@ export default function Books() {
           title: 'New Like! 👍',
           message: `${user.displayName || 'Someone'} liked your post "${post.title || 'Untitled'}"`,
           largeIcon: user.photoURL || '',
+          image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
+          url: `${window.location.origin}/post/${post.id}`,
+          deepLink: `app://post/${post.id}`,
+          priority: 'high',
           data: { 
             type: 'like',
             postId: post.id 
           },
-          link: `/post/${post.id}`
+          actions: [
+            { id: 'view', text: '👁 View', icon: 'view', url: `${window.location.origin}/post/${post.id}` },
+            { id: 'follow', text: '➕ Follow', icon: 'follow', url: `${window.location.origin}/user/${user.uid}` }
+          ]
         });
       }
     }
@@ -234,12 +241,19 @@ export default function Books() {
               title: 'New Reply! 💬',
               message: `${user.displayName || 'Someone'} replied to your comment`,
               largeIcon: user.photoURL || '',
+              image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
+              url: `${window.location.origin}/post/${post.id}`,
+              deepLink: `app://post/${post.id}`,
+              priority: 'high',
               data: { 
                 type: 'reply',
                 postId: post.id,
                 commentId: replyingTo 
               },
-              link: `/post/${post.id}`
+              actions: [
+                { id: 'reply', text: '💬 Reply', icon: 'comment', url: `${window.location.origin}/post/${post.id}#comment-input` },
+                { id: 'view', text: '👁 View', icon: 'view', url: `${window.location.origin}/post/${post.id}` }
+              ]
             });
           }
         } catch (e) {
@@ -251,11 +265,18 @@ export default function Books() {
           title: 'New Comment! 💬',
           message: `${user.displayName || 'Someone'} commented on your post "${post.title || 'Untitled'}"`,
           largeIcon: user.photoURL || '',
+          image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
+          url: `${window.location.origin}/post/${post.id}`,
+          deepLink: `app://post/${post.id}`,
+          priority: 'high',
           data: { 
             type: 'comment',
             postId: post.id 
           },
-          link: `/post/${post.id}`
+          actions: [
+            { id: 'reply', text: '💬 Reply', icon: 'comment', url: `${window.location.origin}/post/${post.id}#comment-input` },
+            { id: 'view', text: '👁 View', icon: 'view', url: `${window.location.origin}/post/${post.id}` }
+          ]
         });
       }
 
@@ -282,6 +303,43 @@ export default function Books() {
         lastMessage: `Shared a post: ${post.title}`,
         lastMessageTimestamp: serverTimestamp()
       });
+
+      // 🔄 Dual Share Notification
+      // 1. To the original post author
+      if (post.authorId !== user.uid) {
+        sendNotification({
+          targetUserId: post.authorId,
+          title: 'Post Shared! 🚀',
+          message: `${user.displayName || 'Someone'} shared your post "${post.title || 'Untitled'}"`,
+          largeIcon: user.photoURL || '',
+          image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
+          url: `${window.location.origin}/post/${post.id}`,
+          deepLink: `app://post/${post.id}`,
+          priority: 'high',
+          data: { type: 'share', postId: post.id, sharerId: user.uid },
+          actions: [
+            { id: 'view', text: '👁 View Post', icon: 'view', url: `${window.location.origin}/post/${post.id}` }
+          ]
+        });
+      }
+
+      // 2. Broadcast to all users (since followers aren't explicitly loaded here)
+      sendNotification({
+        targetUserId: 'all',
+        title: `${user.displayName || 'Someone'} shared a post`,
+        message: post.title || 'Check out this shared post!',
+        largeIcon: user.photoURL || '',
+        image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
+        url: `${window.location.origin}/post/${post.id}`,
+        deepLink: `app://post/${post.id}`,
+        priority: 'high',
+        data: { type: 'share', postId: post.id, sharerId: user.uid },
+        actions: [
+          { id: 'view', text: '👁 View Post', icon: 'view', url: `${window.location.origin}/post/${post.id}` },
+          { id: 'follow', text: '➕ Follow', icon: 'follow', url: `${window.location.origin}/user/${user.uid}` }
+        ]
+      });
+
       setShowForward(null);
       setToast('Shared to chat!');
     } catch (error) {
