@@ -11,6 +11,8 @@
     { "source": "/u/:username", "destination": "/api/preview?type=u&id=:username" },
     { "source": "/reel/:id", "destination": "/api/preview?type=reel&id=:id" },
     { "source": "/api/preview", "destination": "/api/preview" },
+    { "source": "/api/notifications/send", "destination": "/api/notifications/send" },
+    { "source": "/api/fetch-preview", "destination": "/api/fetch-preview" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

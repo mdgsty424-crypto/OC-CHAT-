@@ -491,9 +491,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     {renderText(showTranslation ? message.translatedText || '' : message.text)}
                   </p>
                   {/* Link Previews */}
-                  {!showTranslation && message.text.match(/(https?:\/\/[^\s]+)/g)?.map((url, idx) => (
-                    <LinkPreview key={idx} url={url} isMe={isMe} />
-                  ))}
+                  {!showTranslation && message.text.match(/(https?:\/\/[^\s]+)/g)?.map((url, idx) => {
+                    // Trim trailing punctuation that often gets caught in the match
+                    const cleanUrl = url.replace(/[.,)!?]+$/, '');
+                    return <LinkPreview key={idx} url={cleanUrl} isMe={isMe} />;
+                  })}
                   {message.translatedText && (
                     <button 
                       onClick={() => setShowTranslation(!showTranslation)}

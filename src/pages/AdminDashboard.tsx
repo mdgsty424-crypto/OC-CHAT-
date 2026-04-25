@@ -227,11 +227,20 @@ export default function AdminDashboard() {
         body: JSON.stringify(payload)
       });
 
-      const result = await response.json();
+      const contentType = response.headers.get('content-type');
+      let result;
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error("Non-JSON response from server:", text.substring(0, 200));
+        throw new Error("Server returned non-JSON response. Check your API server status.");
+      }
+
       if (response.ok) {
         alert(`Notification Sent! Recipients: ${result.recipients || 'Requested'}`);
       } else {
-        alert(`Error: ${result.error || 'Failed to send'}`);
+        alert(`Error: ${result.error || result.details?.errors?.[0] || 'Failed to send'}`);
       }
     } catch (error) {
       console.error("Broadcast failed:", error);
@@ -338,7 +347,7 @@ export default function AdminDashboard() {
     if (!msg.trim()) return;
     setIsSendingNotif(true);
     try {
-      await fetch('/api/notifications/send', {
+      const response = await fetch('/api/notifications/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -348,8 +357,22 @@ export default function AdminDashboard() {
           priority: 'high'
         })
       });
-      alert("Broadcast sent!");
-    } catch (e) {}
+      
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        if (response.ok) {
+          alert("Broadcast sent!");
+        } else {
+          alert(`Failed: ${data.error || 'Unknown error'}`);
+        }
+      } else {
+        alert("Server error: Received non-JSON response");
+      }
+    } catch (e) {
+      console.error("Broadcast failed:", e);
+      alert("Broadcast failed - connection error");
+    }
     setIsSendingNotif(false);
   };
 

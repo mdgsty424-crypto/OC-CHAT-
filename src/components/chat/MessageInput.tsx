@@ -427,6 +427,14 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     // Determine type for pending message
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
+
+    if (file.size > 25 * 1024 * 1024) { // 25MB limit for safety on various platforms
+      alert("File is too large. Max 25MB allowed for chat uploads.");
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     const messageType = isImage ? 'image' : (isVideo ? 'video' : 'file');
 
     // 1. Add pending message to Firestore
@@ -463,12 +471,13 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       }
 
       let data;
-      try {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
         data = await response.json();
-      } catch (e) {
+      } else {
         const body = await response.text();
-        console.error("Failed to parse JSON response:", body);
-        throw new Error("Invalid response from server");
+        console.error("Server returned non-JSON response:", body.substring(0, 500));
+        throw new Error("Invalid response from server. High quality files might be too large for the current plan.");
       }
       
       // If it's a video, also offer to post to story

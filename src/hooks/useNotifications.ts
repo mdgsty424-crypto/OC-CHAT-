@@ -165,9 +165,22 @@ export function useNotifications() {
             let publicIp = 'unknown';
             try {
               const ipRes = await fetch('https://api.ipify.org?format=json');
-              const ipData = await ipRes.json();
-              publicIp = ipData.ip;
-            } catch (e) {}
+              if (ipRes.ok) {
+                const contentType = ipRes.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                  const ipData = await ipRes.json();
+                  publicIp = ipData.ip;
+                } else {
+                  const text = await ipRes.text();
+                  console.warn('[OneSignal] IP fetch returned non-JSON:', text.substring(0, 50));
+                  publicIp = 'non-json-response';
+                }
+              } else {
+                console.warn('[OneSignal] IP fetch failed with status:', ipRes.status);
+              }
+            } catch (e) {
+              console.warn('[OneSignal] IP fetch network error:', e);
+            }
 
             // Optional: Device Tags
             const tags = {

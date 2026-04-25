@@ -450,15 +450,22 @@ async function startServer() {
       }
 
       // Key management
-      const rawKey = (process.env.ONESIGNAL_REST_API_KEY || "os_v2_app_o6yabzfqirabbla6tzzxas5o7lkbg7cpl4nuwuu6ij5dbqylscpeadgwgdffmwiy7czmkmevbqsc3kfufcwkfrdflvudpe3j2g7xzpq").trim();
+      let rawKey = (process.env.ONESIGNAL_REST_API_KEY || "os_v2_app_o6yabzfqirabbla6tzzxas5o7lkbg7cpl4nuwuu6ij5dbqylscpeadgwgdffmwiy7czmkmevbqsc3kfufcwkfrdflvudpe3j2g7xzpq").trim();
       
+      // Clean up the key from potential common mistakes (copy-paste prefixes)
+      if (rawKey.toLowerCase().startsWith('basic ')) {
+        rawKey = rawKey.substring(6).trim();
+      } else if (rawKey.toLowerCase().startsWith('key ')) {
+        rawKey = rawKey.substring(4).trim();
+      }
+
       console.log(`[Push] Attempting OneSignal Delivery...`);
       console.log(`[Push] Payload Summary: Target=${targetUserId}, Priority=${priority}, TTL=${payload.ttl}`);
 
       const response = await fetch("https://api.onesignal.com/notifications", {
         method: "POST",
         headers: { 
-          "Authorization": `Basic ${rawKey}`,
+          "Authorization": `Key ${rawKey}`,
           "Content-Type": "application/json; charset=utf-8",
           "Accept": "application/json"
         },
@@ -521,12 +528,30 @@ async function startServer() {
       
       const response = await axios.get(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
         },
-        timeout: 10000
+        timeout: 8000,
+        validateStatus: () => true // Don't throw on 4xx/5xx to handle errors gracefully
       });
       
+      if (response.status === 429) {
+        return res.status(429).json({ error: "Too many requests" });
+      }
+
+      if (response.status >= 400) {
+        return res.json({
+          title: url,
+          description: "Preview not available for this link.",
+          image: "",
+          siteName: new URL(url).hostname,
+          url
+        });
+      }
+
       const html = response.data;
+      if (typeof html !== 'string') {
+        throw new Error("Invalid response format");
+      }
       const $ = cheerio.load(html);
 
       const getMeta = (name: string) => {

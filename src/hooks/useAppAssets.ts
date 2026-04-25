@@ -10,10 +10,10 @@ export interface AppAssets {
 }
 
 const defaultAssets: AppAssets = {
-  ringtone: '/sounds/ringtone.mp3',
-  sent: '/sounds/sent.mp3',
-  received: '/sounds/received.mp3',
-  typing: '/sounds/typing.mp3'
+  ringtone: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_b20253457a.mp3?filename=incoming-call-95743.mp3',
+  sent: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_3d44111394.mp3?filename=message-sent-7111.mp3',
+  received: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_9593bd6c57.mp3?filename=message-received-7110.mp3',
+  typing: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_730635e985.mp3?filename=keyboard-typing-59910.mp3'
 };
 
 // Fallback to CDN if local files fail (handled in components)
