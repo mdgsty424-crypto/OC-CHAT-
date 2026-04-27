@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -203,11 +203,42 @@ export default function ChatDetail() {
     };
   }, [id, currentUser]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  const location = useLocation();
+  const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
+
+  // Messenger-style Instant Scroll
+  useLayoutEffect(() => {
+    if (messages.length > 0 && scrollRef.current) {
+      const searchParams = new URLSearchParams(location.search);
+      const targetMessageId = searchParams.get('msg');
+
+      if (targetMessageId && !hasInitialScrolled) {
+        const targetElement = document.getElementById(`msg-${targetMessageId}`);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'auto', block: 'center' });
+          targetElement.classList.add('bg-primary/10', 'transition-all', 'duration-1000');
+          setTimeout(() => targetElement.classList.remove('bg-primary/10'), 2000);
+          setHasInitialScrolled(true);
+        }
+      } else if (!hasInitialScrolled || (messages.length > 0 && !targetMessageId)) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        if (messages.length > 0) setHasInitialScrolled(true);
+      }
     }
-  }, [messages, chat?.typing]);
+  }, [messages, location.search, hasInitialScrolled]);
+
+  // Handle new messages auto-scroll
+  useEffect(() => {
+    if (hasInitialScrolled && scrollRef.current && messages.length > 0) {
+      const isAtBottom = scrollRef.current.scrollHeight - scrollRef.current.scrollTop <= scrollRef.current.clientHeight + 100;
+      if (isAtBottom || messages[messages.length - 1].senderId === currentUser?.uid) {
+        scrollRef.current.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    }
+  }, [messages.length, chat?.typing]);
 
   // Typing logic: Trigger, Timeout, and Cleanup
   useEffect(() => {

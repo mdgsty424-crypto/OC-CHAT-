@@ -5,12 +5,14 @@
 export const getTransformedUrl = (url: string, transformations: string) => {
   if (!url || !url.includes('cloudinary.com')) return url;
   
-  // URL format: https://res.cloudinary.com/[cloud_name]/[resource_type]/upload/v[version]/[public_id].[format]
-  // We want to insert transformations after /upload/
   if (url.includes('/upload/')) {
     return url.replace('/upload/', `/upload/${transformations}/`);
   }
   return url;
+};
+
+export const getOptimizedMediaUrl = (url: string) => {
+  return getTransformedUrl(url, 'f_auto,q_auto');
 };
 
 export const getFiltersTransformation = (filters: {

@@ -186,7 +186,7 @@ export default function Notifications() {
 
   return (
     <div className="flex flex-col h-screen bg-background select-none">
-      {/* Facebook Header */}
+      {/* Social Platform Header */}
       <header className="bg-background border-b border-border/50 sticky top-0 z-50 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

@@ -66,11 +66,17 @@ export const createCall = async (callerId: string, receiverId: string, type: 'au
 export const endCall = async (callId: string, receiverId?: string) => {
   try {
     const callRef = doc(db, 'calls', callId);
-    await updateDoc(callRef, { status: 'ended' });
+    const callSnap = await getDoc(callRef);
+    if (callSnap.exists()) {
+      await updateDoc(callRef, { status: 'ended' });
+    }
     
     if (receiverId) {
       const receiverRef = doc(db, 'users', receiverId);
-      await updateDoc(receiverRef, { incomingCall: null });
+      const receiverSnap = await getDoc(receiverRef);
+      if (receiverSnap.exists()) {
+        await updateDoc(receiverRef, { incomingCall: null });
+      }
     }
     
     // Optional: Delete candidates subcollections or the whole doc after some time
@@ -83,10 +89,16 @@ export const endCall = async (callId: string, receiverId?: string) => {
 export const rejectCall = async (callId: string, receiverId: string) => {
   try {
     const callRef = doc(db, 'calls', callId);
-    await updateDoc(callRef, { status: 'rejected' });
+    const callSnap = await getDoc(callRef);
+    if (callSnap.exists()) {
+      await updateDoc(callRef, { status: 'rejected' });
+    }
     
     const receiverRef = doc(db, 'users', receiverId);
-    await updateDoc(receiverRef, { incomingCall: null });
+    const receiverSnap = await getDoc(receiverRef);
+    if (receiverSnap.exists()) {
+      await updateDoc(receiverRef, { incomingCall: null });
+    }
   } catch (error) {
     console.error("Error rejecting call:", error);
   }

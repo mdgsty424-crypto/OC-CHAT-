@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { NetworkProvider, useNetwork } from './hooks/useNetwork';
@@ -86,12 +87,13 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
 
 import { useNotifications } from './hooks/useNotifications';
 import PinLock from './components/common/PinLock';
+import SecurityLock from './components/common/SecurityLock';
 import { useGlobalSettings } from './hooks/useGlobalSettings';
 import { cn } from './lib/utils';
 import { useLocation } from 'react-router-dom';
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, loading, isLocked: isAuthLocked } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const { theme } = useSettings();
   const { settings: globalSettings } = useGlobalSettings();
@@ -106,13 +108,35 @@ function AppRoutes() {
   const isBooksPage = location.pathname === '/books';
 
   useEffect(() => {
+    // Direct Access: Skip or shorten splash for deep links
+    const isDeepLink = 
+      location.pathname.startsWith('/post/') || 
+      location.pathname.startsWith('/u/') || 
+      location.pathname.startsWith('/reel/') ||
+      location.pathname.startsWith('/chat/');
+
     if (!loading) {
-      const timer = setTimeout(() => setShowSplash(false), 2000);
-      return () => clearTimeout(timer);
+      if (isDeepLink) {
+        setShowSplash(false);
+      } else {
+        const timer = setTimeout(() => setShowSplash(false), 2000);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [loading]);
+  }, [loading, location.pathname]);
 
   useEffect(() => {
+    // Global error handler to suppress generic "Script error."
+    const handleGlobalError = (event: ErrorEvent) => {
+      if (event.message === 'Script error.') {
+        console.warn('[System] Suppressing generic cross-origin Script error');
+        event.preventDefault();
+        return;
+      }
+    };
+
+    window.addEventListener('error', handleGlobalError);
+
     // Initialize AI User
     const initAIUser = async () => {
       try {
@@ -158,6 +182,7 @@ function AppRoutes() {
     window.addEventListener('touchstart', handleFirstInteraction);
 
     return () => {
+      window.removeEventListener('error', handleGlobalError);
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
     };
@@ -277,6 +302,10 @@ function AppRoutes() {
     return <PinLock onUnlock={() => setIsLocked(false)} />;
   }
 
+  if (isAuthLocked) {
+    return <SecurityLock />;
+  }
+
   // Determine the background class based on the global theme
   const getThemeClass = () => {
     if (isCallScreen) return 'bg-black';
@@ -299,41 +328,52 @@ function AppRoutes() {
       )}>
         <NetworkStatus />
         {!isCallScreen && <WebRTCCallInvitation />}
-        <Routes>
-          <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
-          <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />
-          <Route path="/discovery" element={<><Discovery /><BottomNav /></>} />
-          <Route path="/wallet" element={<><Wallet /><BottomNav /></>} />
-          <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
-          <Route path="/offline-call" element={<OfflineCall />} />
-          
-          {/* New Clean Routes */}
-          <Route path="/u/:username" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
-          <Route path="/post/:postId" element={<PostDetail />} />
-          <Route path="/reel/:reelId" element={<Story />} />
-          <Route path="/call/:roomId" element={<CallScreen />} />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="flex-1 flex flex-col h-full overflow-hidden"
+          >
+            <Routes location={location}>
+              <Route path="/" element={<><TopBar title="Chats" /><Home /><BottomNav /></>} />
+              <Route path="/community" element={<><TopBar title="Community" /><Community /><BottomNav /></>} />
+              <Route path="/discovery" element={<><Discovery /><BottomNav /></>} />
+              <Route path="/wallet" element={<><Wallet /><BottomNav /></>} />
+              <Route path="/calls" element={<><TopBar title="Calls" /><Calls /><BottomNav /></>} />
+              <Route path="/offline-call" element={<OfflineCall />} />
+              
+              {/* New Clean Routes */}
+              <Route path="/u/:username" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
+              <Route path="/post/:postId" element={<PostDetail />} />
+              <Route path="/reel/:reelId" element={<Story />} />
+              <Route path="/call/:roomId" element={<CallScreen />} />
 
-          <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
-          <Route path="/profile/:id" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
-          <Route path="/search" element={<SearchScreen />} />
-          <Route path="/books" element={<Books />} />
-          <Route path="/story" element={<Story />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/ads" element={<Ads />} />
-          <Route path="/dhukan" element={<Dhukan />} />
-          <Route path="/seller-dashboard" element={<SellerDashboard />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/notifications/:id" element={<NotificationDetail />} />
-          <Route path="/create-post" element={<CreatePost />} />
-          <Route path="/chat/:id" element={<ChatDetail />} />
-          <Route path="/call-screen/:id" element={<CallScreen />} />
-          <Route path="/meeting/:id" element={<MeetingRoom />} />
-          <Route path="/voice/:id" element={<VoiceRoom />} />
-          
-          <Route path="/404" element={<NotFound />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+              <Route path="/profile" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
+              <Route path="/profile/:id" element={<><TopBar title="Profile" /><Profile /><BottomNav /></>} />
+              <Route path="/search" element={<SearchScreen />} />
+              <Route path="/books" element={<Books />} />
+              <Route path="/story" element={<Story />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/ads" element={<Ads />} />
+              <Route path="/dhukan" element={<Dhukan />} />
+              <Route path="/seller-dashboard" element={<SellerDashboard />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/notifications/:id" element={<NotificationDetail />} />
+              <Route path="/create-post" element={<CreatePost />} />
+              <Route path="/chat/:id" element={<ChatDetail />} />
+              <Route path="/call-screen/:id" element={<CallScreen />} />
+              <Route path="/meeting/:id" element={<MeetingRoom />} />
+              <Route path="/voice/:id" element={<VoiceRoom />} />
+              
+              <Route path="/404" element={<NotFound />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

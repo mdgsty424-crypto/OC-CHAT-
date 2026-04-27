@@ -9,17 +9,20 @@ import {
   createUserWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { User } from '../types';
+import { sendEmail } from '../services/emailService';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isLocked: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
+  verifySecurityOTP: (otp: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +30,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     // Fallback timeout to prevent infinite loading
@@ -71,6 +75,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Fire and forget the update so it syncs when online
           setDoc(userRef, updateData, { merge: true }).catch(e => console.log("Offline update pending", e));
 
+          // Security Session Tracking
+          import('../lib/security').then(async ({ trackSession }) => {
+            const sessionResult = await trackSession(firebaseUser.uid);
+            if (sessionResult.isNewDevice) {
+              setIsLocked(true);
+              const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+              await updateDoc(userRef, { 
+                securityOTP: otpCode,
+                lastSuspiciousIp: sessionResult.ip 
+              });
+              await sendEmail('auth', 'template_t1nzyk9', {
+                user_name: firebaseUser.displayName || 'User',
+                otp: otpCode,
+                email: firebaseUser.email
+              });
+            }
+          });
+
           // Listen for real-time updates to the current user's document
           userUnsubscribe = onSnapshot(userRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -89,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         } else {
           setUser(null);
+          setIsLocked(false);
           setLoading(false);
           clearTimeout(timeoutId);
         }
@@ -137,6 +160,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user?.uid]);
 
+  const verifySecurityOTP = async (otp: string) => {
+    if (!user) return false;
+    const userRef = doc(db, 'users', user.uid);
+    const snap = await getDoc(userRef);
+    if (snap.exists() && snap.data().securityOTP === otp) {
+      setIsLocked(false);
+      await updateDoc(userRef, { securityOTP: null }); // Clear OTP
+      return true;
+    }
+    return false;
+  };
+
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
@@ -176,7 +211,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      isLocked, 
+      signInWithGoogle, 
+      signInWithEmail, 
+      signUpWithEmail, 
+      logout,
+      verifySecurityOTP
+    }}>
       {children}
     </AuthContext.Provider>
   );

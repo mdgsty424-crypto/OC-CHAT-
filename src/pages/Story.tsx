@@ -87,6 +87,15 @@ export default function Story() {
     return items;
   }, [reels, ads]);
 
+  // Memory Virtualization: Only render reels near the active index
+  const visibleFeedItems = React.useMemo(() => {
+    return feed.map((item, index) => ({
+      item,
+      index,
+      isVisible: Math.abs(index - currentIndex) <= 1
+    }));
+  }, [feed, currentIndex]);
+
   // Fetch comments for current reel
   useEffect(() => {
     const currentReelId = feed[currentIndex]?.id;
@@ -103,21 +112,44 @@ export default function Story() {
     return () => unsubscribe();
   }, [currentIndex, feed, showComments]);
 
+  // Video Playback Control logic
   useEffect(() => {
-    // Pause all videos first
-    Object.values(videoRefs.current).forEach(video => {
-      if (video) (video as HTMLVideoElement).pause();
-    });
+    let currentVideo: HTMLVideoElement | null = null;
+    let isMounted = true;
 
     // Play the current video
     const currentReel = feed[currentIndex];
     if (currentReel && currentReel.mediaType === 'video') {
-      const video = videoRefs.current[currentReel.id];
-      if (video) {
-        (video as HTMLVideoElement).play().catch(err => console.error("Auto-play blocked:", err));
-        setIsPlaying(true);
-      }
+      currentVideo = videoRefs.current[currentReel.id];
     }
+
+    // Pause all other videos
+    Object.keys(videoRefs.current).forEach(id => {
+      const v = videoRefs.current[id];
+      if (v && v !== currentVideo) {
+        v.pause();
+      }
+    });
+
+    if (currentVideo) {
+      const playPromise = currentVideo.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          if (!isMounted) {
+            currentVideo?.pause();
+          }
+        }).catch(err => {
+          if (err.name !== 'AbortError') {
+            console.error("Auto-play blocked:", err);
+          }
+        });
+      }
+      setIsPlaying(true);
+    }
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentIndex, feed]);
 
   const handleScroll = () => {
@@ -399,138 +431,146 @@ export default function Story() {
         {feed.length === 0 ? (
           <div className="h-full flex items-center justify-center text-white/50">No stories available</div>
         ) : (
-          feed.map((reel, index) => (
+          visibleFeedItems.map(({ item: reel, index, isVisible }) => (
             <div key={reel.id + index} className="h-screen w-full snap-start relative bg-gray-900 flex items-center justify-center overflow-hidden">
-              {reel.mediaType === 'video' ? (
-                <video 
-                  ref={el => videoRefs.current[reel.id] = el}
-                  src={reel.mediaUrl} 
-                  className="w-full h-full object-cover"
-                  loop
-                  muted={false}
-                  playsInline
-                  onTimeUpdate={(e) => index === currentIndex && setCurrentTime(e.currentTarget.currentTime)}
-                  onLoadedMetadata={(e) => index === currentIndex && setDuration(e.currentTarget.duration)}
-                />
+              {!isVisible ? (
+                <div className="h-full w-full bg-black flex items-center justify-center">
+                  <Loader2 className="animate-spin text-white/20" size={40} />
+                </div>
               ) : (
-                <img src={reel.mediaUrl} alt="Story" className="w-full h-full object-cover" loading="lazy" />
-              )}
-
-              {/* Center Controls (Copy Middle Controls) */}
-              {index === currentIndex && (
-                <div className="absolute inset-0 flex items-center justify-center gap-16 pointer-events-none">
-                  <button 
-                    onClick={handleRewind}
-                    className="pointer-events-auto p-4 text-white/90 hover:text-white transition-colors active:scale-90"
-                  >
-                    <RotateCcw size={48} strokeWidth={2} />
-                  </button>
-                  <button 
-                    onClick={togglePlay}
-                    className="pointer-events-auto w-24 h-24 flex items-center justify-center text-white hover:scale-105 transition-transform active:scale-95"
-                  >
-                    {isPlaying ? <Pause size={72} strokeWidth={1.5} /> : <Play size={72} strokeWidth={1.5} className="ml-2" />}
-                  </button>
-                  <button 
-                    onClick={handleForward}
-                    className="pointer-events-auto p-4 text-white/90 hover:text-white transition-colors active:scale-90"
-                  >
-                    <RotateCw size={48} strokeWidth={2} />
-                  </button>
-                </div>
-              )}
-
-              {/* Bottom Content Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-              
-              <div className="absolute bottom-0 left-0 right-0 p-6 pb-10 pointer-events-auto flex flex-col gap-4">
-                {/* Title & Description (Bottom Left) */}
-                <div className="max-w-[80%]">
-                  <h3 className="text-white font-black text-xl tracking-tight drop-shadow-lg uppercase leading-tight">
-                    {reel.title || 'OCSTHAEL ECOSYSTEM OC-CHAT TESTING TITLE'}
-                    <button 
-                      onClick={() => setShowDescription(!showDescription)}
-                      className="text-blue-400 text-sm font-bold ml-2 lowercase"
-                    >
-                      {showDescription ? 'less' : '...more'}
-                    </button>
-                  </h3>
-                  {showDescription && (
-                    <p className="text-white/90 text-sm font-medium drop-shadow-md leading-relaxed mt-2">
-                      {reel.description || 'Experience the future of social interaction with our new reels system.'}
-                    </p>
+                <>
+                  {reel.mediaType === 'video' ? (
+                    <video 
+                      ref={el => videoRefs.current[reel.id] = el}
+                      src={reel.mediaUrl} 
+                      className="w-full h-full object-cover"
+                      loop
+                      muted={false}
+                      playsInline
+                      onTimeUpdate={(e) => index === currentIndex && setCurrentTime(e.currentTarget.currentTime)}
+                      onLoadedMetadata={(e) => index === currentIndex && setDuration(e.currentTarget.duration)}
+                    />
+                  ) : (
+                    <img src={reel.mediaUrl} alt="Story" className="w-full h-full object-cover" loading="lazy" />
                   )}
-                </div>
 
-                {/* Seek Bar (Full Width above input row) */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 h-1.5 bg-white/20 rounded-full relative">
-                      <div 
-                        className="absolute top-0 left-0 h-full bg-white rounded-full"
-                        style={{ width: `${(currentTime / duration) * 100}%` }}
-                      />
-                      <div 
-                        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg"
-                        style={{ left: `${(currentTime / duration) * 100}%` }}
-                      />
+                  {/* Center Controls (Copy Middle Controls) */}
+                  {index === currentIndex && (
+                    <div className="absolute inset-0 flex items-center justify-center gap-16 pointer-events-none">
+                      <button 
+                        onClick={handleRewind}
+                        className="pointer-events-auto p-4 text-white/90 hover:text-white transition-colors active:scale-90"
+                      >
+                        <RotateCcw size={48} strokeWidth={2} />
+                      </button>
+                      <button 
+                        onClick={togglePlay}
+                        className="pointer-events-auto w-24 h-24 flex items-center justify-center text-white hover:scale-105 transition-transform active:scale-95"
+                      >
+                        {isPlaying ? <Pause size={72} strokeWidth={1.5} /> : <Play size={72} strokeWidth={1.5} className="ml-2" />}
+                      </button>
+                      <button 
+                        onClick={handleForward}
+                        className="pointer-events-auto p-4 text-white/90 hover:text-white transition-colors active:scale-90"
+                      >
+                        <RotateCw size={48} strokeWidth={2} />
+                      </button>
                     </div>
-                    <span className="text-white font-black text-sm drop-shadow-lg">
-                      {formatTime(duration || 85)}
-                    </span>
+                  )}
+
+                  {/* Bottom Content Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                  
+                  <div className="absolute bottom-0 left-0 right-0 p-6 pb-10 pointer-events-auto flex flex-col gap-4">
+                    {/* Title & Description (Bottom Left) */}
+                    <div className="max-w-[80%]">
+                      <h3 className="text-white font-black text-xl tracking-tight drop-shadow-lg uppercase leading-tight">
+                        {reel.title || 'OCSTHAEL ECOSYSTEM OC-CHAT TESTING TITLE'}
+                        <button 
+                          onClick={() => setShowDescription(!showDescription)}
+                          className="text-blue-400 text-sm font-bold ml-2 lowercase"
+                        >
+                          {showDescription ? 'less' : '...more'}
+                        </button>
+                      </h3>
+                      {showDescription && (
+                        <p className="text-white/90 text-sm font-medium drop-shadow-md leading-relaxed mt-2">
+                          {reel.description || 'Experience the future of social interaction with our new reels system.'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Seek Bar (Full Width above input row) */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1 h-1.5 bg-white/20 rounded-full relative">
+                          <div 
+                            className="absolute top-0 left-0 h-full bg-white rounded-full"
+                            style={{ width: `${(currentTime / duration) * 100}%` }}
+                          />
+                          <div 
+                            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg"
+                            style={{ left: `${(currentTime / duration) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-white font-black text-sm drop-shadow-lg">
+                          {formatTime(duration || 85)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Interaction Row (Exact Bottom Row) */}
+                    <div className="flex items-center gap-4">
+                      {/* Add Coment Input Box */}
+                      <div className="flex-1 relative">
+                        <button 
+                          onClick={() => setShowComments(true)}
+                          className="w-full bg-transparent border-2 border-white rounded-2xl py-4 px-6 flex justify-between items-center text-left"
+                        >
+                          <span className="text-white/80 font-bold">Add Coment</span>
+                          <span className="text-white font-black text-xl">{(reel.comments || []).length}</span>
+                        </button>
+                      </div>
+
+                      {/* Red Heart with Like count */}
+                      <button 
+                        onClick={() => handleLike(reel.id, reel.likes || [])}
+                        className="flex flex-col items-center relative"
+                      >
+                        <motion.span 
+                          animate={isLiking ? { scale: [1, 1.5, 1], y: [0, -10, 0] } : {}}
+                          className="absolute -top-6 text-white font-black text-xs drop-shadow-lg"
+                        >
+                          {(reel.likes || []).length > 999 ? `${((reel.likes || []).length / 1000).toFixed(1)}k` : (reel.likes || []).length}
+                        </motion.span>
+                        <motion.div 
+                          whileTap={{ scale: 0.8 }}
+                          animate={isLiking ? { scale: [1, 1.3, 1] } : {}}
+                          className="w-14 h-14 flex items-center justify-center"
+                        >
+                          {/* 3D-style Red Heart */}
+                          <svg viewBox="0 0 24 24" className={cn("w-12 h-12 drop-shadow-[0_0_10px_rgba(255,0,0,0.5)] transition-colors", (reel.likes || []).includes(user?.uid) ? "fill-red-500" : "fill-white/40")}>
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                          </svg>
+                        </motion.div>
+                      </button>
+
+                      {/* Forward Arrow */}
+                      <button 
+                        onClick={handleShare}
+                        className="p-2 text-white drop-shadow-lg active:scale-90 transition-transform"
+                      >
+                        <Share2 size={40} strokeWidth={2} />
+                      </button>
+
+                      {/* ... Menu */}
+                      <button className="p-2 text-white drop-shadow-lg active:scale-90 transition-transform">
+                        <MoreVertical size={40} strokeWidth={2} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-
-                {/* Interaction Row (Exact Bottom Row) */}
-                <div className="flex items-center gap-4">
-                  {/* Add Coment Input Box */}
-                  <div className="flex-1 relative">
-                    <button 
-                      onClick={() => setShowComments(true)}
-                      className="w-full bg-transparent border-2 border-white rounded-2xl py-4 px-6 flex justify-between items-center text-left"
-                    >
-                      <span className="text-white/80 font-bold">Add Coment</span>
-                      <span className="text-white font-black text-xl">{(reel.comments || []).length}</span>
-                    </button>
-                  </div>
-
-                  {/* Red Heart with Like count */}
-                  <button 
-                    onClick={() => handleLike(reel.id, reel.likes || [])}
-                    className="flex flex-col items-center relative"
-                  >
-                    <motion.span 
-                      animate={isLiking ? { scale: [1, 1.5, 1], y: [0, -10, 0] } : {}}
-                      className="absolute -top-6 text-white font-black text-xs drop-shadow-lg"
-                    >
-                      {(reel.likes || []).length > 999 ? `${((reel.likes || []).length / 1000).toFixed(1)}k` : (reel.likes || []).length}
-                    </motion.span>
-                    <motion.div 
-                      whileTap={{ scale: 0.8 }}
-                      animate={isLiking ? { scale: [1, 1.3, 1] } : {}}
-                      className="w-14 h-14 flex items-center justify-center"
-                    >
-                      {/* 3D-style Red Heart */}
-                      <svg viewBox="0 0 24 24" className={cn("w-12 h-12 drop-shadow-[0_0_10px_rgba(255,0,0,0.5)] transition-colors", (reel.likes || []).includes(user?.uid) ? "fill-red-500" : "fill-white/40")}>
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                      </svg>
-                    </motion.div>
-                  </button>
-
-                  {/* Forward Arrow */}
-                  <button 
-                    onClick={handleShare}
-                    className="p-2 text-white drop-shadow-lg active:scale-90 transition-transform"
-                  >
-                    <Share2 size={40} strokeWidth={2} />
-                  </button>
-
-                  {/* ... Menu */}
-                  <button className="p-2 text-white drop-shadow-lg active:scale-90 transition-transform">
-                    <MoreVertical size={40} strokeWidth={2} />
-                  </button>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           ))
         )}

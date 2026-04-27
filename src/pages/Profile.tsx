@@ -34,6 +34,7 @@ import {
   Fingerprint,
   CreditCard,
   MapPin,
+  Menu,
   User as UserIcon,
   Clock,
   Droplets,
@@ -45,6 +46,7 @@ import {
   Plus
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { ProfileSkeleton } from '../components/common/Skeleton';
 import { doc, updateDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDoc, setDoc, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import PinLock from '../components/common/PinLock';
@@ -55,6 +57,9 @@ import { AvatarGallery } from '../components/common/AvatarGallery';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import StoryPlayer from '../components/stories/StoryPlayer';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
+import SecuritySettings from '../components/profile/SecuritySettings';
+import SettingsNavigator from '../components/settings/SettingsNavigator';
+import EditProfile from '../components/profile/EditProfile';
 
 type SubView = 'main' | 'account' | 'security' | 'notifications' | 'language' | 'help' | 'set-pin' | 'settings';
 
@@ -96,8 +101,10 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
   const [profileUser, setProfileUser] = useState<User | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const [profileUid, setProfileUid] = useState<string | null>(null);
   const isOwnProfile = (!id && !username) || id === currentUser?.uid;
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (username) {
@@ -107,13 +114,31 @@ export default function Profile() {
           setProfileUid(snapshot.docs[0].id);
         } else {
           setProfileUid('not-found');
+          setLoading(false);
         }
       });
       return () => unsub();
     } else {
-      setProfileUid(id || (isOwnProfile ? currentUser?.uid : null));
+      const targetId = id || (isOwnProfile ? currentUser?.uid : null);
+      setProfileUid(targetId);
+      if (!targetId) setLoading(false);
     }
   }, [username, id, isOwnProfile, currentUser?.uid]);
+
+  // Background Data Fetching for Profile
+  useEffect(() => {
+    if (!profileUid || profileUid === 'not-found') return;
+    setLoading(true);
+    const unsub = onSnapshot(doc(db, 'users', profileUid), (snapshot) => {
+      if (snapshot.exists()) {
+        setProfileUser({ ...snapshot.data(), uid: snapshot.id } as User);
+        setLoading(false);
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsub();
+  }, [profileUid]);
 
   const { theme, language, isMuted, toggleTheme, setLanguage, toggleMute, t } = useSettings();
   const { settings: globalSettings } = useGlobalSettings();
@@ -291,6 +316,9 @@ export default function Profile() {
     }
   }, [toast]);
 
+  if (loading) return <ProfileSkeleton />;
+  if (!profileUser && profileUid === 'not-found') return <NotFound />;
+
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -377,6 +405,25 @@ export default function Profile() {
       } else {
         const updateData = type === 'avatar' ? { photoURL: data.secure_url } : { coverURL: data.secure_url };
         await updateDoc(doc(db, 'users', currentUser.uid), updateData);
+        
+        // Auto-post to Books feed like Facebook
+        try {
+          await addDoc(collection(db, 'books_posts'), {
+            authorId: currentUser.uid,
+            authorName: currentUser.displayName || 'OC-CHAT User',
+            authorPhoto: type === 'avatar' ? data.secure_url : (currentUser.photoURL || ''),
+            title: `${currentUser.displayName || 'User'} updated their ${type === 'avatar' ? 'profile picture' : 'cover photo'}.`,
+            description: type === 'avatar' ? 'Updated my profile picture! 📸' : 'New cover photo just dropped! ✨',
+            mediaUrl: data.secure_url,
+            mediaType: 'image',
+            mediaItems: [{ url: data.secure_url, type: 'image' }],
+            likes: [],
+            comments: [],
+            createdAt: serverTimestamp(),
+          });
+        } catch (postError) {
+          console.error("Error creating feed post for photo update from Profile:", postError);
+        }
       }
       setToast(`${type === 'avatar' ? 'Profile picture' : type === 'cover' ? 'Cover photo' : 'Signature'} updated!`);
     } catch (error: any) {
@@ -570,6 +617,7 @@ export default function Profile() {
         authorName: currentUser.displayName || 'Anonymous',
         authorPhoto: currentUser.photoURL || null,
         mediaUrl: data.secure_url || '',
+        videoUrl: data.secure_url || '', // Unified field names
         publicId: data.public_id || null,
         mediaType: (file.type || '').startsWith('video/') ? 'video' : 'image',
         type: 'story',
@@ -653,6 +701,13 @@ export default function Profile() {
       color: 'text-blue-500', 
       bg: 'bg-blue-500/10',
       onClick: () => setSubView('account')
+    },
+    { 
+      icon: Lock, 
+      label: "Security & Login", 
+      color: 'text-red-500', 
+      bg: 'bg-red-500/10',
+      onClick: () => setSubView('security')
     },
     { 
       icon: Shield, 
@@ -744,6 +799,10 @@ export default function Profile() {
 
   if (subView === 'set-pin') {
     return <PinLock isSetting onSetPin={handleSetPin} onCancel={() => setSubView('main')} onUnlock={() => {}} />;
+  }
+
+  if (subView === 'security') {
+    return <SecuritySettings onBack={() => setSubView('settings')} />;
   }
 
   if (subView === 'account') {
@@ -1020,6 +1079,11 @@ export default function Profile() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showSettings && (
+        <SettingsNavigator onExit={() => setShowSettings(false)} />
+      )}
+
       <Helmet>
         <title>{profileUser?.displayName || 'Chat Profile'} on OC-CHAT</title>
         <meta name="description" content={profileUser?.bio || 'Check out my profile on OC-CHAT'} />
@@ -1062,27 +1126,53 @@ export default function Profile() {
       />
 
       {/* Top Header & Banner */}
-      <div className="relative h-[280px] bg-gradient-to-br from-[#8A2BE2] via-[#4169E1] to-[#1E90FF] overflow-hidden">
+      <div 
+        className="relative h-[280px] bg-gradient-to-br from-[#8A2BE2] via-[#4169E1] to-[#1E90FF] overflow-hidden group cursor-pointer"
+        onClick={() => isOwnProfile && coverInputRef.current?.click()}
+      >
+        {profileUser?.coverURL && (
+          <img 
+            src={profileUser.coverURL} 
+            alt="Cover" 
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+          />
+        )}
+        
+        {/* Overlay if own profile */}
+        {isOwnProfile && (
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+            <div className="p-3 bg-white/20 backdrop-blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+              <Camera className="text-white" size={32} />
+            </div>
+          </div>
+        )}
+
         {/* Back Arrow */}
-        <button onClick={() => navigate(-1)} className="absolute top-4 left-4 p-2 z-20">
+        <button 
+          onClick={(e) => { e.stopPropagation(); navigate(-1); }} 
+          className="absolute top-4 left-4 p-2 z-20 hover:bg-black/20 rounded-full transition-colors"
+        >
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
         
-        {/* Settings Gear and ID Card */}
+        {/* Settings Menu and ID Card */}
         <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
-          <button onClick={() => setShowIdCard(true)} className="p-2">
+          <button onClick={(e) => { e.stopPropagation(); setShowIdCard(true); }} className="p-2 hover:bg-black/20 rounded-full transition-colors">
             <CreditCard className="text-white" size={32} />
           </button>
-          <button onClick={() => setSubView('settings')} className="p-2">
-            <Settings className="text-white" size={32} />
+          <button onClick={(e) => { e.stopPropagation(); setShowSettings(true); }} className="p-2 hover:bg-black/20 rounded-full transition-colors">
+            <Menu className="text-white" size={32} />
           </button>
         </div>
 
-        {/* Text */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full z-10">
-          <h1 className="text-5xl font-black text-white tracking-wider drop-shadow-md">OC-CHAT</h1>
+        {/* Text - Only show if no cover photo or with shadow */}
+        <div className={cn(
+          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full z-10",
+          profileUser?.coverURL ? "drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]" : ""
+        )}>
+          <h1 className="text-5xl font-black text-white tracking-wider">OC-CHAT</h1>
           <p className="text-white/90 text-lg font-bold mt-1">Connect · Chat · Share</p>
         </div>
 
@@ -1278,16 +1368,16 @@ export default function Profile() {
                 <span className="text-xs font-bold text-gray-500">Upload</span>
               </button>
             )}
-            {stories.map((story, index) => (
+            {stories.map((story: any, index) => (
               <div 
                 key={story.id} 
                 onClick={() => setSelectedStoryIndex(index)}
                 className="aspect-[9/16] bg-gray-200 rounded-xl overflow-hidden relative cursor-pointer group"
               >
                 {story.mediaType === 'video' ? (
-                  <video src={story.mediaUrl} className="w-full h-full object-cover" />
+                  <video src={story.videoUrl || story.mediaUrl} className="w-full h-full object-cover" />
                 ) : (
-                  <img src={story.mediaUrl} className="w-full h-full object-cover" alt="" />
+                  <img src={story.mediaUrl || story.videoUrl} className="w-full h-full object-cover" alt="" />
                 )}
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
               </div>
@@ -1498,67 +1588,13 @@ export default function Profile() {
         />
       )}
 
-      {/* Edit Profile Modal */}
+      {/* Edit Profile Integrated Component */}
       <AnimatePresence>
-        {isEditing && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-            >
-              <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
-                <h3 className="text-lg font-extrabold">Edit Profile</h3>
-                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Name</label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Username</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">@</span>
-                    <input
-                      type="text"
-                      value={editUsername}
-                      onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 pl-9 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      placeholder="username"
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-medium ml-1">Unique handle for your clean profile URL</p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Bio</label>
-                  <textarea
-                    value={editBio}
-                    onChange={(e) => setEditBio(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20 h-24 resize-none"
-                  />
-                </div>
-              </div>
-              <div className="p-4 border-t border-gray-100 bg-gray-50">
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
-                  Save Changes
-                </button>
-              </div>
-            </motion.div>
-          </div>
+        {isEditing && profileUser && (
+          <EditProfile 
+            user={profileUser} 
+            onBack={() => setIsEditing(false)} 
+          />
         )}
       </AnimatePresence>
 

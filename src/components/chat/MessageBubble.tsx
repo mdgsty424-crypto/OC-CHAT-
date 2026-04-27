@@ -79,7 +79,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
   if (!preview) return null;
 
   const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
-  const isFacebook = url.includes('facebook.com');
+  const isSocialVideo = url.includes('vimeo.com') || url.includes('dailymotion.com');
   
   let videoId = '';
   if (isYouTube) {
@@ -116,7 +116,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
         isMe ? "bg-white/10 border-white/20 text-white" : "bg-surface/80 border-white/10 text-text"
       )} 
       onClick={() => {
-        if (isYouTube || isFacebook) {
+        if (isYouTube || isSocialVideo) {
           setShowPlayer(true);
         } else {
           window.open(url, '_blank');
@@ -133,7 +133,7 @@ const LinkPreview: React.FC<{ url: string; isMe: boolean }> = ({ url, isMe }) =>
             loading="lazy"
             onError={() => setImageError(true)}
           />
-          {(isYouTube || isFacebook) && (
+          {(isYouTube || isSocialVideo) && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
               <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center text-primary shadow-xl transform transition-transform group-hover:scale-110">
                 <Play size={20} fill="currentColor" className="ml-1" />
@@ -374,10 +374,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // 2. Regular Message Rendering
   return (
-    <div className={cn(
-      "flex flex-col max-w-[85%] gap-1 group relative mb-1",
-      isMe ? "ml-auto items-end" : "mr-auto items-start"
-    )}>
+    <div 
+      id={`msg-${message.id}`}
+      className={cn(
+        "flex flex-col max-w-[85%] gap-1 group relative mb-1 scroll-mt-20",
+        isMe ? "ml-auto items-end" : "mr-auto items-start"
+      )}
+    >
       {/* Swipe to Reply Indicator */}
       {!isMe && onReply && (
         <motion.div 

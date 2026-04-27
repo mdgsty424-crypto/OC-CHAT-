@@ -51,6 +51,20 @@ export function useNotifications() {
     };
 
     initOneSignal();
+
+    // Global error handler to suppress generic "Script error."
+    const handleGlobalError = (event: ErrorEvent) => {
+      if (event.message === 'Script error.') {
+        console.warn('[System] Suppressing generic cross-origin Script error');
+        event.preventDefault();
+        return;
+      }
+    };
+
+    window.addEventListener('error', handleGlobalError);
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+    };
   }, []);
 
   useEffect(() => {

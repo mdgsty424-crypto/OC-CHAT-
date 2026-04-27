@@ -46,7 +46,7 @@ export default function Login() {
             </button>
             <div className="mt-5 space-y-2">
               <button className="w-full py-2.5 rounded-[20px] bg-white text-black font-semibold" onClick={signInWithGoogle}>Google</button>
-              <button className="w-full py-2.5 rounded-[20px] bg-[#1877f2] text-white font-semibold">Facebook</button>
+              <button className="w-full py-2.5 rounded-[20px] bg-blue-600 text-white font-semibold">Other Account</button>
               <button className="w-full py-2.5 rounded-[20px] bg-black text-white font-semibold">OCSTHAEL</button>
             </div>
             <div className="mt-5 text-white cursor-pointer" onClick={() => navigate('/signup')}>

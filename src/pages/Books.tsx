@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { getCachedPosts, savePosts } from '../lib/db';
 import { 
   collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, 
-  updateDoc, doc, arrayUnion, arrayRemove, getDocs, where, limit 
+  updateDoc, doc, arrayUnion, arrayRemove, getDocs, where, limit, startAfter 
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
@@ -16,12 +17,13 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import { Helmet } from 'react-helmet-async';
+import { PostSkeleton } from '../components/common/Skeleton';
 import { deleteDoc, getDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { formatDistanceToNow } from 'date-fns';
-import { getTransformedUrl, getFiltersTransformation, deleteCloudinaryMedia } from '../lib/cloudinary';
+import { getTransformedUrl, getFiltersTransformation, deleteCloudinaryMedia, getOptimizedMediaUrl } from '../lib/cloudinary';
 
 interface Post {
   id: string;
@@ -72,6 +74,10 @@ export default function Books() {
   const { sendNotification } = useNotifications();
   const [posts, setPosts] = useState<Post[]>([]);
   const [ads, setAds] = useState<any[]>([]);
+  const [lastVisible, setLastVisible] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const loadingRef = useRef<HTMLDivElement>(null);
   const [showComments, setShowComments] = useState<string | null>(null);
   const [showForward, setShowForward] = useState<Post | null>(null);
   const [showPostMenu, setShowPostMenu] = useState<Post | null>(null);
@@ -95,7 +101,17 @@ export default function Books() {
   }, [replyingTo]);
 
   useEffect(() => {
-    const q = query(collection(db, 'books_posts'), orderBy('createdAt', 'desc'));
+    const loadCache = async () => {
+      const cached = await getCachedPosts();
+      if (cached.length > 0) {
+        const sorted = [...cached].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        setPosts(sorted as Post[]);
+      }
+    };
+    loadCache();
+
+    setLoadingPosts(true);
+    const q = query(collection(db, 'books_posts'), orderBy('createdAt', 'desc'), limit(10));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedPosts = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -140,7 +156,7 @@ export default function Books() {
               id: 'c4',
               userName: 'OCSTHAEL',
               userPhoto: 'https://picsum.photos/seed/oc/100/100',
-              text: 'Post system ta Facebook + Instagram er mix moto, interesting',
+              text: 'Post system ta very interesting',
               likesCount: '6k',
               reactions: ['🔥'],
               replies: [
@@ -153,6 +169,12 @@ export default function Books() {
         return { id: doc.id, ...data, comments } as Post;
       });
       setPosts(fetchedPosts);
+      savePosts(fetchedPosts.slice(0, 15));
+      if (snapshot.docs.length > 0) {
+        setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+      }
+      setHasMore(snapshot.docs.length === 10);
+      setLoadingPosts(false);
     });
 
     const fetchAds = async () => {
@@ -180,37 +202,83 @@ export default function Books() {
     return () => unsubscribe();
   }, [user]);
 
+  const loadMorePosts = async () => {
+    if (!lastVisible || !hasMore || loadingPosts) return;
+    setLoadingPosts(true);
+    const q = query(
+      collection(db, 'books_posts'),
+      orderBy('createdAt', 'desc'),
+      startAfter(lastVisible),
+      limit(10)
+    );
+    
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      setHasMore(false);
+    } else {
+      const morePosts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Post[];
+      setPosts(prev => [...prev, ...morePosts]);
+      setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+      setHasMore(snapshot.docs.length === 10);
+    }
+    setLoadingPosts(false);
+  };
+
   const handleLike = async (postId: string, likes: string[]) => {
     if (!user) return;
+    
+    // Optimistic Update
+    setPosts(prevPosts => prevPosts.map(p => {
+      if (p.id === postId) {
+        const isLiked = (p.likes || []).includes(user.uid);
+        return {
+          ...p,
+          likes: isLiked 
+            ? (p.likes || []).filter(uid => uid !== user.uid)
+            : [...(p.likes || []), user.uid]
+        };
+      }
+      return p;
+    }));
+
     const postRef = doc(db, 'books_posts', postId);
     const safeLikes = Array.isArray(likes) ? likes : [];
-    if (safeLikes.includes(user.uid)) {
-      await updateDoc(postRef, { likes: arrayRemove(user.uid) });
-    } else {
-      await updateDoc(postRef, { likes: arrayUnion(user.uid) });
-      
-      // Send notification to author
-      const post = posts.find(p => p.id === postId);
-      if (post && post.authorId !== user.uid) {
-        sendNotification({
-          targetUserId: post.authorId,
-          title: 'New Like! 👍',
-          message: `${user.displayName || 'Someone'} liked your post "${post.title || 'Untitled'}"`,
-          largeIcon: user.photoURL || '',
-          image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
-          url: `/post/${post.id}`,
-          deepLink: `app://post/${post.id}`,
-          priority: 'high',
-          data: { 
-            type: 'like',
-            postId: post.id 
-          },
-          actions: [
-            { id: 'view', text: '👁 View', icon: 'view', url: `/post/${post.id}` },
-            { id: 'follow', text: '➕ Follow', icon: 'follow', url: `/user/${user.uid}` }
-          ]
-        });
+    
+    try {
+      if (safeLikes.includes(user.uid)) {
+        await updateDoc(postRef, { likes: arrayRemove(user.uid) });
+      } else {
+        await updateDoc(postRef, { likes: arrayUnion(user.uid) });
+        
+        // Send notification to author
+        const post = posts.find(p => p.id === postId);
+        if (post && post.authorId !== user.uid) {
+          sendNotification({
+            targetUserId: post.authorId,
+            title: 'New Like! 👍',
+            message: `${user.displayName || 'Someone'} liked your post "${post.title || 'Untitled'}"`,
+            largeIcon: user.photoURL || '',
+            image: post.mediaUrl || (post.mediaItems && post.mediaItems[0]?.url) || '',
+            url: `/post/${post.id}`,
+            deepLink: `app://post/${post.id}`,
+            priority: 'high',
+            data: { 
+              type: 'like',
+              postId: post.id 
+            },
+            actions: [
+              { id: 'view', text: '👁 View', icon: 'view', url: `/post/${post.id}` },
+              { id: 'follow', text: '➕ Follow', icon: 'follow', url: `/user/${user.uid}` }
+            ]
+          });
+        }
       }
+    } catch (error) {
+      console.error("Error liking post:", error);
+      // Revert if failed (snapshot will handle this usually, but good practice)
     }
   };
 
@@ -527,6 +595,23 @@ export default function Books() {
     return items;
   }, [posts, ads, searchQuery]);
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          loadMorePosts();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadingRef.current) {
+      observer.observe(loadingRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [lastVisible, hasMore, loadingPosts]);
+
   return (
     <div className="flex flex-col min-h-screen w-full bg-white text-black font-sans overflow-x-hidden">
       <Helmet>
@@ -584,25 +669,32 @@ export default function Books() {
       {/* Main Content Area - Full Width Feed */}
       <main className="flex-1 overflow-y-auto bg-white p-4 md:p-6 no-scrollbar">
         <div className="max-w-2xl mx-auto space-y-6">
-          {feed.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 opacity-50">
-              <Loader2 className="animate-spin mb-4" size={48} />
-              <p className="font-black text-xl">Loading your feed...</p>
+          {posts.length === 0 ? (
+            <div className="space-y-6">
+              {[1, 2, 3].map(i => <PostSkeleton key={i} />)}
             </div>
           ) : (
             feed.map((item, index) => (
-              <BookCard 
-                key={item.id + index} 
-                post={item} 
-                currentUser={user} 
-                onLike={() => handleLike(item.id, item.likes || [])}
-                onComment={() => setShowComments(item.id)}
-                onForward={() => setShowForward(item)}
-                onMenu={setShowPostMenu}
-                onShare={() => handleWebShare(item)}
-              />
+              <VirtualizedPost key={item.id + index}>
+                <BookCard 
+                  post={item} 
+                  currentUser={user} 
+                  onLike={() => handleLike(item.id, item.likes || [])}
+                  onComment={() => setShowComments(item.id)}
+                  onForward={() => setShowForward(item)}
+                  onMenu={setShowPostMenu}
+                  onShare={() => handleWebShare(item)}
+                />
+              </VirtualizedPost>
             ))
           )}
+          
+          {/* Infinite Scroll Anchor */}
+          <div ref={loadingRef} className="h-20 flex items-center justify-center">
+            {hasMore && (
+              <Loader2 className="animate-spin text-primary" size={24} />
+            )}
+          </div>
         </div>
         
         {/* Add Post FAB */}
@@ -1129,16 +1221,24 @@ const MediaElement = ({ url, type, isSmall = false, filters, onLoad }: MediaElem
 
   useEffect(() => {
     if (type === 'video' && videoRef.current) {
+      const v = videoRef.current;
       const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
-            videoRef.current?.play().catch(() => {});
+            const playPromise = v.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(err => {
+                if (err.name !== 'AbortError') {
+                  console.warn("Auto-play blocked in Books:", err);
+                }
+              });
+            }
           } else {
-            videoRef.current?.pause();
+            v.pause();
           }
         });
       }, { threshold: 0.5 });
-      observer.observe(videoRef.current);
+      observer.observe(v);
       return () => observer.disconnect();
     }
   }, [type]);
@@ -1162,7 +1262,9 @@ const MediaElement = ({ url, type, isSmall = false, filters, onLoad }: MediaElem
   };
 
   const isCloudinary = (url || '').includes('cloudinary.com');
-  const transformedUrl = isCloudinary && filters ? getTransformedUrl(url, getFiltersTransformation(filters)) : url;
+  const transformedUrl = isCloudinary 
+    ? getTransformedUrl(url, `${getFiltersTransformation(filters || {grayscale:0, brightness:100, contrast:100, sepia:0, blur:0})},f_auto,q_auto`) 
+    : url;
 
   const filterStyles = (filters && !isCloudinary) ? {
     filter: `
@@ -1220,6 +1322,8 @@ const MediaElement = ({ url, type, isSmall = false, filters, onLoad }: MediaElem
           className="w-full h-full object-contain" 
           style={filterStyles} 
           onLoad={handleMediaLoad}
+          loading="lazy"
+          decoding="async"
         />
       )}
       {/* Subtle Inner Shadow Overlay */}
@@ -1227,6 +1331,38 @@ const MediaElement = ({ url, type, isSmall = false, filters, onLoad }: MediaElem
     </div>
   );
 };
+
+// Virtualization Wrapper for better memory management
+function VirtualizedPost({ children }: { children: React.ReactNode; key?: any }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsVisible(entry.isIntersecting);
+    }, { rootMargin: '400px' }); // Load early for smooth scroll
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} className="min-h-[400px]">
+      {isVisible ? children : (
+        <div className="bg-white rounded-3xl border-[3px] border-black p-6 mb-8 animate-pulse">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-14 h-14 rounded-full bg-gray-200" />
+            <div className="space-y-2">
+              <div className="h-4 w-32 bg-gray-200 rounded" />
+              <div className="h-3 w-20 bg-gray-100 rounded" />
+            </div>
+          </div>
+          <div className="h-64 bg-gray-100 rounded-2xl mb-4" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Helper for Menu Options
 function MenuOption({ icon, label, color = "text-black", badge, onClick }: { icon: React.ReactNode; label: string; color?: string; badge?: string; onClick?: () => void }) {

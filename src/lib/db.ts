@@ -22,7 +22,7 @@ export interface LocalChat {
 }
 
 const DB_NAME = 'oc-chat-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export async function initDB(): Promise<IDBPDatabase> {
   return openDB(DB_NAME, DB_VERSION, {
@@ -45,14 +45,31 @@ export async function initDB(): Promise<IDBPDatabase> {
       }
       
       if (oldVersion < 2) {
-        // Ensure queue has autoIncrement if it didn't before
         if (db.objectStoreNames.contains('queue')) {
           db.deleteObjectStore('queue');
         }
         db.createObjectStore('queue', { autoIncrement: true });
       }
+
+      if (oldVersion < 3) {
+        if (!db.objectStoreNames.contains('posts')) {
+          db.createObjectStore('posts', { keyPath: 'id' });
+        }
+      }
     },
   });
+}
+
+export async function savePosts(posts: any[]) {
+  const db = await initDB();
+  const tx = db.transaction('posts', 'readwrite');
+  await Promise.all(posts.map(post => tx.store.put(post)));
+  await tx.done;
+}
+
+export async function getCachedPosts(): Promise<any[]> {
+  const db = await initDB();
+  return db.getAll('posts');
 }
 
 export async function saveMessage(message: LocalMessage) {

@@ -686,6 +686,53 @@ async function startServer() {
     }
   });
 
+  // API Route for Sending Emails via EmailJS
+  app.post("/api/send-email", async (req, res) => {
+    const { service, templateId, templateParams } = req.body;
+    
+    // Validate service name
+    const allowedServices = ['support', 'auth', 'teams', 'info'];
+    if (!service || !allowedServices.includes(service.toLowerCase())) {
+        return res.status(400).json({ error: "Invalid or missing service" });
+    }
+
+    const serviceKey = service.toUpperCase();
+    const publicKey = process.env[`EMAILJS_PUBLIC_KEY_${serviceKey}`];
+    const privateKey = process.env[`EMAILJS_PRIVATE_KEY_${serviceKey}`];
+    const serviceId = process.env[`EMAILJS_SERVICE_ID_${serviceKey}`];
+
+    if (!publicKey || !privateKey || !serviceId) {
+        return res.status(500).json({ error: `Email service configuration for ${service} missing` });
+    }
+
+    try {
+      const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          service_id: serviceId,
+          template_id: templateId,
+          user_id: publicKey,
+          accessToken: privateKey,
+          template_params: templateParams
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`EmailJS API Error for ${service}:`, errorData);
+        throw new Error(errorData);
+      }
+
+      res.json({ success: true, message: "Email sent successfully" });
+    } catch (error: any) {
+      console.error(`EmailJS error for ${service}:`, error);
+      res.status(500).json({ error: "Failed to send email", message: error.message });
+    }
+  });
+
   // Action listeners for Notification Buttons
   app.post("/api/message/like", async (req, res) => {
     const { messageId, userId } = req.body;

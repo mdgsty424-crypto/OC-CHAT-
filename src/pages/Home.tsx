@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, onSnapshot, orderBy, limit, doc, getDocs, writeBatch, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -6,6 +6,7 @@ import { Chat, User, Story } from '../types';
 import { getChats, saveChat, initDB } from '../lib/db';
 import ChatListItem from '../components/chat/ChatListItem';
 import UserChatListItem from '../components/chat/UserChatListItem';
+import { ChatListItemSkeleton } from '../components/common/Skeleton';
 import { Search, Plus, Archive, EyeOff, Lock, Video, ArrowLeft, Pin, Trash2, ShieldAlert, MoreVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -20,6 +21,8 @@ export default function Home() {
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [displayCount, setDisplayCount] = useState(15);
+  const listEndRef = useRef<HTMLDivElement>(null);
   const [stories, setStories] = useState<Story[]>([]);
   const [selectedUserStories, setSelectedUserStories] = useState<Story[] | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,6 +31,7 @@ export default function Home() {
   const [hiddenPassword, setHiddenPassword] = useState('');
   const [selectedChats, setSelectedChats] = useState<string[]>([]);
   const [showMenu, setShowMenu] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
@@ -161,6 +165,7 @@ export default function Home() {
         setAllUsers(localUsers as any);
       }
       // Removed setLoading(false);
+      setLoading(false);
     };
     loadLocalData();
 
@@ -250,7 +255,7 @@ export default function Home() {
   }).filter(chat => {
     const name = chat.name || '';
     return name.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  }).slice(0, displayCount);
 
   const handleHiddenAccess = () => {
     if (hiddenPassword === '1234') { // Mock password
@@ -261,6 +266,19 @@ export default function Home() {
       alert('Incorrect Password');
     }
   };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && chats.length > displayCount) {
+          setDisplayCount(prev => prev + 15);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (listEndRef.current) observer.observe(listEndRef.current);
+    return () => observer.disconnect();
+  }, [chats.length, displayCount]);
 
   return (
     <main className="flex-1 overflow-y-auto pb-40 bg-background no-scrollbar flex flex-col gap-y-4">
@@ -405,18 +423,24 @@ export default function Home() {
         </div>
         
         <div className="divide-y divide-border">
-          {filteredChats.map((chat) => (
-            <ChatListItem 
-              key={`chat-${chat.id}`} 
-              chat={chat} 
-              isSelected={selectedChats.includes(chat.id)}
-              onSelect={toggleChatSelection}
-            />
-          ))}
-          {view === 'all' && usersWithoutChats.map((u) => (
-            <UserChatListItem key={`user-${u.uid}`} user={u} />
-          ))}
-          {filteredChats.length === 0 && (view !== 'all' || usersWithoutChats.length === 0) && chats.length > 0 && (
+          {loading && chats.length === 0 ? (
+            Array(8).fill(0).map((_, i) => <ChatListItemSkeleton key={i} />)
+          ) : (
+            <>
+              {filteredChats.map((chat) => (
+                <ChatListItem 
+                  key={`chat-${chat.id}`} 
+                  chat={chat} 
+                  isSelected={selectedChats.includes(chat.id)}
+                  onSelect={toggleChatSelection}
+                />
+              ))}
+              {view === 'all' && usersWithoutChats.map((u) => (
+                <UserChatListItem key={`user-${u.uid}`} user={u} />
+              ))}
+            </>
+          )}
+          {!loading && filteredChats.length === 0 && (view !== 'all' || usersWithoutChats.length === 0) && chats.length > 0 && (
             <div className="flex flex-col items-center justify-center py-24 px-10 text-center opacity-40">
               <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mb-6 border border-border">
                 <Search size={40} className="text-muted" />
@@ -425,6 +449,7 @@ export default function Home() {
               <p className="text-sm font-medium">Start a new conversation with your friends!</p>
             </div>
           )}
+          <div ref={listEndRef} className="h-10" />
         </div>
       </div>
 
