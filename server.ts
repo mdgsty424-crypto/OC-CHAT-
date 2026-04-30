@@ -620,6 +620,11 @@ async function startServer() {
       await setDoc(doc(db, 'chats', chatId), chatInitialization, { merge: true });
 
       // 2. Gemini API call with tools
+      const geminiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      if (!geminiKey) {
+        throw new Error("GEMINI_API_KEY is not configured on the server.");
+      }
+
       const model = (genAI as any).getGenerativeModel({ 
         model: "gemini-3-flash-preview",
         systemInstruction: fullInstruction,
@@ -722,10 +727,23 @@ async function startServer() {
       res.json({ response: responseText });
     } catch (error: any) {
       console.error("AI Chat error:", error);
+      
+      // Send fallback error message to the chat
+      await addDoc(collection(db, 'chats', chatId, 'messages'), {
+        text: "I'm sorry, OCSTHAEL AI is temporarily unavailable. Please check your VITE_GEMINI_API_KEY in Vercel settings or try again. [Error: AI_AUTH_FAILURE]",
+        senderId: 'ocsthael-ai-bot',
+        timestamp: new Date().toISOString(),
+        status: 'sent',
+        type: 'text'
+      }).catch(e => console.error("Failed to send fallback message:", e));
+
       await setDoc(doc(db, 'chats', chatId), {
-        [`typing.ocsthael-ai-bot`]: false
+        [`typing.ocsthael-ai-bot`]: false,
+        lastMessage: "AI temporarily unavailable.",
+        lastMessageTime: new Date().toISOString()
       }, { merge: true }).catch(() => {});
-      res.status(500).json({ error: "Failed to get AI response" });
+      
+      res.status(500).json({ error: "Failed to get AI response", message: error.message });
     }
   });
 

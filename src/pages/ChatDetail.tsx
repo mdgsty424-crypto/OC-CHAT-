@@ -28,6 +28,7 @@ export default function ChatDetail() {
   const navigate = useNavigate();
   const { sendNotification } = useNotifications();
   const [chat, setChat] = useState<Chat | null>(null);
+  const processedAiMsgIds = useRef<Set<string>>(new Set());
   
   // Audio pre-loading
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
@@ -162,6 +163,32 @@ export default function ChatDetail() {
     const messagesUnsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       
+      // AI Auto-Reply Logic for special IDs
+      const aiBotIds = ['ocsthael_ai_official', 'oc_support_ai', 'oc_service_ai'];
+      if (id && aiBotIds.includes(id) && msgs.length > 0) {
+        const lastMsg = msgs[msgs.length - 1];
+        // If last message is from user and not already processed in this session
+        if (lastMsg.senderId === currentUser?.uid && !processedAiMsgIds.current.has(lastMsg.id)) {
+          console.log("Triggering auto AI reply for ID:", id);
+          processedAiMsgIds.current.add(lastMsg.id);
+          
+          // Trigger the AI reply via backend
+          fetch('/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chatId: id,
+              prompt: lastMsg.text,
+              isMention: false,
+              history: msgs.slice(-10)
+            })
+          }).catch(err => {
+            console.error("AI Auto-reply error:", err);
+            // Optionally add a fallback AI message if API is down
+          });
+        }
+      }
+
       // Check for new messages from others
       if (msgs && messages && msgs.length > messages.length) {
         const lastMsg = msgs[msgs.length - 1];

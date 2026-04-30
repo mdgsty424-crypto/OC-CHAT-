@@ -87,7 +87,7 @@ export interface Message {
   audioDuration?: number;
   fileType?: string;
   timestamp: string;
-  status: 'sent' | 'delivered' | 'seen' | 'uploading' | 'pending';
+  status: 'sent' | 'delivered' | 'seen' | 'uploading' | 'pending' | 'ai_processing';
   reactions?: Record<string, string[]>; // emoji -> list of userIds
   replyTo?: string; // ID of the message being replied to
   isSelfDestruct?: boolean;
