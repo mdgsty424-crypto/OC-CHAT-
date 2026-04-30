@@ -43,7 +43,8 @@ import {
   Users,
   Palette,
   ShoppingCart,
-  Plus
+  Plus,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ProfileSkeleton } from '../components/common/Skeleton';
@@ -60,6 +61,7 @@ import { useGlobalSettings } from '../hooks/useGlobalSettings';
 import SecuritySettings from '../components/profile/SecuritySettings';
 import SettingsNavigator from '../components/settings/SettingsNavigator';
 import EditProfile from '../components/profile/EditProfile';
+import ImageViewer from '../components/common/ImageViewer';
 
 type SubView = 'main' | 'account' | 'security' | 'notifications' | 'language' | 'help' | 'set-pin' | 'settings';
 
@@ -197,6 +199,12 @@ export default function Profile() {
   const [stories, setStories] = useState<Story[]>([]);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState<number | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // Image Viewer State
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerImages, setViewerImages] = useState<any[]>([]);
+  const [viewerInitialIndex, setViewerInitialIndex] = useState(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const storyInputRef = useRef<HTMLInputElement>(null);
@@ -326,6 +334,12 @@ export default function Profile() {
     if (outcome === 'accepted') {
       setDeferredPrompt(null);
     }
+  };
+
+  const openViewer = (images: any[], index: number) => {
+    setViewerImages(images);
+    setViewerInitialIndex(index);
+    setViewerOpen(true);
   };
 
   const handleSave = async () => {
@@ -784,6 +798,14 @@ export default function Profile() {
       color: 'text-gray-500', 
       bg: 'bg-muted/10',
       onClick: () => setSubView('help')
+    },
+    { 
+      icon: Sparkles, 
+      label: 'AI Support', 
+      subLabel: 'Personalized OCSTHAEL AI help',
+      color: 'text-primary', 
+      bg: 'bg-primary/10',
+      onClick: () => navigate('/chat/ocsthael_ai_official')
     },
   ];
 
@@ -1557,9 +1579,18 @@ export default function Profile() {
             )}
           </div>
           <div className="grid grid-cols-4 gap-2 px-2">
-            {books.map((book) => (
-              <div key={book.id} className="w-full aspect-square bg-gray-200 relative overflow-hidden">
-                {book.mediaUrl.match(/\.(mp4|webm|ogg)$/i) ? (
+            {books.map((book, index) => (
+              <div 
+                key={book.id} 
+                className="w-full aspect-square bg-gray-200 relative overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => {
+                  const mediaItems = book.mediaItems?.length > 0 
+                    ? book.mediaItems 
+                    : [{ url: book.mediaUrl, type: book.mediaType }];
+                  openViewer(mediaItems, 0);
+                }}
+              >
+                {book.mediaUrl?.match(/\.(mp4|webm|ogg)$/i) || book.mediaType === 'video' ? (
                   <video src={book.mediaUrl} className="w-full h-full object-cover" />
                 ) : (
                   <img src={book.mediaUrl} className="w-full h-full object-cover" alt="Post" />
@@ -2070,6 +2101,13 @@ export default function Profile() {
       <div className="py-10 text-center opacity-30">
         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-900">OC Chat v1.0.0</span>
       </div>
+
+      <ImageViewer 
+        isOpen={viewerOpen}
+        images={viewerImages}
+        initialIndex={viewerInitialIndex}
+        onClose={() => setViewerOpen(false)}
+      />
     </main>
   );
 }

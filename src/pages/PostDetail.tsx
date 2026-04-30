@@ -110,35 +110,35 @@ export default function PostDetail() {
         </button>
       </header>
 
-      <main className="max-w-2xl mx-auto p-4 md:p-8 space-y-6">
-        {/* We can eventually move BookCard to a shared components folder */}
-        <div className="bg-white border-4 border-black rounded-[2.5rem] p-6 shadow-[12px_12px_0px_#000]">
-           <div className="flex items-center gap-4 mb-6">
-             <img src={post.authorPhoto} className="w-16 h-16 rounded-full border-4 border-black shadow-sm" alt="" loading="lazy" />
+      <main className="max-w-4xl mx-auto p-0 md:p-8 space-y-6">
+        {/* Updated card design */}
+        <div className="bg-white border-y md:border-2 border-[#737373] rounded-none md:rounded-[12px] p-4 flex flex-col gap-4">
+           <div className="flex items-center gap-3 px-1">
+             <img src={post.authorPhoto || `https://ui-avatars.com/api/?name=${post.authorName}`} className="w-14 h-14 rounded-full border border-black/10 shadow-sm" alt="" loading="lazy" />
              <div>
-               <h3 className="font-black text-2xl tracking-tighter">{post.authorName}</h3>
-               <p className="text-black/40 font-bold uppercase text-xs tracking-widest">PUBLISHED RECENTLY</p>
+               <h3 className="font-black text-xl tracking-tighter leading-tight">{post.authorName}</h3>
+               <p className="text-black/40 font-bold uppercase text-[10px] tracking-widest">PUBLISHED RECENTLY</p>
              </div>
            </div>
            
-           <div className="space-y-4 mb-6">
-             <h2 className="text-3xl font-black tracking-tighter uppercase leading-none">{post.title}</h2>
-             <p className="text-xl font-bold text-black/70 leading-tight">{post.description}</p>
+           <div className="space-y-1 px-1">
+             <h2 className="text-lg font-black tracking-tighter uppercase leading-tight">{post.title}</h2>
+             <p className="text-sm font-bold text-black/70 leading-snug">{post.description}</p>
            </div>
 
-           <div className="border-4 border-black rounded-[2rem] overflow-hidden bg-black mb-6">
+           <div className="border border-[#737373] rounded-[12px] overflow-hidden bg-gray-50 mx-1">
              {post.mediaType === 'video' ? (
-                <video src={post.mediaUrl} controls className="w-full aspect-video object-cover" />
+                <video src={post.mediaUrl} controls className="w-full aspect-video object-contain bg-black" />
              ) : (
-                <img src={post.mediaUrl} className="w-full object-cover" alt="" />
+                <img src={post.mediaUrl} className="w-full object-contain" alt="" />
              )}
            </div>
 
-           <div className="flex items-center justify-between border-t-4 border-black pt-6">
+           <div className="flex items-center justify-between border-t border-[#737373] pt-4 px-1">
              <div className="flex items-center gap-6">
                <div className="flex items-center gap-2">
-                 <span className="font-black text-2xl">{post.likes?.length || 0}</span>
-                 <span className="font-bold text-black/40 uppercase text-sm tracking-widest">Likes</span>
+                 <span className="font-black text-xl">{post.likes?.length || 0}</span>
+                 <span className="font-bold text-black/40 uppercase text-[10px] tracking-widest">Likes</span>
                </div>
                <button 
                  onClick={async () => {
@@ -153,12 +153,12 @@ export default function PostDetail() {
                  className="flex items-center gap-2 font-black text-black uppercase tracking-tighter hover:bg-gray-100 px-3 py-1 rounded-xl transition-colors"
                >
                  <Share2 size={24} strokeWidth={3} />
-                 <span>Share</span>
+                 <span className="text-xs">Share</span>
                </button>
              </div>
              <button 
                 onClick={() => navigate('/books')}
-                className="font-black text-[#4A90E2] uppercase tracking-tighter hover:underline"
+                className="font-black text-[#4A90E2] uppercase tracking-tighter hover:underline text-xs"
              >
                Go to Books
              </button>

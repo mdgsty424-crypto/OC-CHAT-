@@ -576,19 +576,22 @@ const CreatePost: React.FC = () => {
 
       case 4:
         return (
-          <div className="flex flex-col h-full bg-gray-50 p-6 overflow-y-auto">
-            <h2 className="text-2xl font-black mb-6 uppercase tracking-tight">Final Preview</h2>
+          <div className="flex flex-col h-full bg-gray-50 p-0 overflow-y-auto">
+            <h2 className="text-2xl font-black p-6 uppercase tracking-tight">Final Preview</h2>
             
-            <div className="bg-white border-2 border-black rounded-[2rem] overflow-hidden shadow-[8px_8px_0px_#000] mb-8">
-              <div className="p-4 flex items-center gap-3 border-b-2 border-black">
-                <div className="w-10 h-10 border-2 border-black rounded-full overflow-hidden">
-                  <img src={user?.photoURL || ''} alt="" />
+            <div className="bg-white border-y md:border-2 border-[#737373] rounded-none md:rounded-[12px] overflow-hidden p-4 flex flex-col gap-4 max-w-xl mx-auto w-full">
+              <div className="flex items-center gap-3 px-1">
+                <div className="w-12 h-12 border border-black/10 rounded-full overflow-hidden shrink-0 shadow-sm">
+                  <img src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName}`} className="w-full h-full object-cover" alt="" />
                 </div>
-                <span className="font-black">{user?.displayName}</span>
+                <div className="flex flex-col">
+                  <span className="font-black text-lg leading-tight">{user?.displayName}</span>
+                  <span className="text-[10px] font-black text-black/40 uppercase tracking-widest">Preview</span>
+                </div>
               </div>
               
-              <div className="aspect-[16/10] bg-black p-1">
-                <div className="grid grid-cols-2 gap-1 h-full">
+              <div className="aspect-[16/10] bg-black rounded-[12px] overflow-hidden border border-[#737373] mx-1">
+                <div className="grid grid-cols-2 gap-px h-full">
                   {mediaItems.slice(0, 4).map((item, idx) => (
                     <div 
                       key={item.id} 
@@ -609,9 +612,10 @@ const CreatePost: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-6">
-                <p className="font-bold text-lg mb-4">{caption}</p>
-                <div className="flex gap-2 text-[10px] font-black uppercase text-black/40">
+              <div className="px-1 space-y-1">
+                <p className="font-black text-base uppercase tracking-tight line-clamp-1">{caption.slice(0,30) || 'Untitled Post'}</p>
+                <p className="font-bold text-sm text-black/70 leading-snug line-clamp-2">{caption}</p>
+                <div className="flex gap-2 text-[10px] font-black uppercase text-black/40 pt-2">
                   <span>Comments {settings.comments ? 'ON' : 'OFF'}</span>
                   <span>•</span>
                   <span>{settings.privacy}</span>

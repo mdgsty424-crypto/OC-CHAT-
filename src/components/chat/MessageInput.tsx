@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Smile, Paperclip, Camera, Mic, Send, Loader2, X, Play, Pause, Languages, Timer, BarChart2, MapPin, UserPlus, MoreHorizontal, Wallet, Bot } from 'lucide-react';
-import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { Message } from '../../types';
@@ -17,13 +17,14 @@ interface MessageInputProps {
   participants: string[];
   replyingTo?: Message | null;
   onCancelReply?: () => void;
+  messages?: Message[];
 }
 
 import { useNotifications } from '../../hooks/useNotifications';
 
 import { useAppAssets } from '../../hooks/useAppAssets';
 
-export default function MessageInput({ chatId, participants, replyingTo, onCancelReply }: MessageInputProps) {
+export default function MessageInput({ chatId, participants, replyingTo, onCancelReply, messages }: MessageInputProps) {
   const { user } = useAuth();
   const { isOnline } = useNetwork();
   const { isMuted } = useSettings();
@@ -145,7 +146,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     
     if (isOnline) {
       // Send Push Notification
-      participants.forEach(pid => {
+      const safeParticipants = participants || [];
+      safeParticipants.forEach(pid => {
         if (pid !== user.uid) {
           sendNotification({
             targetUserId: pid,
@@ -171,9 +173,9 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
 
   const updateTypingStatus = async (isTyping: boolean) => {
     if (!user) return;
-    updateDoc(doc(db, 'chats', chatId), {
+    setDoc(doc(db, 'chats', chatId), {
       [`typing.${user.uid}`]: isTyping
-    }).catch(e => console.error("Error updating typing status:", e));
+    }, { merge: true }).catch(e => console.error("Error updating typing status:", e));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -388,7 +390,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       setWaveforms([]);
       
       // Send Push Notification
-      participants.forEach(pid => {
+      const safeParticipants = participants || [];
+      safeParticipants.forEach(pid => {
         if (pid !== user.uid) {
           sendNotification({
             targetUserId: pid,
@@ -527,7 +530,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       };
 
       const { increment } = await import('firebase/firestore');
-      participants.forEach(pid => {
+      const safeParticipants = participants || [];
+      safeParticipants.forEach(pid => {
         if (pid !== user.uid) {
           unreadUpdates[`unreadCount.${pid}`] = increment(1);
           
@@ -551,7 +555,7 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         }
       });
 
-      updateDoc(doc(db, 'chats', chatId), unreadUpdates).catch(e => console.error("Error updating chat unread count:", e));
+      setDoc(doc(db, 'chats', chatId), unreadUpdates, { merge: true }).catch(e => console.error("Error updating chat unread count:", e));
 
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -564,8 +568,11 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
   const handleSend = async () => {
     if (!text.trim() || !user) return;
 
-    const isAICommand = text.startsWith('@ai ');
-    const prompt = isAICommand ? text.slice(4) : null;
+    const aiBotIds = ['ocsthael_ai_official', 'oc_support_ai', 'oc_service_ai'];
+    const safeParticipants = participants || [];
+    const isDirectAI = aiBotIds.includes(chatId) || safeParticipants.includes('ocsthael-ai-bot');
+    const isMention = text.toLowerCase().includes('@ai');
+    const prompt = isMention ? text.replace(/@ai/gi, '').trim() : text.trim();
 
     // Translation logic could be implemented via /api/translate if needed
     let translated = "";
@@ -599,11 +606,20 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       
       const unreadUpdates: Record<string, any> = {
         lastMessage: text.trim(),
-        lastMessageTime: new Date().toISOString()
+        lastMessageTime: new Date().toISOString(),
+        type: isDirectAI ? 'direct' : 'group'
       };
 
+      const safeParticipants = participants || [];
+      if (isDirectAI && !safeParticipants.includes('ocsthael-ai-bot')) {
+        unreadUpdates.participants = [...safeParticipants, 'ocsthael-ai-bot'];
+      }
+      if (isDirectAI && !safeParticipants.includes(user.uid)) {
+        unreadUpdates.participants = [...(unreadUpdates.participants || safeParticipants), user.uid];
+      }
+
       const { increment } = await import('firebase/firestore');
-      participants.forEach(pid => {
+      safeParticipants.forEach(pid => {
         if (pid !== user.uid) {
           unreadUpdates[`unreadCount.${pid}`] = increment(1);
           
@@ -628,26 +644,25 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         }
       });
 
-      updateDoc(doc(db, 'chats', chatId), unreadUpdates).catch(e => console.error("Error updating chat:", e));
+      setDoc(doc(db, 'chats', chatId), unreadUpdates, { merge: true }).catch(e => console.error("Error updating chat:", e));
 
-      if (isAICommand && prompt && isOnline) {
+      if ((isMention || isDirectAI) && isOnline) {
         try {
+          // Send last 5 messages as context
+          const lastMessages = messages || []; // We might need to pass messages from parent
+          
           const response = await fetch('/api/ai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId, prompt })
+            body: JSON.stringify({ 
+              chatId, 
+              prompt, 
+              isMention,
+              history: lastMessages.slice(-10)
+            })
           });
           const data = await response.json();
-          if (data.response) {
-            await addDoc(collection(db, 'chats', chatId, 'messages'), {
-              chatId,
-              senderId: 'ocsthael-ai-bot',
-              text: data.response,
-              type: 'text',
-              timestamp: new Date().toISOString(),
-              status: 'sent'
-            });
-          }
+          // Server now handles saving the AI message and updating typing status
         } catch (error) {
           console.error("AI Chat error:", error);
         }
@@ -676,7 +691,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
       
       if (isOnline) {
         // Send Push Notification
-        participants.forEach(pid => {
+        const safeParticipants = participants || [];
+        safeParticipants.forEach(pid => {
           if (pid !== user.uid) {
             sendNotification({
               targetUserId: pid,
@@ -718,7 +734,8 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
     
     if (isOnline) {
       // Send Push Notification
-      participants.forEach(pid => {
+      const safeParticipants = participants || [];
+      safeParticipants.forEach(pid => {
         if (pid !== user.uid) {
           sendNotification({
             targetUserId: pid,

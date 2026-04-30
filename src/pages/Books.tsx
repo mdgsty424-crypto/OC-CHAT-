@@ -24,6 +24,7 @@ import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { formatDistanceToNow } from 'date-fns';
 import { getTransformedUrl, getFiltersTransformation, deleteCloudinaryMedia, getOptimizedMediaUrl } from '../lib/cloudinary';
+import ImageViewer from '../components/common/ImageViewer';
 
 interface Post {
   id: string;
@@ -88,6 +89,12 @@ export default function Books() {
   const [toast, setToast] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [commentText, setCommentText] = useState('');
+  
+  // Image Viewer State
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerImages, setViewerImages] = useState<any[]>([]);
+  const [viewerInitialIndex, setViewerInitialIndex] = useState(0);
+
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyingToName, setReplyingToName] = useState<string | null>(null);
   const [recentChats, setRecentChats] = useState<any[]>([]);
@@ -483,6 +490,12 @@ export default function Books() {
     }
   };
 
+  const openViewer = (images: any[], index: number) => {
+    setViewerImages(images);
+    setViewerInitialIndex(index);
+    setViewerOpen(true);
+  };
+
   const handleDeleteComment = async (postId: string, commentId: string, parentId: string | null) => {
     if (!user) return;
     try {
@@ -623,7 +636,7 @@ export default function Books() {
         <meta property="og:url" content="https://occhat.ocsthael.com/books" />
       </Helmet>
       {/* Horizontal Top Header - Single Navigation Source */}
-      <header className="h-20 bg-white px-4 flex items-center justify-between sticky top-0 z-50 w-full border-b-[3px] border-black">
+      <header className="h-20 bg-white px-4 flex items-center justify-between sticky top-0 z-50 w-full border-b-[3px] border-[#737373]">
         {/* Left: User Profile Icon */}
         <div 
           onClick={() => navigate(`/profile/${user?.uid}`)}
@@ -667,10 +680,10 @@ export default function Books() {
       </header>
 
       {/* Main Content Area - Full Width Feed */}
-      <main className="flex-1 overflow-y-auto bg-white p-4 md:p-6 no-scrollbar">
-        <div className="max-w-2xl mx-auto space-y-6">
+      <main className="flex-1 overflow-y-auto bg-white p-0 no-scrollbar">
+        <div className="max-w-4xl mx-auto divide-y divide-[#737373]">
           {posts.length === 0 ? (
-            <div className="space-y-6">
+            <div className="space-y-6 p-4">
               {[1, 2, 3].map(i => <PostSkeleton key={i} />)}
             </div>
           ) : (
@@ -684,6 +697,12 @@ export default function Books() {
                   onForward={() => setShowForward(item)}
                   onMenu={setShowPostMenu}
                   onShare={() => handleWebShare(item)}
+                  onMediaClick={(idx) => {
+                    const images = (item.mediaItems && item.mediaItems.length > 0) 
+                      ? item.mediaItems 
+                      : [{ url: item.mediaUrl, type: item.mediaType }];
+                    openViewer(images, idx);
+                  }}
                 />
               </VirtualizedPost>
             ))
@@ -704,6 +723,13 @@ export default function Books() {
         >
           <Plus size={40} strokeWidth={4} />
         </button>
+
+        <ImageViewer
+          images={viewerImages}
+          initialIndex={viewerInitialIndex}
+          isOpen={viewerOpen}
+          onClose={() => setViewerOpen(false)}
+        />
       </main>
 
       {/* Comments Sheet */}
@@ -1197,6 +1223,7 @@ interface BookCardProps {
   onComment: () => void;
   onForward: () => void;
   onMenu: (post: Post) => void;
+  onMediaClick: (index: number) => void;
 }
 
 interface MediaElementProps {
@@ -1277,7 +1304,7 @@ const MediaElement = ({ url, type, isSmall = false, filters, onLoad }: MediaElem
   } : {};
 
   return (
-    <div className="relative w-full h-full rounded-2xl overflow-hidden group shadow-[inset_0_2px_10px_rgba(0,0,0,0.1)] bg-black/5">
+    <div className="relative w-full h-full rounded-2xl overflow-hidden group shadow-[inset_0_2px_10px_rgba(0,0,0,0.1)] bg-black/5 cursor-pointer">
       {type === 'video' ? (
         <div className="w-full h-full relative" style={filterStyles}>
           <video 
@@ -1648,7 +1675,7 @@ function CommentItem(props: {
     </div>
   );
 }
-function BookCard({ post, currentUser, onLike, onComment, onForward, onMenu, onShare }: BookCardProps & { onMenu: (post: Post) => void; onShare: (post: Post) => void }) {
+function BookCard({ post, currentUser, onLike, onComment, onForward, onMenu, onShare, onMediaClick }: BookCardProps & { onMenu: (post: Post) => void; onShare: (post: Post) => void }) {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
@@ -1659,7 +1686,7 @@ function BookCard({ post, currentUser, onLike, onComment, onForward, onMenu, onS
     : [{ url: post.mediaUrl, type: post.mediaType, filters: (post as any).filters }];
     
   const isLiked = (post.likes || []).includes(currentUser?.uid);
-
+ 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollLeft, clientWidth } = e.currentTarget;
     if (clientWidth > 0) {
@@ -1677,20 +1704,20 @@ function BookCard({ post, currentUser, onLike, onComment, onForward, onMenu, onS
   };
 
   return (
-    <div className="bg-white rounded-[2rem] border-2 border-black overflow-hidden p-5 flex flex-col gap-4 shadow-sm">
+    <div className="bg-white rounded-none md:rounded-[12px] border-y md:border-2 border-[#737373] overflow-hidden p-4 flex flex-col gap-4">
       {/* Card Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between px-1">
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-black shadow-sm">
+          <div className="w-12 h-12 rounded-full overflow-hidden border border-black/10 shadow-sm">
             <img src={post.authorPhoto || `https://ui-avatars.com/api/?name=${post.authorName}`} alt="" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <h3 className="text-xl font-black text-black leading-none tracking-tight">{post.authorName}</h3>
-              {post.isVerified && <VerifiedBadge size="24" className="text-yellow-400" />}
-              <button className="text-[#4A90E2] font-black text-2xl ml-2 hover:text-blue-600 transition-colors">Follow</button>
+              <h3 className="text-lg font-black text-black leading-none tracking-tight">{post.authorName}</h3>
+              {post.isVerified && <VerifiedBadge size="18" className="text-yellow-400" />}
+              <button className="text-[#4A90E2] font-black text-lg ml-2 hover:text-blue-600 transition-colors">Follow</button>
             </div>
-            <span className="text-[12px] font-black text-black/40 mt-1">
+            <span className="text-[10px] font-black text-black/40 mt-0.5">
               {post.createdAt?.toDate ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: false }).replace('about ', '') : '02:56m'}
             </span>
           </div>
@@ -1699,13 +1726,13 @@ function BookCard({ post, currentUser, onLike, onComment, onForward, onMenu, onS
           onClick={() => onMenu(post)}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
         >
-          < MoreVertical size={32} className="text-black stroke-[3]" />
+          < MoreVertical size={24} className="text-black stroke-[3]" />
         </button>
       </div>
 
       {/* Content Area */}
-      <div className="space-y-2">
-        <h4 className="text-lg font-black text-black uppercase tracking-tight">{post.title || 'OCSTHAEL EXECUTIVE HUB'}</h4>
+      <div className="space-y-1 px-1">
+        <h4 className="text-base font-black text-black uppercase tracking-tight">{post.title || 'OCSTHAEL EXECUTIVE HUB'}</h4>
         <div className="flex items-baseline gap-1">
           <p className={cn("text-sm font-black text-black uppercase tracking-tight", !showFullDescription && "line-clamp-1")}>
             {post.description || 'TESTING TITLE'}
@@ -1720,7 +1747,7 @@ function BookCard({ post, currentUser, onLike, onComment, onForward, onMenu, onS
       </div>
 
       {/* Media Area - Carousel */}
-      <div className="relative border-2 border-black rounded-2xl overflow-hidden bg-gray-50 flex flex-col">
+      <div className="relative border border-[#737373] rounded-[12px] overflow-hidden bg-gray-50 flex flex-col mx-1">
         <div 
           ref={scrollRef}
           onScroll={handleScroll}
@@ -1742,6 +1769,7 @@ function BookCard({ post, currentUser, onLike, onComment, onForward, onMenu, onS
                 mediaItems.length > 1 ? "w-[92%]" : "w-full"
               )}
               style={{ aspectRatio: aspectRatio ? `${aspectRatio}` : 'auto' }}
+              onClick={() => onMediaClick(idx)}
             >
               <MediaElement 
                 url={item.url} 

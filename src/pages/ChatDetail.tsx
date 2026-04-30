@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, where, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, where, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Message, Chat, User } from '../types';
@@ -96,14 +96,14 @@ export default function ChatDetail() {
     // Load from IndexedDB first
     const loadLocalData = async () => {
       const localMessages = await getMessages(id);
-      if (localMessages.length > 0) {
+      if (localMessages && localMessages.length > 0) {
         setMessages(localMessages as any);
       }
       const dbInstance = await initDB();
       const localChat = await dbInstance.get('chats', id);
       if (localChat) {
         setChat(localChat as any);
-        if (localChat.type === 'direct') {
+        if (localChat && localChat.participants) {
           const otherId = localChat.participants.find((uid: string) => uid !== currentUser.uid);
           if (otherId) {
             const localOtherUser = await dbInstance.get('users', otherId);
@@ -125,7 +125,7 @@ export default function ChatDetail() {
         setChat(chatData);
 
         // Typing Sound Logic: Play when OTHER user starts typing
-        if (chatData.type === 'direct' && currentUser) {
+        if (chatData.type === 'direct' && currentUser && chatData.participants) {
           const otherId = chatData.participants.find(uid => uid !== currentUser.uid);
           if (otherId) {
             const isTyping = chatData.typing?.[otherId] || false;
@@ -139,7 +139,7 @@ export default function ChatDetail() {
           }
         }
 
-        if (chatData.type === 'direct') {
+        if (chatData.type === 'direct' && chatData.participants) {
           const otherId = chatData.participants.find(uid => uid !== currentUser.uid);
           if (otherId && !userUnsubscribe) {
             // Listen for other user's real-time status
@@ -163,9 +163,9 @@ export default function ChatDetail() {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       
       // Check for new messages from others
-      if (msgs.length > messages.length) {
+      if (msgs && messages && msgs.length > messages.length) {
         const lastMsg = msgs[msgs.length - 1];
-        if (lastMsg.senderId !== currentUser?.uid) {
+        if (lastMsg && lastMsg.senderId !== currentUser?.uid) {
           if (lastMsg.type === 'sticker') {
             playSound('sticker');
           } else {
@@ -181,9 +181,9 @@ export default function ChatDetail() {
 
       // Mark as read and seen
       if (currentUser) {
-        updateDoc(doc(db, 'chats', id), {
+        setDoc(doc(db, 'chats', id), {
           [`unreadCount.${currentUser.uid}`]: 0
-        });
+        }, { merge: true });
         
         // Mark unread messages as 'seen'
         snapshot.docs.forEach((msgDoc) => {
@@ -208,7 +208,7 @@ export default function ChatDetail() {
 
   // Messenger-style Instant Scroll
   useLayoutEffect(() => {
-    if (messages.length > 0 && scrollRef.current) {
+    if (messages && messages.length > 0 && scrollRef.current) {
       const searchParams = new URLSearchParams(location.search);
       const targetMessageId = searchParams.get('msg');
 
@@ -229,9 +229,9 @@ export default function ChatDetail() {
 
   // Handle new messages auto-scroll
   useEffect(() => {
-    if (hasInitialScrolled && scrollRef.current && messages.length > 0) {
+    if (hasInitialScrolled && scrollRef.current && messages && messages.length > 0) {
       const isAtBottom = scrollRef.current.scrollHeight - scrollRef.current.scrollTop <= scrollRef.current.clientHeight + 100;
-      if (isAtBottom || messages[messages.length - 1].senderId === currentUser?.uid) {
+      if (isAtBottom || (messages[messages.length - 1] && messages[messages.length - 1].senderId === currentUser?.uid)) {
         scrollRef.current.scrollTo({
           top: scrollRef.current.scrollHeight,
           behavior: 'smooth'
@@ -246,9 +246,9 @@ export default function ChatDetail() {
 
     const setTypingStatus = async (isTyping: boolean) => {
       try {
-        await updateDoc(doc(db, 'chats', id), {
+        await setDoc(doc(db, 'chats', id), {
           [`typing.${currentUser.uid}`]: isTyping
-        });
+        }, { merge: true });
       } catch (error) {
         // Silent fail for typing status
       }
@@ -276,14 +276,14 @@ export default function ChatDetail() {
 
   // Cleanup typing status on message send
   useEffect(() => {
-    if (messages.length > 0 && currentUser && id) {
+    if (messages && messages.length > 0 && currentUser && id) {
       const lastMsg = messages[messages.length - 1];
       // If the last message was sent by me, clear my typing status immediately
-      if (lastMsg.senderId === currentUser.uid) {
+      if (lastMsg && lastMsg.senderId === currentUser.uid) {
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        updateDoc(doc(db, 'chats', id), {
+        setDoc(doc(db, 'chats', id), {
           [`typing.${currentUser.uid}`]: false
-        }).catch(() => {});
+        }, { merge: true }).catch(() => {});
       }
     }
   }, [messages.length, currentUser?.uid, id]);
@@ -380,10 +380,10 @@ export default function ChatDetail() {
 
       addDoc(collection(db, 'chats', targetChatId, 'messages'), newMessage).catch(e => console.error("Error forwarding message:", e));
       
-      updateDoc(doc(db, 'chats', targetChatId), {
+      setDoc(doc(db, 'chats', targetChatId), {
         lastMessage: forwardingMessage.text || 'Forwarded message',
         lastMessageTime: new Date().toISOString(),
-      }).catch(e => console.error("Error updating chat:", e));
+      }, { merge: true }).catch(e => console.error("Error updating chat:", e));
 
       // Trigger Push Notification for forwarded message
       const targetChat = userChats.find(c => c.id === targetChatId);
@@ -511,7 +511,7 @@ export default function ChatDetail() {
                 {isOtherTyping ? (
                   <span className="text-primary animate-pulse">Typing...</span>
                 ) : (
-                  chat?.type === 'direct' ? (otherUser?.online ? 'Online' : 'Offline') : `${chat?.participants.length} members`
+                  chat?.type === 'direct' ? (otherUser?.online ? 'Online' : 'Offline') : `${chat?.participants?.length || 0} members`
                 )}
               </span>
             </div>
@@ -569,6 +569,7 @@ export default function ChatDetail() {
           participants={chat.participants} 
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
+          messages={messages}
         />
       )}
     </div>

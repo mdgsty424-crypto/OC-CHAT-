@@ -7,7 +7,7 @@ import { getChats, saveChat, initDB } from '../lib/db';
 import ChatListItem from '../components/chat/ChatListItem';
 import UserChatListItem from '../components/chat/UserChatListItem';
 import { ChatListItemSkeleton } from '../components/common/Skeleton';
-import { Search, Plus, Archive, EyeOff, Lock, Video, ArrowLeft, Pin, Trash2, ShieldAlert, MoreVertical } from 'lucide-react';
+import { Search, Plus, Archive, EyeOff, Lock, Video, ArrowLeft, Pin, Trash2, ShieldAlert, MoreVertical, ChevronRight, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -255,7 +255,45 @@ export default function Home() {
   }).filter(chat => {
     const name = chat.name || '';
     return name.toLowerCase().includes(searchQuery.toLowerCase());
-  }).slice(0, displayCount);
+  });
+
+  // Inject OCSTHAEL AI virtual chats
+  const aiChats: Chat[] = [
+    {
+      id: 'ocsthael_ai_official',
+      type: 'direct',
+      participants: [user?.uid || '', 'ocsthael-ai-bot'],
+      lastMessage: 'Halo! Amar theke help nite sora-sori message daw.',
+      lastMessageTime: new Date().toISOString(),
+      unreadCount: { [user?.uid || '']: 0 },
+      name: 'OCSTHAEL AI',
+      photo: 'https://cdn-icons-png.flaticon.com/512/4712/4712038.png'
+    },
+    {
+      id: 'oc_support_ai',
+      type: 'direct',
+      participants: [user?.uid || '', 'ocsthael-ai-bot'],
+      lastMessage: 'Technical support proyojon? Ami ekhane achi.',
+      lastMessageTime: new Date().toISOString(),
+      unreadCount: { [user?.uid || '']: 0 },
+      name: 'Support AI',
+      photo: 'https://cdn-icons-png.flaticon.com/512/4712/4712109.png'
+    },
+    {
+      id: 'oc_service_ai',
+      type: 'direct',
+      participants: [user?.uid || '', 'ocsthael-ai-bot'],
+      lastMessage: 'Kon service update korbe? Just ask me.',
+      lastMessageTime: new Date().toISOString(),
+      unreadCount: { [user?.uid || '']: 0 },
+      name: 'Service AI',
+      photo: 'https://cdn-icons-png.flaticon.com/512/4712/4712139.png'
+    }
+  ] as Chat[];
+
+  const chatsToDisplay = (searchQuery === '' && view === 'all') 
+    ? [...aiChats, ...filteredChats.filter(c => !aiChats.some(ai => ai.id === c.id))]
+    : filteredChats;
 
   const handleHiddenAccess = () => {
     if (hiddenPassword === '1234') { // Mock password
@@ -284,6 +322,28 @@ export default function Home() {
     <main className="flex-1 overflow-y-auto pb-40 bg-background no-scrollbar flex flex-col gap-y-4">
       {/* Search Bar / Action Bar */}
       <div className="px-6 mt-2 mb-4">
+        {/* NEW: AI Assistant Promo Banner */}
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-5 shadow-xl relative overflow-hidden group cursor-pointer"
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Sparkles size={100} />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest">New</span>
+              <h4 className="text-white font-black uppercase text-xs tracking-tighter">OC AI AGENT</h4>
+            </div>
+            <h2 className="text-white text-xl font-black leading-tight mb-2">Upgrade your productivity with AI</h2>
+            <p className="text-white/80 text-xs mb-4 max-w-[80%]">Self-control your account, generate summaries, and interact with the Books feed using our new AI Agent.</p>
+            <button className="bg-white text-primary px-4 py-2 rounded-xl text-xs font-black shadow-lg hover:scale-105 active:scale-95 transition-all">
+              Try It Now
+            </button>
+          </div>
+        </motion.div>
+
         {selectedChats.length > 0 ? (
           <div className="flex items-center justify-between bg-surface border border-border rounded-full py-3 px-4 shadow-sm">
             <div className="flex items-center gap-4">
@@ -427,7 +487,7 @@ export default function Home() {
             Array(8).fill(0).map((_, i) => <ChatListItemSkeleton key={i} />)
           ) : (
             <>
-              {filteredChats.map((chat) => (
+              {chatsToDisplay.slice(0, displayCount).map((chat) => (
                 <ChatListItem 
                   key={`chat-${chat.id}`} 
                   chat={chat} 
