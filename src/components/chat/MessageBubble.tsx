@@ -36,7 +36,6 @@ import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/fir
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useGlobalSettings } from '../../hooks/useGlobalSettings';
-import AIActionConfirmation from './AIActionConfirmation';
 
 interface MessageBubbleProps {
   message: Message;
@@ -492,19 +491,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.type === 'text' && (
                 <div className="space-y-1">
                   <p className={cn("leading-tight", globalSettings.fontSize, globalSettings.fontWeight, globalSettings.fontFamily)}>
-                    {renderText((showTranslation ? message.translatedText || '' : message.text).split('[AI_ACTION_REQUEST:')[0].trim())}
+                    {renderText(showTranslation ? message.translatedText || '' : message.text)}
                   </p>
-                  
-                  {/* AI Action Request Handling */}
-                  {!showTranslation && message.text.includes('[AI_ACTION_REQUEST:') && (
-                    <AIActionConfirmation 
-                      actions={JSON.parse(message.text.split('[AI_ACTION_REQUEST:')[1].split(']')[0])}
-                      onComplete={() => {
-                        // Optional: Mark action as completed in Firestore
-                      }}
-                    />
-                  )}
-
                   {/* Link Previews */}
                   {!showTranslation && message.text.match(/(https?:\/\/[^\s]+)/g)?.map((url, idx) => {
                     // Trim trailing punctuation that often gets caught in the match

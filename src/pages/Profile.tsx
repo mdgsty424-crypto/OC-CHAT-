@@ -43,8 +43,7 @@ import {
   Users,
   Palette,
   ShoppingCart,
-  Plus,
-  Sparkles
+  Plus
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ProfileSkeleton } from '../components/common/Skeleton';
@@ -798,14 +797,6 @@ export default function Profile() {
       color: 'text-gray-500', 
       bg: 'bg-muted/10',
       onClick: () => setSubView('help')
-    },
-    { 
-      icon: Sparkles, 
-      label: 'AI Support', 
-      subLabel: 'Personalized OCSTHAEL AI help',
-      color: 'text-primary', 
-      bg: 'bg-primary/10',
-      onClick: () => navigate('/chat/ocsthael_ai_official')
     },
   ];
 

@@ -13,10 +13,22 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
 import { db } from "./src/lib/firebase.ts";
-import { doc, getDoc, updateDoc, addDoc, collection, query, orderBy, limit, getDocs, where, setDoc } from "firebase/firestore";
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  query, 
+  where, 
+  setDoc, 
+  doc,
+  serverTimestamp,
+  deleteDoc,
+  orderBy,
+  limit,
+  updateDoc,
+  getDoc
+} from "firebase/firestore";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "");
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -438,62 +450,51 @@ async function startServer() {
       }
 
       // Key management
-      const rawKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
+      let rawKey = (process.env.ONESIGNAL_REST_API_KEY || "os_v2_app_o6yabzfqirabbla6tzzxas5o7lkbg7cpl4nuwuu6ij5dbqylscpeadgwgdffmwiy7czmkmevbqsc3kfufcwkfrdflvudpe3j2g7xzpq").trim();
       
-      if (!appId || !rawKey) {
-        console.error("[Push] OneSignal configuration missing (APP_ID or REST_API_KEY)");
-        return res.status(500).json({ error: "OneSignal configuration missing" });
-      }
-
-      let apiKey = rawKey;
       // Clean up the key from potential common mistakes (copy-paste prefixes)
-      if (apiKey.toLowerCase().startsWith('basic ')) {
-        apiKey = apiKey.substring(6).trim();
-      } else if (apiKey.toLowerCase().startsWith('key ')) {
-        apiKey = apiKey.substring(4).trim();
+      if (rawKey.toLowerCase().startsWith('basic ')) {
+        rawKey = rawKey.substring(6).trim();
+      } else if (rawKey.toLowerCase().startsWith('key ')) {
+        rawKey = rawKey.substring(4).trim();
       }
 
-      console.log(`[Push] Attempting OneSignal Delivery to ${targetUserId}...`);
+      console.log(`[Push] Attempting OneSignal Delivery...`);
       console.log(`[Push] Payload Summary: Target=${targetUserId}, Priority=${priority}, TTL=${payload.ttl}`);
 
       const response = await fetch("https://api.onesignal.com/notifications", {
         method: "POST",
         headers: { 
-          "Authorization": `Basic ${rawKey}`,
+          "Authorization": `Key ${rawKey}`,
           "Content-Type": "application/json; charset=utf-8",
           "Accept": "application/json"
         },
         body: JSON.stringify(payload)
       });
 
-      console.log("[Push] OneSignal Response Status:", response.status);
-      const contentType = response.headers.get("content-type") || "";
       const responseText = await response.text();
-      
       let data;
-      if (contentType.includes("application/json")) {
-        try {
-          data = JSON.parse(responseText);
-        } catch (e) {
-          console.error("[Push] Error parsing OneSignal JSON response:", e);
-        }
-      }
-
-      if (!response.ok) {
-        console.error("[Push] OneSignal API Error:", response.status);
-        console.error("[Push] Response body:", responseText.substring(0, 500));
-        return res.status(response.status).json({ 
-          error: "OneSignal API Error", 
-          status: response.status,
-          details: data || responseText.substring(0, 200)
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error("[Push] FATAL: OneSignal returned non-JSON response.");
+        console.error("[Push] Raw Response:", responseText.substring(0, 500));
+        return res.status(500).json({ 
+          error: "OneSignal communication failed", 
+          rawResponse: responseText.substring(0, 200) 
         });
       }
 
-      if (!data) {
-        return res.status(500).json({ error: "OneSignal returned empty or invalid JSON response" });
-      }
-
+      console.log("[Push] OneSignal Response Status:", response.status);
       console.log("[Push] OneSignal Response Data:", JSON.stringify(data));
+
+      if (!response.ok) {
+        console.error("[Push] OneSignal API Error (4xx/5xx)");
+        return res.status(response.status).json({ 
+          error: "OneSignal API Error", 
+          details: data 
+        });
+      }
 
       const recipients = data.recipients || 0;
       if (recipients === 0 && targetUserId !== 'all') {
@@ -580,170 +581,65 @@ async function startServer() {
 
   // API Route for AI Chat
   app.post("/api/ai", async (req, res) => {
-    const { chatId, prompt, isMention, history = [] } = req.body;
+    const { chatId, prompt } = req.body;
     if (!chatId || !prompt) return res.status(400).json({ error: "chatId and prompt are required" });
 
     try {
-      // 1. Determine AI Character
-      let systemInstruction = `You are the OCSTHAEL AI, the official AI character of the OC Chat app. 
-          Respond naturally in Bengali-English mix (Benglish/Hinglish). 
-          Keep responses fast and optimized for mobile users.`;
-      
-      if (chatId === 'oc_support_ai') {
-        systemInstruction = "You are the OC Support AI. Help users with technical issues, bugs, and app features. Be professional yet friendly in Benglish.";
-      } else if (chatId === 'oc_service_ai') {
-        systemInstruction = "You are the OC Service AI. Help users manage their app services, subscriptions, and settings. Be efficient and helpful in Benglish.";
-      }
-
-      const instructionSuffix = isMention 
-        ? "\nYou were mentioned in a group/private chat. Provide a helpful, concise response based on the message context." 
-        : "\nYou are talking to the user in a direct chat. Help them explore the app or manage their account.";
-
-      const fullInstruction = systemInstruction + instructionSuffix + 
-          "\nIf you want to perform an action like updating profile, security, or privacy, you MUST use the appropriate tool." +
-          "\nCRITICAL: For sensitive actions (profile/security updates), you MUST inform the user that they will need to click 'Confirm' on the card that appears.";
-
-      // 1. Set typing status and initialize chat if it doesn't exist
-      const isSpecialAI = chatId.includes('_ai') || chatId.includes('ocsthael_ai');
-      const userId = (prompt.match(/\[USER_ID: (.*?)\]/) || [])[1]; // We might need to pass this or derive it
-      
-      const chatInitialization: any = {
-        [`typing.ocsthael-ai-bot`]: true,
-        type: isSpecialAI ? 'direct' : 'group',
-        updatedAt: new Date().toISOString()
-      };
-
-      // If it's a special AI chat and we have a way to know the user, we should ensure participants are set
-      // For now, the safest is to at least have the bot in there if it's a new doc, 
-      // but usually the frontend sets the user's side.
-      
-      await setDoc(doc(db, 'chats', chatId), chatInitialization, { merge: true });
-
-      // 2. Gemini API call with tools
-      const geminiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-      if (!geminiKey) {
-        throw new Error("GEMINI_API_KEY is not configured on the server.");
-      }
-
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
-        systemInstruction: fullInstruction,
-        tools: [{
-          functionDeclarations: [
-            {
-              name: "update_profile",
-              description: "Updates the user's profile information like display name, bio, or username.",
-              parameters: {
-                type: SchemaType.OBJECT,
-                properties: {
-                  displayName: { type: SchemaType.STRING },
-                  bio: { type: SchemaType.STRING },
-                  username: { type: SchemaType.STRING }
-                }
-              }
-            },
-            {
-              name: "update_security",
-              description: "Toggles security settings like app lock, two-step verification, or privacy mode.",
-              parameters: {
-                type: SchemaType.OBJECT,
-                properties: {
-                  appLockEnabled: { type: SchemaType.BOOLEAN },
-                  twoStepVerificationEnabled: { type: SchemaType.BOOLEAN },
-                  privacyModeEnabled: { type: SchemaType.BOOLEAN }
-                }
-              }
-            },
-            {
-              name: "get_user_stats",
-              description: "Retrieves the user's activity stats like total messages sent, posts created, etc.",
-              parameters: {
-                type: SchemaType.OBJECT,
-                properties: {}
-              }
-            }
-          ]
-        }]
+      // 1. Set typing status
+      await updateDoc(doc(db, 'chats', chatId), {
+        [`typing.ocsthael-ai-bot`]: true
       });
 
-      // Format history for Gemini
-      const geminiHistory = history.map((m: any) => ({
-        role: m.senderId === 'ocsthael-ai-bot' ? 'model' : 'user',
-        parts: [{ text: (m.text || '').split('[AI_ACTION_REQUEST:')[0].trim() }]
-      }));
+      // 2. Fetch last 5 messages for context
+      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(5));
+      const snapshot = await getDocs(q);
+      const contextMessages = snapshot.docs.map(doc => doc.data().text).reverse();
 
-      // Check if history is empty to provide a welcome feel
-      const isFirstMessage = history.length === 0;
-      const effectivePrompt = isFirstMessage ? `(User has just opened this chat for the first time. Greet them warmly and explain your role briefly) ${prompt}` : prompt;
+      // 3. Check for image generation
+      if (prompt.toLowerCase().includes('make a photo') || prompt.toLowerCase().includes('generate image')) {
+        const imageUrl = `https://pollinations.ai/p/${encodeURIComponent(prompt)}`;
+        await addDoc(collection(db, 'chats', chatId, 'messages'), {
+          chatId,
+          senderId: 'ocsthael-ai-bot',
+          text: `Here is your image: ${imageUrl}`,
+          type: 'text',
+          timestamp: new Date().toISOString(),
+          status: 'sent'
+        });
+        await updateDoc(doc(db, 'chats', chatId), {
+          [`typing.ocsthael-ai-bot`]: false
+        });
+        return res.json({ response: `Here is your image: ${imageUrl}`, imageUrl });
+      }
 
-      const result = await model.generateContent({
-        contents: [
-          ...geminiHistory.map((h: any) => ({ role: h.role, parts: h.parts })),
-          { role: 'user', parts: [{ text: effectivePrompt }] }
-        ]
+      // 4. Groq API call
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: 'You are the OCSTHAEL Assistant, a helpful and witty AI for the OCSTHAEL Super App ecosystem in Bangladesh.' },
+          ...contextMessages.map(text => ({ role: "user" as const, content: text })),
+          { role: "user", content: prompt }
+        ],
+        model: "llama3-8b-8192",
       });
 
-      const response = result.response;
-      let responseText = "";
-      let toolCalls = [];
-
-      const candidate = response.candidates?.[0];
-      if (candidate?.content?.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.text) responseText += part.text;
-          if (part.functionCall) {
-            toolCalls.push({
-              name: part.functionCall.name,
-              args: part.functionCall.args
-            });
-          }
-        }
-      }
-
-      // If there are tool calls, we append a special marker to the message or save it as a structured field
-      // For simplicity in this app, we'll append a hidden marker that the frontend can parse
-      let finalMessage = responseText;
-      if (toolCalls.length > 0) {
-        finalMessage += `\n\n[AI_ACTION_REQUEST: ${JSON.stringify(toolCalls)}]`;
-      }
-
-      // 3. Save message to Firestore
       await addDoc(collection(db, 'chats', chatId, 'messages'), {
         chatId,
         senderId: 'ocsthael-ai-bot',
-        text: finalMessage,
+        text: chatCompletion.choices[0]?.message?.content,
         type: 'text',
         timestamp: new Date().toISOString(),
         status: 'sent'
       });
 
-      // 4. Update last message in chat
-      await setDoc(doc(db, 'chats', chatId), {
-        lastMessage: finalMessage.substring(0, 100),
-        lastMessageTime: new Date().toISOString(),
+      await updateDoc(doc(db, 'chats', chatId), {
         [`typing.ocsthael-ai-bot`]: false
-      }, { merge: true });
+      });
 
-      res.json({ response: responseText });
+      res.json({ response: chatCompletion.choices[0]?.message?.content });
     } catch (error: any) {
       console.error("AI Chat error:", error);
-      
-      // Send fallback error message to the chat
-      await addDoc(collection(db, 'chats', chatId, 'messages'), {
-        text: "I'm sorry, OCSTHAEL AI is temporarily unavailable. Please check your VITE_GEMINI_API_KEY in Vercel settings or try again. [Error: AI_AUTH_FAILURE]",
-        senderId: 'ocsthael-ai-bot',
-        timestamp: new Date().toISOString(),
-        status: 'sent',
-        type: 'text'
-      }).catch(e => console.error("Failed to send fallback message:", e));
-
-      await setDoc(doc(db, 'chats', chatId), {
-        [`typing.ocsthael-ai-bot`]: false,
-        lastMessage: "AI temporarily unavailable.",
-        lastMessageTime: new Date().toISOString()
-      }, { merge: true }).catch(() => {});
-      
-      res.status(500).json({ error: "Failed to get AI response", message: error.message });
+      res.status(500).json({ error: "Failed to get AI response" });
     }
   });
 

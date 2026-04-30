@@ -176,19 +176,18 @@ export function useNotifications() {
             let publicIp = 'unknown';
             try {
               const ipRes = await fetch('https://api.ipify.org?format=json');
-              const contentType = ipRes.headers.get('content-type');
-              
-              if (ipRes.ok && contentType && contentType.includes('application/json')) {
-                const ipData = await ipRes.json();
-                publicIp = ipData.ip;
+              if (ipRes.ok) {
+                const contentType = ipRes.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                  const ipData = await ipRes.json();
+                  publicIp = ipData.ip;
+                } else {
+                  const text = await ipRes.text();
+                  console.warn('[OneSignal] IP fetch returned non-JSON:', text.substring(0, 50));
+                  publicIp = 'non-json-response';
+                }
               } else {
-                const text = await ipRes.text();
-                console.warn('[OneSignal] IP fetch failed or returned non-JSON:', {
-                  status: ipRes.status,
-                  contentType,
-                  preview: text.substring(0, 100)
-                });
-                publicIp = `error-${ipRes.status}`;
+                console.warn('[OneSignal] IP fetch failed with status:', ipRes.status);
               }
             } catch (e) {
               console.warn('[OneSignal] IP fetch network error:', e);
@@ -368,23 +367,15 @@ export function useNotifications() {
         })
       });
       
-      const contentType = response.headers.get('content-type') || "";
-      if (contentType.includes('application/json')) {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
         const data = await response.json();
         console.log('Push Notification Result:', data);
         return data;
       } else {
         const text = await response.text();
-        const isHtml = text.trim().startsWith('<html');
-        console.error(`[Push] API Error (${response.status}): Expected JSON but received ${isHtml ? 'HTML' : 'text'}`);
-        if (isHtml && text.includes('403 Forbidden')) {
-          console.warn('[Push] Hint: OneSignal API or Server route returned 403 Forbidden. Check ONESIGNAL_REST_API_KEY and ONESIGNAL_APP_ID in secrets.');
-        }
-        return { 
-          success: false, 
-          error: `API returned ${response.status} ${isHtml ? 'HTML' : 'Text'} page (Check keys)`, 
-          status: response.status 
-        };
+        console.error('Expected JSON but received:', text.substring(0, 100));
+        return { success: false, error: 'Non-JSON response received', status: response.status };
       }
     } catch (error) {
       console.error('Failed to send notification:', error);

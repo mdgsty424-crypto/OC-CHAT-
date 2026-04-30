@@ -85,15 +85,7 @@ export default function Discovery() {
           <h1 className="text-2xl font-black tracking-tighter text-primary flex items-center gap-2">
             OC MATCH <Sparkles className="text-secondary fill-secondary" size={20} />
           </h1>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => navigate('/chat/ocsthael_ai_official')}
-              className="p-2 bg-primary/10 text-primary rounded-full hover:bg-primary hover:text-white transition-colors flex items-center gap-2 px-4"
-            >
-              <Sparkles size={16} />
-              <span className="text-xs font-black uppercase tracking-tight">AI Support</span>
-            </button>
-            <div className="flex items-center gap-2 bg-surface p-1 rounded-full border border-border">
+          <div className="flex items-center gap-2 bg-surface p-1 rounded-full border border-border">
             <button 
               onClick={() => setActiveTab('swipe')}
               className={cn(
@@ -123,8 +115,7 @@ export default function Discovery() {
             </button>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
 
       <main className="flex-1 overflow-y-auto p-4">
         {activeTab === 'swipe' && (

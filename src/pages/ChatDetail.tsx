@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, where, getDocs, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Message, Chat, User } from '../types';
@@ -28,7 +28,6 @@ export default function ChatDetail() {
   const navigate = useNavigate();
   const { sendNotification } = useNotifications();
   const [chat, setChat] = useState<Chat | null>(null);
-  const processedAiMsgIds = useRef<Set<string>>(new Set());
   
   // Audio pre-loading
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
@@ -97,14 +96,14 @@ export default function ChatDetail() {
     // Load from IndexedDB first
     const loadLocalData = async () => {
       const localMessages = await getMessages(id);
-      if (localMessages && localMessages.length > 0) {
+      if (localMessages.length > 0) {
         setMessages(localMessages as any);
       }
       const dbInstance = await initDB();
       const localChat = await dbInstance.get('chats', id);
       if (localChat) {
         setChat(localChat as any);
-        if (localChat && localChat.participants) {
+        if (localChat.type === 'direct') {
           const otherId = localChat.participants.find((uid: string) => uid !== currentUser.uid);
           if (otherId) {
             const localOtherUser = await dbInstance.get('users', otherId);
@@ -126,7 +125,7 @@ export default function ChatDetail() {
         setChat(chatData);
 
         // Typing Sound Logic: Play when OTHER user starts typing
-        if (chatData.type === 'direct' && currentUser && chatData.participants) {
+        if (chatData.type === 'direct' && currentUser) {
           const otherId = chatData.participants.find(uid => uid !== currentUser.uid);
           if (otherId) {
             const isTyping = chatData.typing?.[otherId] || false;
@@ -140,7 +139,7 @@ export default function ChatDetail() {
           }
         }
 
-        if (chatData.type === 'direct' && chatData.participants) {
+        if (chatData.type === 'direct') {
           const otherId = chatData.participants.find(uid => uid !== currentUser.uid);
           if (otherId && !userUnsubscribe) {
             // Listen for other user's real-time status
@@ -163,36 +162,10 @@ export default function ChatDetail() {
     const messagesUnsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       
-      // AI Auto-Reply Logic for special IDs
-      const aiBotIds = ['ocsthael_ai_official', 'oc_support_ai', 'oc_service_ai'];
-      if (id && aiBotIds.includes(id) && msgs.length > 0) {
-        const lastMsg = msgs[msgs.length - 1];
-        // If last message is from user and not already processed in this session
-        if (lastMsg.senderId === currentUser?.uid && !processedAiMsgIds.current.has(lastMsg.id)) {
-          console.log("Triggering auto AI reply for ID:", id);
-          processedAiMsgIds.current.add(lastMsg.id);
-          
-          // Trigger the AI reply via backend
-          fetch('/api/ai', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chatId: id,
-              prompt: lastMsg.text,
-              isMention: false,
-              history: msgs.slice(-10)
-            })
-          }).catch(err => {
-            console.error("AI Auto-reply error:", err);
-            // Optionally add a fallback AI message if API is down
-          });
-        }
-      }
-
       // Check for new messages from others
-      if (msgs && messages && msgs.length > messages.length) {
+      if (msgs.length > messages.length) {
         const lastMsg = msgs[msgs.length - 1];
-        if (lastMsg && lastMsg.senderId !== currentUser?.uid) {
+        if (lastMsg.senderId !== currentUser?.uid) {
           if (lastMsg.type === 'sticker') {
             playSound('sticker');
           } else {
@@ -208,9 +181,9 @@ export default function ChatDetail() {
 
       // Mark as read and seen
       if (currentUser) {
-        setDoc(doc(db, 'chats', id), {
+        updateDoc(doc(db, 'chats', id), {
           [`unreadCount.${currentUser.uid}`]: 0
-        }, { merge: true });
+        });
         
         // Mark unread messages as 'seen'
         snapshot.docs.forEach((msgDoc) => {
@@ -235,7 +208,7 @@ export default function ChatDetail() {
 
   // Messenger-style Instant Scroll
   useLayoutEffect(() => {
-    if (messages && messages.length > 0 && scrollRef.current) {
+    if (messages.length > 0 && scrollRef.current) {
       const searchParams = new URLSearchParams(location.search);
       const targetMessageId = searchParams.get('msg');
 
@@ -256,9 +229,9 @@ export default function ChatDetail() {
 
   // Handle new messages auto-scroll
   useEffect(() => {
-    if (hasInitialScrolled && scrollRef.current && messages && messages.length > 0) {
+    if (hasInitialScrolled && scrollRef.current && messages.length > 0) {
       const isAtBottom = scrollRef.current.scrollHeight - scrollRef.current.scrollTop <= scrollRef.current.clientHeight + 100;
-      if (isAtBottom || (messages[messages.length - 1] && messages[messages.length - 1].senderId === currentUser?.uid)) {
+      if (isAtBottom || messages[messages.length - 1].senderId === currentUser?.uid) {
         scrollRef.current.scrollTo({
           top: scrollRef.current.scrollHeight,
           behavior: 'smooth'
@@ -273,9 +246,9 @@ export default function ChatDetail() {
 
     const setTypingStatus = async (isTyping: boolean) => {
       try {
-        await setDoc(doc(db, 'chats', id), {
+        await updateDoc(doc(db, 'chats', id), {
           [`typing.${currentUser.uid}`]: isTyping
-        }, { merge: true });
+        });
       } catch (error) {
         // Silent fail for typing status
       }
@@ -303,14 +276,14 @@ export default function ChatDetail() {
 
   // Cleanup typing status on message send
   useEffect(() => {
-    if (messages && messages.length > 0 && currentUser && id) {
+    if (messages.length > 0 && currentUser && id) {
       const lastMsg = messages[messages.length - 1];
       // If the last message was sent by me, clear my typing status immediately
-      if (lastMsg && lastMsg.senderId === currentUser.uid) {
+      if (lastMsg.senderId === currentUser.uid) {
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        setDoc(doc(db, 'chats', id), {
+        updateDoc(doc(db, 'chats', id), {
           [`typing.${currentUser.uid}`]: false
-        }, { merge: true }).catch(() => {});
+        }).catch(() => {});
       }
     }
   }, [messages.length, currentUser?.uid, id]);
@@ -407,10 +380,10 @@ export default function ChatDetail() {
 
       addDoc(collection(db, 'chats', targetChatId, 'messages'), newMessage).catch(e => console.error("Error forwarding message:", e));
       
-      setDoc(doc(db, 'chats', targetChatId), {
+      updateDoc(doc(db, 'chats', targetChatId), {
         lastMessage: forwardingMessage.text || 'Forwarded message',
         lastMessageTime: new Date().toISOString(),
-      }, { merge: true }).catch(e => console.error("Error updating chat:", e));
+      }).catch(e => console.error("Error updating chat:", e));
 
       // Trigger Push Notification for forwarded message
       const targetChat = userChats.find(c => c.id === targetChatId);
@@ -538,7 +511,7 @@ export default function ChatDetail() {
                 {isOtherTyping ? (
                   <span className="text-primary animate-pulse">Typing...</span>
                 ) : (
-                  chat?.type === 'direct' ? (otherUser?.online ? 'Online' : 'Offline') : `${chat?.participants?.length || 0} members`
+                  chat?.type === 'direct' ? (otherUser?.online ? 'Online' : 'Offline') : `${chat?.participants.length} members`
                 )}
               </span>
             </div>
@@ -596,7 +569,6 @@ export default function ChatDetail() {
           participants={chat.participants} 
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
-          messages={messages}
         />
       )}
     </div>
