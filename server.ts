@@ -14,9 +14,9 @@ import * as cheerio from "cheerio";
 import crypto from "crypto";
 import { db } from "./src/lib/firebase.ts";
 import { doc, getDoc, updateDoc, addDoc, collection, query, orderBy, limit, getDocs, where, setDoc } from "firebase/firestore";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "" });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "");
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -459,7 +459,7 @@ async function startServer() {
       const response = await fetch("https://api.onesignal.com/notifications", {
         method: "POST",
         headers: { 
-          "Authorization": `Key ${rawKey}`,
+          "Authorization": `Basic ${rawKey}`,
           "Content-Type": "application/json; charset=utf-8",
           "Accept": "application/json"
         },
@@ -625,8 +625,8 @@ async function startServer() {
         throw new Error("GEMINI_API_KEY is not configured on the server.");
       }
 
-      const model = (genAI as any).getGenerativeModel({ 
-        model: "gemini-3-flash-preview",
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
         systemInstruction: fullInstruction,
         tools: [{
           functionDeclarations: [
@@ -634,11 +634,11 @@ async function startServer() {
               name: "update_profile",
               description: "Updates the user's profile information like display name, bio, or username.",
               parameters: {
-                type: "object",
+                type: SchemaType.OBJECT,
                 properties: {
-                  displayName: { type: "string" },
-                  bio: { type: "string" },
-                  username: { type: "string" }
+                  displayName: { type: SchemaType.STRING },
+                  bio: { type: SchemaType.STRING },
+                  username: { type: SchemaType.STRING }
                 }
               }
             },
@@ -646,11 +646,11 @@ async function startServer() {
               name: "update_security",
               description: "Toggles security settings like app lock, two-step verification, or privacy mode.",
               parameters: {
-                type: "object",
+                type: SchemaType.OBJECT,
                 properties: {
-                  appLockEnabled: { type: "boolean" },
-                  twoStepVerificationEnabled: { type: "boolean" },
-                  privacyModeEnabled: { type: "boolean" }
+                  appLockEnabled: { type: SchemaType.BOOLEAN },
+                  twoStepVerificationEnabled: { type: SchemaType.BOOLEAN },
+                  privacyModeEnabled: { type: SchemaType.BOOLEAN }
                 }
               }
             },
@@ -658,7 +658,7 @@ async function startServer() {
               name: "get_user_stats",
               description: "Retrieves the user's activity stats like total messages sent, posts created, etc.",
               parameters: {
-                type: "object",
+                type: SchemaType.OBJECT,
                 properties: {}
               }
             }
