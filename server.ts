@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
+import { GoogleGenAI } from "@google/genai";
 // import Groq from "groq-sdk"; // Removed
 import * as cheerio from "cheerio";
 import crypto from "crypto";
@@ -578,9 +579,92 @@ async function startServer() {
     }
   });
 
-  // API Route for AI Chat - DEPRECATED: Handled in frontend with Gemini
+  // API Route for AI Chat
   app.post("/api/ai", async (req, res) => {
-    res.status(410).json({ error: "API endpoint deprecated. Please use the direct Gemini integration in the frontend." });
+    const { chatId, prompt, history } = req.body;
+    if (!chatId || !prompt) return res.status(400).json({ error: "chatId and prompt are required" });
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.error("GEMINI_API_KEY is missing in server environment");
+        return res.status(500).json({ error: "AI configuration error on server" });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const model = "gemini-1.5-flash";
+      const systemInstruction = "You are OCSTHAEL AI, a real human-like user/friend of the OCSTHAEL app in Bangladesh. Speak naturally, locally, and informally in Bengali and English (Banglish style is preferred). Your vibe is like a smart, cool friend who uses the app every day. Be helpful, witty, and friendly. Do not act like a repetitive bot. Use emojis naturally. If someone asks who you are, say you are a friend from the OCSTHAEL team. Always reply in the same language/style used by the user.";
+
+      // 1. Set typing status
+      await updateDoc(doc(db, 'chats', chatId), {
+        [`typing.ocsthael-ai-bot`]: true
+      });
+
+      // 2. Format history for Gemini
+      const contents = [
+        ...(Array.isArray(history) ? history : []),
+        { role: 'user', parts: [{ text: prompt }] }
+      ];
+
+      // 3. Generate content
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          temperature: 0.9,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        }
+      });
+
+      const responseText = response.text || "Sorry, I couldn't process that.";
+
+      // 4. Save bot message to Firestore
+      await addDoc(collection(db, 'chats', chatId, 'messages'), {
+        chatId,
+        senderId: 'ocsthael-ai-bot',
+        text: responseText,
+        type: 'text',
+        timestamp: new Date().toISOString(),
+        status: 'sent'
+      });
+
+      // 5. Update Chat Metadata
+      const botUnreadUpdates: Record<string, any> = {
+        lastMessage: responseText,
+        lastMessageTime: new Date().toISOString()
+      };
+      
+      // Fetch participants to increment unread count
+      const chatDoc = await getDoc(doc(db, 'chats', chatId));
+      if (chatDoc.exists()) {
+        const participants = chatDoc.data().participants || [];
+        participants.forEach((pid: string) => {
+          if (pid !== 'ocsthael-ai-bot') {
+            // Using field path for nested atomic increment might be tricky in server-side if using plain updateDoc
+            // But we can construct the key
+            botUnreadUpdates[`unreadCount.${pid}`] = (chatDoc.data().unreadCount?.[pid] || 0) + 1;
+          }
+        });
+      }
+
+      await updateDoc(doc(db, 'chats', chatId), {
+        ...botUnreadUpdates,
+        [`typing.ocsthael-ai-bot`]: false
+      });
+
+      res.json({ response: responseText });
+    } catch (error: any) {
+      console.error("AI Chat error:", error);
+      // Ensure typing status is cleared even on error
+      if (chatId) {
+        updateDoc(doc(db, 'chats', chatId), {
+          [`typing.ocsthael-ai-bot`]: false
+        }).catch(() => {});
+      }
+      res.status(500).json({ error: "Failed to get AI response", message: error.message });
+    }
   });
 
   // API Route for Offline Calling via Infobip

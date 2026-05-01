@@ -4,7 +4,6 @@ import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/fi
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { Message } from '../../types';
-import { getGeminiResponse, ChatMessage } from '../../services/geminiService';
 import { cn } from '../../lib/utils';
 import { useNetwork } from '../../hooks/useNetwork';
 import { addToQueue, saveMessage } from '../../lib/db';
@@ -639,54 +638,24 @@ export default function MessageInput({ chatId, participants, replyingTo, onCance
         const aiPrompt = isAICommand ? (prompt || text.trim()) : text.trim();
         
         try {
-          // 1. Show Typing Status
-          await updateDoc(doc(db, 'chats', chatId), {
-            [`typing.ocsthael-ai-bot`]: true
-          });
-
-          // 2. Prepare History
-          const history: ChatMessage[] = messages.slice(-10).map(msg => ({
+          // Prepare History for the server
+          const history = messages.slice(-10).map(msg => ({
             role: msg.senderId === 'ocsthael-ai-bot' ? 'model' : 'user',
             parts: [{ text: msg.text || '' }]
           }));
 
-          // 3. Get Gemini Response
-          const aiResponse = await getGeminiResponse(aiPrompt, history);
-
-          if (aiResponse) {
-            // 4. Send Bot Message
-            await addDoc(collection(db, 'chats', chatId, 'messages'), {
-              chatId,
-              senderId: 'ocsthael-ai-bot',
-              text: aiResponse,
-              type: 'text',
-              timestamp: new Date().toISOString(),
-              status: 'sent'
-            });
-
-            // 5. Update Chat Metadata
-            const botUnreadUpdates: Record<string, any> = {
-              lastMessage: aiResponse,
-              lastMessageTime: new Date().toISOString()
-            };
-            
-            // Increment unread count for other participants (including current user)
-            const { increment } = await import('firebase/firestore');
-            participants.forEach(pid => {
-              if (pid !== 'ocsthael-ai-bot') {
-                botUnreadUpdates[`unreadCount.${pid}`] = increment(1);
-              }
-            });
-
-            updateDoc(doc(db, 'chats', chatId), botUnreadUpdates).catch(e => console.error("Error updating chat with bot response:", e));
-          }
+          // Call server-side AI API
+          await fetch('/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              chatId, 
+              prompt: aiPrompt, 
+              history 
+            })
+          });
         } catch (error) {
           console.error("AI Chat error:", error);
-        } finally {
-          // 6. Remove Typing Status
-          await updateDoc(doc(db, 'chats', chatId), {
-            [`typing.ocsthael-ai-bot`]: false
-          });
         }
       }
     } catch (error) {
