@@ -569,6 +569,7 @@ export default function ChatDetail() {
           participants={chat.participants} 
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
+          messages={messages}
         />
       )}
     </div>

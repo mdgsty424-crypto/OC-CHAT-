@@ -7,9 +7,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
-import Groq from "groq-sdk";
-
 import axios from "axios";
+// import Groq from "groq-sdk"; // Removed
 import * as cheerio from "cheerio";
 import crypto from "crypto";
 import { db } from "./src/lib/firebase.ts";
@@ -29,7 +28,7 @@ import {
   getDoc
 } from "firebase/firestore";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+// const groq = new Groq({ apiKey: process.env.GROQ_API_KEY }); // Removed
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -579,68 +578,9 @@ async function startServer() {
     }
   });
 
-  // API Route for AI Chat
+  // API Route for AI Chat - DEPRECATED: Handled in frontend with Gemini
   app.post("/api/ai", async (req, res) => {
-    const { chatId, prompt } = req.body;
-    if (!chatId || !prompt) return res.status(400).json({ error: "chatId and prompt are required" });
-
-    try {
-      // 1. Set typing status
-      await updateDoc(doc(db, 'chats', chatId), {
-        [`typing.ocsthael-ai-bot`]: true
-      });
-
-      // 2. Fetch last 5 messages for context
-      const messagesRef = collection(db, 'chats', chatId, 'messages');
-      const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(5));
-      const snapshot = await getDocs(q);
-      const contextMessages = snapshot.docs.map(doc => doc.data().text).reverse();
-
-      // 3. Check for image generation
-      if (prompt.toLowerCase().includes('make a photo') || prompt.toLowerCase().includes('generate image')) {
-        const imageUrl = `https://pollinations.ai/p/${encodeURIComponent(prompt)}`;
-        await addDoc(collection(db, 'chats', chatId, 'messages'), {
-          chatId,
-          senderId: 'ocsthael-ai-bot',
-          text: `Here is your image: ${imageUrl}`,
-          type: 'text',
-          timestamp: new Date().toISOString(),
-          status: 'sent'
-        });
-        await updateDoc(doc(db, 'chats', chatId), {
-          [`typing.ocsthael-ai-bot`]: false
-        });
-        return res.json({ response: `Here is your image: ${imageUrl}`, imageUrl });
-      }
-
-      // 4. Groq API call
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [
-          { role: "system", content: 'You are the OCSTHAEL Assistant, a helpful and witty AI for the OCSTHAEL Super App ecosystem in Bangladesh.' },
-          ...contextMessages.map(text => ({ role: "user" as const, content: text })),
-          { role: "user", content: prompt }
-        ],
-        model: "llama3-8b-8192",
-      });
-
-      await addDoc(collection(db, 'chats', chatId, 'messages'), {
-        chatId,
-        senderId: 'ocsthael-ai-bot',
-        text: chatCompletion.choices[0]?.message?.content,
-        type: 'text',
-        timestamp: new Date().toISOString(),
-        status: 'sent'
-      });
-
-      await updateDoc(doc(db, 'chats', chatId), {
-        [`typing.ocsthael-ai-bot`]: false
-      });
-
-      res.json({ response: chatCompletion.choices[0]?.message?.content });
-    } catch (error: any) {
-      console.error("AI Chat error:", error);
-      res.status(500).json({ error: "Failed to get AI response" });
-    }
+    res.status(410).json({ error: "API endpoint deprecated. Please use the direct Gemini integration in the frontend." });
   });
 
   // API Route for Offline Calling via Infobip
@@ -782,8 +722,31 @@ async function startServer() {
     res.status(404).json({ error: "Not found" });
   });
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", async () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    
+    // Ensure AI Bot user exists
+    try {
+      const botId = 'ocsthael-ai-bot';
+      const botDoc = await getDoc(doc(db, 'users', botId));
+      if (!botDoc.exists()) {
+        console.log("Initializing AI Bot user...");
+        await setDoc(doc(db, 'users', botId), {
+          uid: botId,
+          displayName: "OCSTHAEL AI",
+          username: "ocsthael_ai",
+          email: "ai@ocsthael.com",
+          photoURL: "https://api.dicebear.com/7.x/bottts/svg?seed=ocsthael",
+          bio: "I am your OCSTHAEL AI assistant. Chat with me anytime! I speak Bengali and English.",
+          verified: true,
+          online: true,
+          role: 'admin',
+          lastSeen: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error("Error initializing AI Bot user:", error);
+    }
   });
 }
 
