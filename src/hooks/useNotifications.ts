@@ -32,9 +32,9 @@ export function useNotifications() {
         // Only init if not already done
         if (!(window.OneSignal as any).initialized) {
           console.log('[OneSignal] Initializing SDK and Service Worker...');
-          const appId = import.meta.env.VITE_ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa";
+          const appId = import.meta.env.VITE_ONESIGNAL_APP_ID || "";
           if (!appId) {
-            console.warn('[OneSignal] Missing App ID. Skipping init.');
+            console.warn('[OneSignal] Missing VITE_ONESIGNAL_APP_ID. Notifications will not work.');
             return;
           }
           await OneSignal.init({

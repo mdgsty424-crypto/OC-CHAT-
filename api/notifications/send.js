@@ -7,17 +7,21 @@ export default async function handler(req, res) {
 
   try {
     const appId = process.env.ONESIGNAL_APP_ID || process.env.VITE_ONESIGNAL_APP_ID;
-    let apiKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
+    const rawKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
 
-    if (!appId || !apiKey) {
-      return res.status(500).json({ error: 'OneSignal configuration missing' });
+    if (!appId || !rawKey) {
+      console.error(`[Push] CONFIG ERROR: Missing ${!rawKey ? 'ONESIGNAL_REST_API_KEY' : ''} ${!appId ? 'ONESIGNAL_APP_ID' : ''}`);
+      return res.status(500).json({ error: 'OneSignal configuration missing. Please set ONESIGNAL_APP_ID and ONESIGNAL_REST_API_KEY in Vercel.' });
     }
 
     // Clean up key
-    if (apiKey.toLowerCase().startsWith('key ')) {
-      apiKey = apiKey.substring(4).trim();
-    } else if (apiKey.toLowerCase().startsWith('basic ')) {
-      apiKey = apiKey.substring(6).trim();
+    let authKey = rawKey;
+    if (authKey.toLowerCase().startsWith('key ')) {
+      authKey = authKey.substring(4).trim();
+    } else if (authKey.toLowerCase().startsWith('basic ')) {
+      authKey = authKey.substring(6).trim();
+    } else if (authKey.toLowerCase().startsWith('key=')) {
+      authKey = authKey.substring(4).trim();
     }
 
     const payload = {
@@ -35,14 +39,14 @@ export default async function handler(req, res) {
 
     if (targetUserId === 'all') {
       payload.included_segments = ['All'];
-    } else {
+    } else if (targetUserId) {
       payload.include_external_user_ids = [targetUserId];
     }
 
     const response = await fetch("https://api.onesignal.com/notifications", {
       method: "POST",
       headers: {
-        "Authorization": `Key ${apiKey}`,
+        "Authorization": `Key ${authKey}`,
         "Content-Type": "application/json; charset=utf-8",
         "Accept": "application/json"
       },

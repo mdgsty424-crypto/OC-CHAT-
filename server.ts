@@ -402,7 +402,7 @@ async function startServer() {
     }
 
     try {
-      const appId = process.env.ONESIGNAL_APP_ID || "77b000e4-b044-4010-ac1e-9e73704baefa";
+      const appId = process.env.ONESIGNAL_APP_ID || process.env.VITE_ONESIGNAL_APP_ID;
       const payload: any = {
         app_id: appId,
         headings: { en: title },
@@ -450,33 +450,34 @@ async function startServer() {
       }
 
       // Key management - Use environment variable only
-      let rawKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
+      const rawKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
       
-      if (!rawKey) {
-        console.error("[Push] FATAL: ONESIGNAL_REST_API_KEY is not set.");
-        return res.status(500).json({ error: "Push notification service not configured" });
+      if (!rawKey || !appId) {
+        console.error(`[Push] CONFIG ERROR: Missing ${!rawKey ? 'ONESIGNAL_REST_API_KEY' : ''} ${!appId ? 'ONESIGNAL_APP_ID' : ''}`);
+        return res.status(500).json({ error: "Push notification service not configured. Please set ONESIGNAL_REST_API_KEY and ONESIGNAL_APP_ID in environment." });
       }
       
-      // Clean up the key from potential common mistakes (copy-paste prefixes)
-      if (rawKey.toLowerCase().startsWith('basic ')) {
-        rawKey = rawKey.substring(6).trim();
-      } else if (rawKey.toLowerCase().startsWith('key=')) {
-        rawKey = rawKey.substring(4).trim();
-      } else if (rawKey.toLowerCase().startsWith('key ')) {
-        rawKey = rawKey.substring(4).trim();
+      // Sanitized key for auth
+      let authKey = rawKey;
+      if (authKey.toLowerCase().startsWith('basic ')) {
+        authKey = authKey.substring(6).trim();
+      } else if (authKey.toLowerCase().startsWith('key=')) {
+        authKey = authKey.substring(4).trim();
+      } else if (authKey.toLowerCase().startsWith('key ')) {
+        authKey = authKey.substring(4).trim();
       }
 
-      console.log(`[Push] Attempting OneSignal Delivery...`);
+      console.log(`[Push] Attempting OneSignal Delivery to ${targetUserId}...`);
       console.log(`[Push] Payload Summary: Target=${targetUserId}, Priority=${priority}, TTL=${payload.ttl}`);
 
       const response = await fetch("https://api.onesignal.com/notifications", {
         method: "POST",
         headers: { 
-          "Authorization": `Key ${rawKey}`,
+          "Authorization": `Key ${authKey}`,
           "Content-Type": "application/json; charset=utf-8",
           "Accept": "application/json"
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ ...payload, app_id: appId })
       });
 
       const responseText = await response.text();
@@ -533,6 +534,17 @@ async function startServer() {
     try {
       console.log("Fetching link preview for:", url);
       
+      // Basic validation to avoid fetching obvious placeholders or malformed URLs
+      if (url.includes('your-app.vercel.app') || url.includes('example.com') || url.length > 500) {
+        return res.json({
+          title: url,
+          description: "Preview not available for placeholder links.",
+          image: "",
+          siteName: "System",
+          url
+        });
+      }
+
       const response = await axios.get(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
@@ -594,15 +606,15 @@ async function startServer() {
     try {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        console.error("[AI] GEMINI_API_KEY is missing");
-        return res.status(500).json({ error: "AI configuration error" });
+        console.error("[AI] Configuration Error: GEMINI_API_KEY is missing in environment.");
+        return res.status(500).json({ error: "AI Assistant is not configured. Please set GEMINI_API_KEY in Vercel environment variables." });
       }
 
-      console.log(`[AI] Request for chat ${chatId}`);
+      console.log(`[AI] Processing message for chat: ${chatId}`);
 
       const ai = new GoogleGenAI({ apiKey });
-      const model = "gemini-3-flash-preview";
-      const systemInstruction = "You are OCSTHAEL AI, a real human-like friend of the OCSTHAEL app in Bangladesh. Speak naturally, locally, and informally in Bengali and English (Banglish style is preferred). Your vibe is like a smart, cool friend. Be helpful, witty, and friendly. Do not act like a repetitive bot. Use emojis naturally. If someone asks who you are, say you are a friend from the OCSTHAEL team. Always reply in the same language/style used by the user. If they use Bengali, you use Bengali (Banglish).";
+      const model = "gemini-1.5-flash"; // Use 1.5 flash for better reliability on Vercel
+      const systemInstruction = "You are OCSTHAEL AI, a real human-like close friend of the OCSTHAEL app in Bangladesh. Speak naturally, locally, and informally in Bengali and English (Banglish style). Your vibe is like a smart, cool, and super supportive friend. Be helpful, witty, and friendly. Do not act like a repetitive bot or AI assistant. Act like a user who loves the app. Use emojis naturally like a friend would. If someone asks who you are, say you are just a friend from the OCSTHAEL family. Always reply in the same language/style used by the user. Be concise but warm.";
 
       // 1. Set typing status
       await updateDoc(doc(db, 'chats', chatId), {

@@ -6,6 +6,17 @@ export default async function handler(req, res) {
   if (!url) return res.status(400).json({ error: "URL missing" });
 
   try {
+    // Basic validation to avoid fetching obvious placeholders or malformed URLs
+    if (url.includes('your-app.vercel.app') || url.includes('example.com') || url.length > 500) {
+      return res.json({
+        title: url,
+        description: "Preview not available for placeholder links.",
+        image: "",
+        siteName: "System",
+        url
+      });
+    }
+
     const response = await axios.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
