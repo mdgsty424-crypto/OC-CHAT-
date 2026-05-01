@@ -587,24 +587,43 @@ async function startServer() {
     try {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        console.error("GEMINI_API_KEY is missing in server environment");
-        return res.status(500).json({ error: "AI configuration error on server" });
+        console.error("[AI] GEMINI_API_KEY is missing");
+        return res.status(500).json({ error: "AI configuration error" });
       }
 
+      console.log(`[AI] Request for chat ${chatId}`);
+
       const ai = new GoogleGenAI({ apiKey });
-      const model = "gemini-1.5-flash";
-      const systemInstruction = "You are OCSTHAEL AI, a real human-like user/friend of the OCSTHAEL app in Bangladesh. Speak naturally, locally, and informally in Bengali and English (Banglish style is preferred). Your vibe is like a smart, cool friend who uses the app every day. Be helpful, witty, and friendly. Do not act like a repetitive bot. Use emojis naturally. If someone asks who you are, say you are a friend from the OCSTHAEL team. Always reply in the same language/style used by the user.";
+      const model = "gemini-3-flash-preview";
+      const systemInstruction = "You are OCSTHAEL AI, a real human-like friend of the OCSTHAEL app in Bangladesh. Speak naturally, locally, and informally in Bengali and English (Banglish style is preferred). Your vibe is like a smart, cool friend. Be helpful, witty, and friendly. Do not act like a repetitive bot. Use emojis naturally. If someone asks who you are, say you are a friend from the OCSTHAEL team. Always reply in the same language/style used by the user. If they use Bengali, you use Bengali (Banglish).";
 
       // 1. Set typing status
       await updateDoc(doc(db, 'chats', chatId), {
         [`typing.ocsthael-ai-bot`]: true
-      });
+      }).catch(e => console.error("[AI] Typing status error:", e));
 
-      // 2. Format history for Gemini
-      const contents = [
-        ...(Array.isArray(history) ? history : []),
-        { role: 'user', parts: [{ text: prompt }] }
-      ];
+      // 2. Format history for Gemini (Ensure alternation)
+      const rawContents = Array.isArray(history) ? history : [];
+      let contents: any[] = [];
+      let lastRole: string | null = null;
+
+      for (const msg of rawContents) {
+        if (msg.role && msg.parts && msg.parts[0]?.text) {
+          if (msg.role !== lastRole) {
+            contents.push(msg);
+            lastRole = msg.role;
+          } else {
+            contents[contents.length - 1].parts[0].text += "\n" + msg.parts[0].text;
+          }
+        }
+      }
+
+      // Add current prompt
+      if (lastRole === 'user') {
+        contents[contents.length - 1].parts[0].text += "\n" + prompt;
+      } else {
+        contents.push({ role: 'user', parts: [{ text: prompt }] });
+      }
 
       // 3. Generate content
       const response = await ai.models.generateContent({
@@ -614,11 +633,11 @@ async function startServer() {
           systemInstruction,
           temperature: 0.9,
           topP: 0.95,
-          maxOutputTokens: 1024,
         }
       });
 
-      const responseText = response.text || "Sorry, I couldn't process that.";
+      const responseText = response.text || "Sorry, I couldn't process that right now.";
+      console.log(`[AI] Response: ${responseText.substring(0, 30)}...`);
 
       // 4. Save bot message to Firestore
       await addDoc(collection(db, 'chats', chatId, 'messages'), {
@@ -633,35 +652,27 @@ async function startServer() {
       // 5. Update Chat Metadata
       const botUnreadUpdates: Record<string, any> = {
         lastMessage: responseText,
-        lastMessageTime: new Date().toISOString()
+        lastMessageTime: new Date().toISOString(),
+        [`typing.ocsthael-ai-bot`]: false
       };
       
-      // Fetch participants to increment unread count
       const chatDoc = await getDoc(doc(db, 'chats', chatId));
       if (chatDoc.exists()) {
         const participants = chatDoc.data().participants || [];
         participants.forEach((pid: string) => {
           if (pid !== 'ocsthael-ai-bot') {
-            // Using field path for nested atomic increment might be tricky in server-side if using plain updateDoc
-            // But we can construct the key
             botUnreadUpdates[`unreadCount.${pid}`] = (chatDoc.data().unreadCount?.[pid] || 0) + 1;
           }
         });
       }
 
-      await updateDoc(doc(db, 'chats', chatId), {
-        ...botUnreadUpdates,
-        [`typing.ocsthael-ai-bot`]: false
-      });
+      await updateDoc(doc(db, 'chats', chatId), botUnreadUpdates).catch(e => console.error("[AI] Meta update error:", e));
 
       res.json({ response: responseText });
     } catch (error: any) {
-      console.error("AI Chat error:", error);
-      // Ensure typing status is cleared even on error
+      console.error("[AI] Route error:", error);
       if (chatId) {
-        updateDoc(doc(db, 'chats', chatId), {
-          [`typing.ocsthael-ai-bot`]: false
-        }).catch(() => {});
+        updateDoc(doc(db, 'chats', chatId), { [`typing.ocsthael-ai-bot`]: false }).catch(() => {});
       }
       res.status(500).json({ error: "Failed to get AI response", message: error.message });
     }
