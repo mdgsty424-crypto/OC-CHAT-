@@ -449,12 +449,19 @@ async function startServer() {
         }));
       }
 
-      // Key management
-      let rawKey = (process.env.ONESIGNAL_REST_API_KEY || "os_v2_app_o6yabzfqirabbla6tzzxas5o7lkbg7cpl4nuwuu6ij5dbqylscpeadgwgdffmwiy7czmkmevbqsc3kfufcwkfrdflvudpe3j2g7xzpq").trim();
+      // Key management - Use environment variable only
+      let rawKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
+      
+      if (!rawKey) {
+        console.error("[Push] FATAL: ONESIGNAL_REST_API_KEY is not set.");
+        return res.status(500).json({ error: "Push notification service not configured" });
+      }
       
       // Clean up the key from potential common mistakes (copy-paste prefixes)
       if (rawKey.toLowerCase().startsWith('basic ')) {
         rawKey = rawKey.substring(6).trim();
+      } else if (rawKey.toLowerCase().startsWith('key=')) {
+        rawKey = rawKey.substring(4).trim();
       } else if (rawKey.toLowerCase().startsWith('key ')) {
         rawKey = rawKey.substring(4).trim();
       }
